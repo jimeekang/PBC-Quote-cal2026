@@ -261,8 +261,32 @@ npm run lint
 
 ---
 
+## Deploy Configuration (configured by /setup-deploy)
+- Platform: Vercel
+- Production URL: https://pbc-quote-cal2026-kjm12081-3858s-projects.vercel.app
+- GitHub Repo: jimeekang/PBC-Quote-cal2026 (branch: main)
+- Deploy workflow: auto-deploy on push to main
+- Deploy status command: HTTP health check
+- Merge method: merge
+- Project type: web app (Next.js 16)
+- Post-deploy health check: https://pbc-quote-cal2026-kjm12081-3858s-projects.vercel.app
+
+### Vercel Project Info
+- Team: kjm12081-3858s-projects (team_gBpYYnPhnzKeFz8jqF3wuMIb)
+- Project ID: prj_siCT5Q0syfY5Cz7EdUrwGuAYDt83
+- Supabase Project ID: ojcrfgguhbxhtlgdflzp
+
+### Custom deploy hooks
+- Pre-merge: npm run test:run (22 unit tests must pass)
+- Deploy trigger: automatic on push to main
+- Deploy status: poll Vercel deployment API
+- Health check: https://pbc-quote-cal2026-kjm12081-3858s-projects.vercel.app
+
+---
+
 ## 변경 이력
 
 | 날짜 | 변경 |
 |---|---|
 | 2026-05-12 | 초안. Claude(결정자)/Codex(실행자) 역할 정의, 핵심 결정 박제, 스킬 라우팅 |
+| 2026-05-12 | Next.js 16 앱 스캐폴드, Supabase DB 마이그레이션, Vercel 배포 완료 |
