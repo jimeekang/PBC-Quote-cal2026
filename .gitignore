@@ -1,11 +1,92 @@
-.env*
+# ===== 환경 변수 & 시크릿 (절대 커밋 금지) =====
+.env
+.env.*
 !.env.example
+.env.local
+.env.development
+.env.development.local
+.env.test
+.env.test.local
+.env.production
+.env.production.local
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+secrets/
+credentials/
 
+# ===== Next.js =====
 .next/
-node_modules/
-coverage/
-dist/
+out/
 
+# ===== Node.js =====
+node_modules/
+/node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.yarn/
+.pnp.*
+
+# ===== 테스트·커버리지 =====
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+
+# ===== 빌드 아웃풋 =====
+dist/
+build/
+.turbo/
+
+# ===== Vercel =====
 .vercel/
+
+# ===== Supabase CLI (로컬 개발) =====
+supabase/.temp/
+supabase/.branches/
+
+# ===== AI 도구 로컬 설정 =====
+.claude/
+.codex/
+.gstack/
+
+# ===== OS / 에디터 =====
 .DS_Store
 Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*.bak
+*~
+.vscode/settings.json
+.idea/
+
+# ===== 큰 파일 (데이터·미디어) =====
+*.xlsx
+*.xls
+*.csv
+*.zip
+*.tar.gz
+*.tar
+*.gz
+*.7z
+*.rar
+*.mp4
+*.mov
+*.avi
+*.mp3
+*.wav
+
+# ===== 로그 =====
+*.log
+logs/
+
+# ===== 캐시 =====
+.cache/
+.eslintcache
+.stylelintcache

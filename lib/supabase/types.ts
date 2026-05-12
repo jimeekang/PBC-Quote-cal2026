@@ -1,0 +1,106 @@
+// supabase gen types --project-id ojcrfgguhbxhtlgdflzp 로 재생성 가능
+// 지금은 수동 타입 정의 (Codex가 gen types 명령으로 교체 예정)
+
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
+export interface Database {
+  public: {
+    Tables: {
+      products: {
+        Row: {
+          id: string
+          name: string
+          manufacturer: string | null
+          type: string | null
+          unit: string
+          market_price: string
+          actual_price: string
+          color_code: string | null
+          active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: Omit<Database['public']['Tables']['products']['Row'], 'id' | 'created_at' | 'updated_at'> & {
+          id?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['products']['Insert']>
+      }
+      pricing_settings: {
+        Row: {
+          id: number
+          f1_labour_rate: string
+          f2_labour_rate: string
+          f3_labour_rate: string
+          f4_labour_rate: string
+          f5_labour_rate: string
+          f2_margin: string
+          f3_margin: string
+          f4_margin: string
+          f5_margin: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: Partial<Database['public']['Tables']['pricing_settings']['Row']>
+        Update: Partial<Database['public']['Tables']['pricing_settings']['Row']>
+      }
+      quotes: {
+        Row: {
+          id: string
+          customer_name: string | null
+          customer_address: string | null
+          jobber_quote_id: string | null
+          area_sqft: number | null
+          work_type: string | null
+          working_days: string
+          travel_fee: string
+          misc_fee: string
+          formula1_total: string
+          formula2_total: string
+          formula3_total: string
+          formula4_total: string
+          formula5_total: string
+          selected_min: number
+          selected_max: number
+          subtotal: string
+          final_total: string
+          pricing_settings_snapshot: Json
+          created_by: string
+          created_at: string
+          updated_by: string | null
+          updated_at: string
+        }
+        Insert: Omit<Database['public']['Tables']['quotes']['Row'], 'id' | 'created_at' | 'updated_at'> & {
+          id?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['quotes']['Insert']>
+      }
+      quote_items: {
+        Row: {
+          id: string
+          quote_id: string
+          product_id: string | null
+          product_name_snapshot: string
+          market_price_snapshot: string
+          actual_price_snapshot: string
+          quantity: string
+          is_custom: boolean
+          position: number
+        }
+        Insert: Omit<Database['public']['Tables']['quote_items']['Row'], 'id'> & {
+          id?: string
+        }
+        Update: Partial<Database['public']['Tables']['quote_items']['Insert']>
+      }
+    }
+  }
+}
