@@ -16,5 +16,8 @@ export interface MaterialItem {
   marketPrice: string
   actualPrice: string
   quantity: string
+  areaId?: string
+  areaName?: string
+  areaScope?: 'interior' | 'exterior'
   isCustom: boolean
 }

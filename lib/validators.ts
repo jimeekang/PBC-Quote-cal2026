@@ -18,6 +18,9 @@ export const quoteSchema = z.object({
     marketPriceSnapshot: z.number().nonnegative(),
     actualPriceSnapshot: z.number().nonnegative(),
     quantity: z.number().positive(),
+    areaId: z.string().min(1).optional(),
+    areaNameSnapshot: z.string().min(1).optional(),
+    areaScopeSnapshot: z.enum(['interior', 'exterior']).optional(),
     isCustom: z.boolean().default(false),
     position: z.number().int().nonnegative().default(0),
   })),
@@ -43,3 +46,10 @@ export const productSearchSchema = z.object({
   query: z.string().min(1).max(100),
   limit: z.number().int().positive().max(200).default(20),
 })
+
+export const areaSchema = z.object({
+  scope: z.enum(['interior', 'exterior']),
+  name: z.string().trim().min(1).max(80),
+})
+
+export type AreaInput = z.infer<typeof areaSchema>

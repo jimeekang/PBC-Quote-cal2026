@@ -1,7 +1,9 @@
 import { describe, expect, it, beforeEach } from 'vitest'
 import {
   createDevQuote,
+  createDevArea,
   getDevQuote,
+  listDevAreas,
   listDevProducts,
   listDevQuotes,
   resetDevData,
@@ -42,6 +44,14 @@ describe('dev data store', () => {
 
     expect(searchDevProducts('Monument')[0].base).toBe('Monument')
     expect(searchDevProducts('Semi Gloss').some((product) => product.sheen === 'Semi Gloss')).toBe(true)
+    expect(searchDevProducts('monument roof').some((product) => product.name.includes('Monument'))).toBe(true)
+  })
+
+  it('creates selectable quote areas by scope', () => {
+    const area = createDevArea({ scope: 'exterior', name: 'Eaves' })
+
+    expect(area).toMatchObject({ scope: 'exterior', name: 'Eaves', active: true })
+    expect(listDevAreas().some((item) => item.name === 'Eaves')).toBe(true)
   })
 
   it('creates a quote with formula totals and snapshots', () => {
@@ -60,6 +70,9 @@ describe('dev data store', () => {
           marketPriceSnapshot: 171.25,
           actualPriceSnapshot: 122.5,
           quantity: 2,
+          areaId: 'area-eaves',
+          areaNameSnapshot: 'Eaves',
+          areaScopeSnapshot: 'exterior',
           isCustom: false,
           position: 0,
         },
@@ -73,6 +86,7 @@ describe('dev data store', () => {
     expect(quote.finalTotal).toBe('5199.38')
     expect(quote.pricingSettingsSnapshot).toEqual(DEFAULT_PRICING_SETTINGS)
     expect(getDevQuote(quote.id)?.items[0].productNameSnapshot).toBe('Dulux Exterior')
+    expect(getDevQuote(quote.id)?.items[0].areaNameSnapshot).toBe('Eaves')
   })
 
   it('lists newest quotes first and filters by customer or address', () => {

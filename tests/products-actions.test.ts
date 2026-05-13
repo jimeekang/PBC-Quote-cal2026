@@ -12,4 +12,13 @@ describe('product actions', () => {
       expect(result.data[0].actualPrice).toBe(result.data[0].marketPrice)
     }
   })
+
+  it('matches material search by separate words instead of exact phrase order', async () => {
+    const result = await listProducts({ query: 'monument roof', limit: 20 })
+
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.data.some((product) => product.name.includes('Monument'))).toBe(true)
+    }
+  })
 })

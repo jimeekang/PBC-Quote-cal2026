@@ -8,7 +8,9 @@ import {
 } from './calculator'
 import { DULUX_PAINT_PRODUCTS } from './products/dulux-paints'
 import { normalizeRrpProduct, type ProductRecord } from './products/types'
+import type { AreaInput } from './validators'
 import type { QuoteInput } from './validators'
+import type { AreaRecord } from './areas/types'
 
 export type { ProductRecord }
 
@@ -43,14 +45,30 @@ export interface QuoteItemRecord {
   marketPriceSnapshot: string
   actualPriceSnapshot: string
   quantity: string
+  areaId: string | null
+  areaNameSnapshot: string | null
+  areaScopeSnapshot: 'interior' | 'exterior' | null
   isCustom: boolean
   position: number
 }
 
 const products: ProductRecord[] = DULUX_PAINT_PRODUCTS.map(normalizeRrpProduct)
 
-let pricingSettings: PricingSettings = { ...DEFAULT_PRICING_SETTINGS }
-let quotes: QuoteRecord[] = []
+interface DevDataStore {
+  pricingSettings: PricingSettings
+  quotes: QuoteRecord[]
+  areas: AreaRecord[]
+}
+
+const storeOwner = globalThis as typeof globalThis & {
+  __pbcDevDataStore?: DevDataStore
+}
+
+const store = storeOwner.__pbcDevDataStore ??= {
+  pricingSettings: { ...DEFAULT_PRICING_SETTINGS },
+  quotes: [],
+  areas: [],
+}
 
 function nextId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -60,18 +78,50 @@ function money(value: Decimal | number | string): string {
   return new Decimal(value).toFixed(2)
 }
 
+function searchTokens(query: string): string[] {
+  return query
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+}
+
 export function getDevPricingSettings(): PricingSettings {
-  return { ...pricingSettings }
+  return { ...store.pricingSettings }
 }
 
 export function updateDevPricingSettings(settings: PricingSettings): PricingSettings {
-  pricingSettings = { ...settings }
+  store.pricingSettings = { ...settings }
   return getDevPricingSettings()
 }
 
+export function listDevAreas(): AreaRecord[] {
+  return [...store.areas]
+    .filter((area) => area.active)
+    .sort((a, b) => a.scope.localeCompare(b.scope) || a.position - b.position || a.name.localeCompare(b.name))
+}
+
+export function createDevArea(input: AreaInput): AreaRecord {
+  const name = input.name.trim()
+  const existing = store.areas.find((area) => area.scope === input.scope && area.name.toLowerCase() === name.toLowerCase())
+  if (existing) return existing
+
+  const area: AreaRecord = {
+    id: nextId('area'),
+    scope: input.scope,
+    name,
+    active: true,
+    position: store.areas.filter((item) => item.scope === input.scope).length,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+  store.areas = [...store.areas, area]
+  return area
+}
+
 export function searchDevProducts(query: string, limit = 8): ProductRecord[] {
-  const needle = query.trim().toLowerCase()
-  if (!needle) return products.filter((product) => product.active).slice(0, limit)
+  const tokens = searchTokens(query)
+  if (tokens.length === 0) return products.filter((product) => product.active).slice(0, limit)
 
   return products
     .filter((product) => {
@@ -92,7 +142,7 @@ export function searchDevProducts(query: string, limit = 8): ProductRecord[] {
         .join(' ')
         .toLowerCase()
 
-      return product.active && haystack.includes(needle)
+      return product.active && tokens.every((token) => haystack.includes(token))
     })
     .slice(0, limit)
 }
@@ -104,20 +154,20 @@ export function listDevProducts(query = '', limit = 200): ProductRecord[] {
 export function listDevQuotes(query = ''): QuoteRecord[] {
   const needle = query.trim().toLowerCase()
   const filtered = needle
-    ? quotes.filter((quote) =>
+    ? store.quotes.filter((quote) =>
         [quote.customerName, quote.customerAddress, quote.jobberQuoteId]
           .filter(Boolean)
           .join(' ')
           .toLowerCase()
           .includes(needle)
       )
-    : quotes
+    : store.quotes
 
   return [...filtered].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
 }
 
 export function getDevQuote(id: string): QuoteRecord | null {
-  return quotes.find((quote) => quote.id === id) ?? null
+  return store.quotes.find((quote) => quote.id === id) ?? null
 }
 
 export function createDevQuote(input: QuoteInput): QuoteRecord {
@@ -163,16 +213,20 @@ export function createDevQuote(input: QuoteInput): QuoteRecord {
       marketPriceSnapshot: money(item.marketPriceSnapshot),
       actualPriceSnapshot: money(item.actualPriceSnapshot),
       quantity: money(item.quantity),
+      areaId: item.areaId ?? null,
+      areaNameSnapshot: item.areaNameSnapshot ?? null,
+      areaScopeSnapshot: item.areaScopeSnapshot ?? null,
       isCustom: item.isCustom,
       position: item.position ?? index,
     })),
   }
 
-  quotes = [quote, ...quotes]
+  store.quotes = [quote, ...store.quotes]
   return quote
 }
 
 export function resetDevData(): void {
-  pricingSettings = { ...DEFAULT_PRICING_SETTINGS }
-  quotes = []
+  store.pricingSettings = { ...DEFAULT_PRICING_SETTINGS }
+  store.quotes = []
+  store.areas = []
 }

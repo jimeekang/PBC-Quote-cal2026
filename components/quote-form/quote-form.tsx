@@ -16,9 +16,11 @@ import { MaterialsPanel } from './materials-panel'
 import { FormulaResults } from './formula-results'
 import { FinalSummary } from './final-summary'
 import type { FormulaNumber, MaterialItem } from './types'
+import type { AreaRecord } from '@/lib/areas/types'
 
 interface QuoteFormProps {
   settings: PricingSettings
+  areas: AreaRecord[]
 }
 
 function decimalFromInput(value: string): Decimal {
@@ -32,7 +34,7 @@ function optionalNumber(value: string): number | undefined {
   return Number(trimmed)
 }
 
-export function QuoteForm({ settings }: QuoteFormProps) {
+export function QuoteForm({ settings, areas }: QuoteFormProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [customerName, setCustomerName] = useState('')
@@ -90,7 +92,7 @@ export function QuoteForm({ settings }: QuoteFormProps) {
         customerAddress,
         jobberQuoteId,
         workType,
-        areaSqft: optionalNumber(areaSqft),
+          areaSqft: optionalNumber(areaSqft),
         workingDays: Number(decimalFromInput(workingDays).toString()),
         labourPerDay: Number(totals.labour.toString()),
         materialMarket: Number(totals.materialMarket.toString()),
@@ -103,6 +105,9 @@ export function QuoteForm({ settings }: QuoteFormProps) {
           marketPriceSnapshot: Number(decimalFromInput(item.marketPrice).toString()),
           actualPriceSnapshot: Number(decimalFromInput(item.marketPrice).toString()),
           quantity: Number(decimalFromInput(item.quantity).toString()),
+          areaId: item.areaId,
+          areaNameSnapshot: item.areaName,
+          areaScopeSnapshot: item.areaScope,
           isCustom: item.isCustom,
           position: index,
         })),
@@ -144,7 +149,7 @@ export function QuoteForm({ settings }: QuoteFormProps) {
             onWorkTypeChange={setWorkType}
             onAreaSqftChange={setAreaSqft}
           />
-          <MaterialsPanel materials={materials} onAdd={addMaterial} onChange={changeMaterial} onRemove={removeMaterial} />
+          <MaterialsPanel materials={materials} areas={areas} onAdd={addMaterial} onChange={changeMaterial} onRemove={removeMaterial} />
         </div>
 
         <div className="space-y-6 rounded-md border border-gray-200 bg-white p-5">

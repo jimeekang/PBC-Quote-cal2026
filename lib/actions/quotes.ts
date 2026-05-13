@@ -16,6 +16,10 @@ import type { ActionResult } from './types'
 import { isDevNoAuthMode } from './types'
 
 type QuoteRow = Database['public']['Tables']['quotes']['Row']
+type QuoteItemRow = Database['public']['Tables']['quote_items']['Row']
+type QuoteWithItemsRow = QuoteRow & {
+  quote_items?: QuoteItemRow[]
+}
 
 function money(value: { toFixed(decimalPlaces: number): string } | number): string {
   return typeof value === 'number' ? value.toFixed(2) : value.toFixed(2)
@@ -89,6 +93,9 @@ export async function createQuote(input: unknown): Promise<ActionResult<{ id: st
     market_price_snapshot: item.marketPriceSnapshot.toFixed(2),
     actual_price_snapshot: item.actualPriceSnapshot.toFixed(2),
     quantity: item.quantity.toFixed(2),
+    area_id: item.areaId ?? null,
+    area_name_snapshot: item.areaNameSnapshot ?? null,
+    area_scope_snapshot: item.areaScopeSnapshot ?? null,
     is_custom: item.isCustom,
     position: item.position ?? index,
   }))
@@ -120,7 +127,7 @@ export async function searchQuotes(query = ''): Promise<ActionResult<QuoteRecord
 
   const { data, error } = await request
   if (error) return { ok: false, error: error.message }
-  const rows = data as unknown as QuoteRow[]
+  const rows = data as unknown as QuoteWithItemsRow[]
 
   return {
     ok: true,
@@ -144,7 +151,20 @@ export async function searchQuotes(query = ''): Promise<ActionResult<QuoteRecord
       finalTotal: row.final_total,
       pricingSettingsSnapshot: row.pricing_settings_snapshot as never,
       createdAt: row.created_at,
-      items: [],
+      items: row.quote_items?.map((item) => ({
+        id: item.id,
+        quoteId: item.quote_id,
+        productId: item.product_id,
+        productNameSnapshot: item.product_name_snapshot,
+        marketPriceSnapshot: item.market_price_snapshot,
+        actualPriceSnapshot: item.actual_price_snapshot,
+        quantity: item.quantity,
+        areaId: item.area_id,
+        areaNameSnapshot: item.area_name_snapshot,
+        areaScopeSnapshot: item.area_scope_snapshot,
+        isCustom: item.is_custom,
+        position: item.position,
+      })) ?? [],
     })),
   }
 }
@@ -158,34 +178,48 @@ export async function getQuote(id: string): Promise<ActionResult<QuoteRecord | n
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('quotes')
-    .select('*')
+    .select('*, quote_items(*)')
     .eq('id', id)
     .single()
 
   if (error) return { ok: false, error: error.message }
+  const row = data as unknown as QuoteWithItemsRow
   return {
     ok: true,
     data: {
-      id: data.id,
-      customerName: data.customer_name,
-      customerAddress: data.customer_address,
-      jobberQuoteId: data.jobber_quote_id,
-      areaSqft: data.area_sqft,
-      workType: data.work_type,
-      workingDays: data.working_days,
-      labourPerDay: data.labour_per_day,
-      formula1Total: data.formula1_total,
-      formula2Total: data.formula2_total,
-      formula3Total: data.formula3_total,
-      formula4Total: data.formula4_total,
-      formula5Total: data.formula5_total,
-      selectedMin: data.selected_min as 1 | 2 | 3 | 4 | 5,
-      selectedMax: data.selected_max as 1 | 2 | 3 | 4 | 5,
-      subtotal: data.subtotal,
-      finalTotal: data.final_total,
-      pricingSettingsSnapshot: data.pricing_settings_snapshot as never,
-      createdAt: data.created_at,
-      items: [],
+      id: row.id,
+      customerName: row.customer_name,
+      customerAddress: row.customer_address,
+      jobberQuoteId: row.jobber_quote_id,
+      areaSqft: row.area_sqft,
+      workType: row.work_type,
+      workingDays: row.working_days,
+      labourPerDay: row.labour_per_day,
+      formula1Total: row.formula1_total,
+      formula2Total: row.formula2_total,
+      formula3Total: row.formula3_total,
+      formula4Total: row.formula4_total,
+      formula5Total: row.formula5_total,
+      selectedMin: row.selected_min as 1 | 2 | 3 | 4 | 5,
+      selectedMax: row.selected_max as 1 | 2 | 3 | 4 | 5,
+      subtotal: row.subtotal,
+      finalTotal: row.final_total,
+      pricingSettingsSnapshot: row.pricing_settings_snapshot as never,
+      createdAt: row.created_at,
+      items: row.quote_items?.map((item) => ({
+        id: item.id,
+        quoteId: item.quote_id,
+        productId: item.product_id,
+        productNameSnapshot: item.product_name_snapshot,
+        marketPriceSnapshot: item.market_price_snapshot,
+        actualPriceSnapshot: item.actual_price_snapshot,
+        quantity: item.quantity,
+        areaId: item.area_id,
+        areaNameSnapshot: item.area_name_snapshot,
+        areaScopeSnapshot: item.area_scope_snapshot,
+        isCustom: item.is_custom,
+        position: item.position,
+      })) ?? [],
     },
   }
 }

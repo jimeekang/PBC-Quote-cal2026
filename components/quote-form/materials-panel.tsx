@@ -2,9 +2,11 @@ import Decimal from 'decimal.js'
 import { MaterialRow } from './material-row'
 import { PaintSearch } from './paint-search'
 import type { MaterialItem } from './types'
+import type { AreaRecord } from '@/lib/areas/types'
 
 interface MaterialsPanelProps {
   materials: MaterialItem[]
+  areas: AreaRecord[]
   onAdd: (item: MaterialItem) => void
   onChange: (item: MaterialItem) => void
   onRemove: (id: string) => void
@@ -14,7 +16,7 @@ function lineTotal(price: string, quantity: string): Decimal {
   return new Decimal(price || 0).mul(new Decimal(quantity || 0))
 }
 
-export function MaterialsPanel({ materials, onAdd, onChange, onRemove }: MaterialsPanelProps) {
+export function MaterialsPanel({ materials, areas, onAdd, onChange, onRemove }: MaterialsPanelProps) {
   const materialTotal = materials.reduce((total, item) => total.add(lineTotal(item.marketPrice, item.quantity)), new Decimal(0))
 
   return (
@@ -28,7 +30,7 @@ export function MaterialsPanel({ materials, onAdd, onChange, onRemove }: Materia
       ) : (
         <div>
           {materials.map((item) => (
-            <MaterialRow key={item.id} item={item} onChange={onChange} onRemove={() => onRemove(item.id)} />
+            <MaterialRow key={item.id} item={item} areas={areas} onChange={onChange} onRemove={() => onRemove(item.id)} />
           ))}
         </div>
       )}

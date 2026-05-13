@@ -59,7 +59,10 @@ export default async function QuoteDetailPage({ params }: QuoteDetailPageProps) 
             {quote.items.length === 0 ? <p className="text-sm text-gray-500">No materials saved.</p> : null}
             {quote.items.map((item) => (
               <div key={item.id} className="flex justify-between py-3 text-sm">
-                <span className="text-gray-900">{item.productNameSnapshot}</span>
+                <span className="text-gray-900">
+                  {item.productNameSnapshot}
+                  {item.areaNameSnapshot ? <span className="ml-2 text-xs text-gray-500">{item.areaNameSnapshot}</span> : null}
+                </span>
                 <span className="font-mono text-gray-500">{item.quantity} x ${item.marketPriceSnapshot}</span>
               </div>
             ))}

@@ -34,14 +34,24 @@ describe('quote form pricing UI', () => {
           marketPrice: '255.74',
           actualPrice: '255.74',
           quantity: '1',
+          areaId: 'area-eaves',
+          areaName: 'Eaves',
+          areaScope: 'exterior',
           isCustom: false,
         },
+        areas: [
+          { id: 'area-eaves', scope: 'exterior', name: 'Eaves', active: true, position: 0 },
+          { id: 'area-fascia', scope: 'exterior', name: 'Fascia', active: true, position: 1 },
+        ],
         onChange: () => undefined,
         onRemove: () => undefined,
       })
     )
 
     expect(markup).toContain('RRP')
+    expect(markup).toContain('Area')
+    expect(markup).toContain('Eaves')
+    expect(markup).toContain('Fascia')
     expect(markup).not.toContain('Market')
     expect(markup).not.toContain('Actual')
   })

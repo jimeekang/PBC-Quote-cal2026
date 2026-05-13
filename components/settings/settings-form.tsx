@@ -1,11 +1,14 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { createArea } from '@/lib/actions/areas'
 import { updatePricingSettings } from '@/lib/actions/settings'
+import type { AreaRecord, AreaScope } from '@/lib/areas/types'
 import type { PricingSettings } from '@/lib/calculator'
 import type { ProductRecord } from '@/lib/products/types'
 
 interface SettingsFormProps {
+  initialAreas: AreaRecord[]
   initialProducts: ProductRecord[]
   initialSettings: PricingSettings
 }
@@ -18,11 +21,15 @@ function fromPercent(value: string): number {
   return Number(value || 0) / 100
 }
 
-export function SettingsForm({ initialProducts, initialSettings }: SettingsFormProps) {
+export function SettingsForm({ initialAreas, initialProducts, initialSettings }: SettingsFormProps) {
   const [isPending, startTransition] = useTransition()
-  const [activeTab, setActiveTab] = useState<'labour' | 'material'>('labour')
+  const [activeTab, setActiveTab] = useState<'labour' | 'material' | 'area'>('labour')
   const [materialQuery, setMaterialQuery] = useState('')
   const [message, setMessage] = useState<string | null>(null)
+  const [areaMessage, setAreaMessage] = useState<string | null>(null)
+  const [areas, setAreas] = useState(initialAreas)
+  const [areaScope, setAreaScope] = useState<AreaScope>('interior')
+  const [areaName, setAreaName] = useState('')
   const [settings, setSettings] = useState({
     f1LabourRate: String(initialSettings.f1LabourRate),
     f2LabourRate: String(initialSettings.f2LabourRate),
@@ -58,6 +65,23 @@ export function SettingsForm({ initialProducts, initialSettings }: SettingsFormP
     })
   }
 
+  function addArea() {
+    setAreaMessage(null)
+    startTransition(async () => {
+      const result = await createArea({ scope: areaScope, name: areaName })
+      if (result.ok) {
+        setAreas((current) => {
+          if (current.some((area) => area.id === result.data.id)) return current
+          return [...current, result.data]
+        })
+        setAreaName('')
+        setAreaMessage('Area added.')
+      } else {
+        setAreaMessage(result.error)
+      }
+    })
+  }
+
   const filteredProducts = initialProducts.filter((product) => {
     const needle = materialQuery.trim().toLowerCase()
     if (!needle) return true
@@ -84,6 +108,9 @@ export function SettingsForm({ initialProducts, initialSettings }: SettingsFormP
         </button>
         <button type="button" onClick={() => setActiveTab('material')} className={`px-4 py-3 text-sm font-medium ${activeTab === 'material' ? 'border-b-2 border-slate-700 text-slate-900' : 'text-gray-500 hover:text-gray-900'}`}>
           Material
+        </button>
+        <button type="button" onClick={() => setActiveTab('area')} className={`px-4 py-3 text-sm font-medium ${activeTab === 'area' ? 'border-b-2 border-slate-700 text-slate-900' : 'text-gray-500 hover:text-gray-900'}`}>
+          Area
         </button>
       </div>
 
@@ -128,7 +155,7 @@ export function SettingsForm({ initialProducts, initialSettings }: SettingsFormP
           </div>
           <p className="mt-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700">Changes affect future quotes only. Existing quotes preserve their snapshot.</p>
         </div>
-      ) : (
+      ) : activeTab === 'material' ? (
         <div className="p-5">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Paint Materials</h2>
@@ -164,6 +191,44 @@ export function SettingsForm({ initialProducts, initialSettings }: SettingsFormP
             </table>
           </div>
           <p className="mt-3 text-sm text-gray-500">{filteredProducts.length} materials</p>
+        </div>
+      ) : (
+        <div className="p-5">
+          <div className="mb-5">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Areas</h2>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-[160px_1fr_auto]">
+            <select value={areaScope} onChange={(event) => setAreaScope(event.target.value as AreaScope)} className="rounded-md border border-gray-300 px-3 py-2 text-sm">
+              <option value="interior">Interior</option>
+              <option value="exterior">Exterior</option>
+            </select>
+            <input value={areaName} onChange={(event) => setAreaName(event.target.value)} className="rounded-md border border-gray-300 px-3 py-2 text-sm" placeholder="e.g. eaves, fascia" />
+            <button type="button" onClick={addArea} disabled={isPending || !areaName.trim()} className="rounded-md bg-slate-700 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50">
+              Add Area
+            </button>
+          </div>
+          {areaMessage ? <p className="mt-3 text-sm text-gray-600">{areaMessage}</p> : null}
+
+          <div className="mt-6 grid gap-6 sm:grid-cols-2">
+            {(['interior', 'exterior'] as AreaScope[]).map((scope) => (
+              <section key={scope}>
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">{scope === 'interior' ? 'Interior' : 'Exterior'}</h3>
+                <div className="mt-3 divide-y divide-gray-100 rounded-md border border-gray-200">
+                  {areas.filter((area) => area.scope === scope).length === 0 ? (
+                    <p className="px-3 py-3 text-sm text-gray-500">No areas yet.</p>
+                  ) : null}
+                  {areas
+                    .filter((area) => area.scope === scope)
+                    .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name))
+                    .map((area) => (
+                      <div key={area.id} className="px-3 py-2 text-sm font-medium text-gray-900">
+                        {area.name}
+                      </div>
+                    ))}
+                </div>
+              </section>
+            ))}
+          </div>
         </div>
       )}
     </div>

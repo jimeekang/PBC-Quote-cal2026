@@ -48,6 +48,28 @@ function rowToProduct(row: {
   })
 }
 
+function searchTokens(query: string): string[] {
+  return query
+    .trim()
+    .split(/\s+/)
+    .map((token) => token.replace(/[%,().]/g, ''))
+    .filter(Boolean)
+}
+
+function productSearchOr(token: string): string {
+  const q = `%${token}%`
+  return [
+    `name.ilike.${q}`,
+    `manufacturer.ilike.${q}`,
+    `type.ilike.${q}`,
+    `category.ilike.${q}`,
+    `product_line.ilike.${q}`,
+    `base.ilike.${q}`,
+    `sheen.ilike.${q}`,
+    `product_code.ilike.${q}`,
+  ].join(',')
+}
+
 export async function searchProducts(input: unknown): Promise<ActionResult<ProductRecord[]>> {
   const parsed = productSearchSchema.safeParse(input)
   if (!parsed.success) {
@@ -63,25 +85,17 @@ export async function searchProducts(input: unknown): Promise<ActionResult<Produ
   }
 
   const supabase = await createClient()
-  const q = `%${parsed.data.query}%`
-  const { data, error } = await supabase
+  let request = supabase
     .from('products')
     .select('*')
     .eq('active', true)
-    .or(
-      [
-        `name.ilike.${q}`,
-        `manufacturer.ilike.${q}`,
-        `type.ilike.${q}`,
-        `category.ilike.${q}`,
-        `product_line.ilike.${q}`,
-        `base.ilike.${q}`,
-        `sheen.ilike.${q}`,
-        `product_code.ilike.${q}`,
-      ].join(',')
-    )
     .limit(parsed.data.limit)
 
+  for (const token of searchTokens(parsed.data.query)) {
+    request = request.or(productSearchOr(token))
+  }
+
+  const { data, error } = await request
   if (error) return { ok: false, error: error.message }
   return { ok: true, data: data.map(rowToProduct) }
 }
@@ -110,19 +124,9 @@ export async function listProducts(input: unknown = {}): Promise<ActionResult<Pr
     .limit(limit)
 
   if (query.trim()) {
-    const q = `%${query.trim()}%`
-    request = request.or(
-      [
-        `name.ilike.${q}`,
-        `manufacturer.ilike.${q}`,
-        `type.ilike.${q}`,
-        `category.ilike.${q}`,
-        `product_line.ilike.${q}`,
-        `base.ilike.${q}`,
-        `sheen.ilike.${q}`,
-        `product_code.ilike.${q}`,
-      ].join(',')
-    )
+    for (const token of searchTokens(query)) {
+      request = request.or(productSearchOr(token))
+    }
   }
 
   const { data, error } = await request

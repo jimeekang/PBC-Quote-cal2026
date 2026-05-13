@@ -62,6 +62,24 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['pricing_settings']['Row']>
         Relationships: []
       }
+      quote_areas: {
+        Row: {
+          id: string
+          scope: 'interior' | 'exterior'
+          name: string
+          active: boolean
+          position: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: Omit<Database['public']['Tables']['quote_areas']['Row'], 'id' | 'created_at' | 'updated_at'> & {
+          id?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['quote_areas']['Insert']>
+        Relationships: []
+      }
       quotes: {
         Row: {
           id: string
@@ -104,6 +122,9 @@ export interface Database {
           market_price_snapshot: string
           actual_price_snapshot: string
           quantity: string
+          area_id: string | null
+          area_name_snapshot: string | null
+          area_scope_snapshot: 'interior' | 'exterior' | null
           is_custom: boolean
           position: number
         }
