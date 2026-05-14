@@ -18,14 +18,34 @@ vi.mock('next/headers', () => ({
   cookies: mocks.cookies,
 }))
 
-import { createServiceClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 
 describe('supabase server clients', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://example.supabase.co'
+    delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_test'
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key'
+    mocks.cookies.mockResolvedValue({
+      getAll: vi.fn(() => []),
+      set: vi.fn(),
+    })
+    mocks.createBrowserAwareServerClient.mockReturnValue({ kind: 'cookie-client' })
     mocks.createServiceRoleClient.mockReturnValue({ kind: 'service-role-client' })
+  })
+
+  it('creates the request cookie client with the current publishable key', async () => {
+    const client = await createClient()
+
+    expect(client).toEqual({ kind: 'cookie-client' })
+    expect(mocks.createBrowserAwareServerClient).toHaveBeenCalledWith(
+      'https://example.supabase.co',
+      'sb_publishable_test',
+      expect.objectContaining({
+        cookies: expect.any(Object),
+      })
+    )
   })
 
   it('creates the service-role client without attaching request cookies', async () => {

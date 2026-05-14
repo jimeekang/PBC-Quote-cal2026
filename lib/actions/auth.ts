@@ -23,7 +23,14 @@ export async function signIn(
     return { error: 'Enter a valid email and password' }
   }
 
-  const supabase = await createClient()
+  let supabase: Awaited<ReturnType<typeof createClient>>
+
+  try {
+    supabase = await createClient()
+  } catch {
+    return { error: 'Supabase login is not configured on this deployment' }
+  }
+
   const { error } = await supabase.auth.signInWithPassword(parsed.data)
 
   if (error) {

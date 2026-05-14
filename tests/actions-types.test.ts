@@ -5,6 +5,7 @@ const originalEnv = {
   NEXT_PUBLIC_DEV_NO_AUTH: process.env.NEXT_PUBLIC_DEV_NO_AUTH,
   NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
   NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
 }
 
 function restoreEnv() {
@@ -26,6 +27,16 @@ describe('action runtime mode', () => {
     delete process.env.NEXT_PUBLIC_DEV_NO_AUTH
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://example.supabase.co'
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-key'
+    delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+
+    expect(isDevNoAuthMode()).toBe(false)
+  })
+
+  it('uses Supabase-backed actions when the current publishable key is present', () => {
+    delete process.env.NEXT_PUBLIC_DEV_NO_AUTH
+    process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://example.supabase.co'
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_test'
+    delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
     expect(isDevNoAuthMode()).toBe(false)
   })
@@ -34,6 +45,7 @@ describe('action runtime mode', () => {
     delete process.env.NEXT_PUBLIC_DEV_NO_AUTH
     delete process.env.NEXT_PUBLIC_SUPABASE_URL
     delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 
     expect(isDevNoAuthMode()).toBe(true)
   })
@@ -42,6 +54,7 @@ describe('action runtime mode', () => {
     process.env.NEXT_PUBLIC_DEV_NO_AUTH = 'true'
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://example.supabase.co'
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-key'
+    delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 
     expect(isDevNoAuthMode()).toBe(true)
   })
