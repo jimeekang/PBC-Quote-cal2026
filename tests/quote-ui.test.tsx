@@ -5,8 +5,54 @@ import { describe, expect, it } from 'vitest'
 import { CustomerPanel } from '@/components/quote-form/customer-panel'
 import { FinalSummary } from '@/components/quote-form/final-summary'
 import { MaterialRow } from '@/components/quote-form/material-row'
+import { QuoteDetailView } from '@/components/quote-detail/quote-detail-view'
+import { QuoteCard } from '@/components/quote-list/quote-card'
+import type { QuoteRecord } from '@/lib/dev-data'
 
 describe('quote form pricing UI', () => {
+  const quoteRecord: QuoteRecord = {
+    id: 'quote-id-1',
+    customerName: 'Jane Customer',
+    customerAddress: '10 Main St',
+    jobberQuoteId: 'encoded-quote-id',
+    areaSqft: null,
+    workType: 'Exterior',
+    workingDays: '5.00',
+    labourPerDay: '2.00',
+    formula1Total: '2500.00',
+    formula2Total: '2600.00',
+    formula3Total: '2700.00',
+    formula4Total: '2400.00',
+    formula5Total: '2450.00',
+    selectedMin: 4,
+    selectedMax: 3,
+    subtotal: '2550.00',
+    finalTotal: '2550.00',
+    pricingSettingsSnapshot: {
+      f1LabourRate: 500,
+      f2LabourRate: 460,
+      f3LabourRate: 460,
+      f4LabourRate: 380,
+      f5LabourRate: 380,
+      f2Margin: 0.3,
+      f3Margin: 0.3,
+      f4Margin: 0.25,
+      f5Margin: 0.3,
+    },
+    createdAt: '2026-05-14T00:00:00Z',
+    items: [],
+    jobberSnapshot: null,
+  }
+
+  it('shows edit and delete actions on quote cards', () => {
+    const markup = renderToStaticMarkup(createElement(QuoteCard, { quote: quoteRecord }))
+
+    expect(markup).toContain('View')
+    expect(markup).toContain('Edit')
+    expect(markup).toContain(`/quotes/${quoteRecord.id}/edit`)
+    expect(markup).toContain('Delete')
+  })
+
   it('shows subtotal details for labour and material totals', () => {
     const markup = renderToStaticMarkup(
       createElement(FinalSummary, {
@@ -252,5 +298,84 @@ describe('quote form pricing UI', () => {
 
     expect(markup).toContain('Reconnect Jobber')
     expect(markup).toContain('/api/jobber/connect')
+  })
+
+  it('shows saved Jobber fetch data on quote detail pages', () => {
+    const markup = renderToStaticMarkup(
+      createElement(QuoteDetailView, {
+        quote: {
+          ...quoteRecord,
+          jobberSnapshot: {
+            jobberQuoteId: 'encoded-quote-id',
+            sourceType: 'quote',
+            quoteNumber: '2345',
+            createdAt: '2026-05-13T01:23:45Z',
+            customerName: 'Jane Customer',
+            customerAddress: '10 Main St',
+            workType: 'Exterior',
+            areaSqft: null,
+            customerType: 'Real Estate',
+            sourceUrl: 'https://secure.getjobber.com/quotes/2345',
+            productsAndServices: [
+              {
+                id: 'line-item-1',
+                name: 'Exterior repaint',
+                category: 'SERVICE',
+                description: 'Walls and trim',
+                quantity: 1,
+                unitPrice: 2500,
+                totalPrice: 2500,
+                linkedName: null,
+              },
+            ],
+            jobExpenses: [
+              {
+                jobId: 'job-id-1',
+                jobNumber: 6789,
+                jobTitle: 'Exterior repaint job',
+                jobStatus: 'ACTIVE',
+                jobUrl: 'https://secure.getjobber.com/jobs/6789',
+                expenses: [
+                  {
+                    id: 'expense-id-1',
+                    title: 'Paint supplies',
+                    description: 'Primer',
+                    date: '2026-05-14T00:00:00Z',
+                    total: 245.5,
+                    enteredBy: 'Admin User',
+                    paidBy: 'Painter One',
+                    reimbursableTo: null,
+                  },
+                ],
+              },
+            ],
+            jobExpensesError: null,
+            financialSummary: {
+              quoteTotal: 2500,
+              expensesTotal: 245.5,
+              profit: 2254.5,
+              profitMarginPercent: 90.2,
+            },
+          },
+        },
+      })
+    )
+
+    expect(markup).toContain('Jobber Data')
+    expect(markup).toContain('Created date')
+    expect(markup).toContain('Product / Service')
+    expect(markup).toContain('Exterior repaint')
+    expect(markup).toContain('Job Expenses')
+    expect(markup).toContain('Paint supplies')
+    expect(markup).toContain('Jobber profit')
+    expect(markup).toContain('90.2%')
+  })
+
+  it('shows edit and delete actions on quote detail pages', () => {
+    const markup = renderToStaticMarkup(createElement(QuoteDetailView, { quote: quoteRecord }))
+
+    expect(markup).toContain('Edit')
+    expect(markup).toContain(`/quotes/${quoteRecord.id}/edit`)
+    expect(markup).toContain('Delete')
   })
 })

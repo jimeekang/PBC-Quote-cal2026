@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach } from 'vitest'
 import {
   createDevQuote,
+  deleteDevQuote,
   createDevArea,
   getDevQuote,
   listDevAreas,
@@ -8,6 +9,7 @@ import {
   listDevQuotes,
   resetDevData,
   searchDevProducts,
+  updateDevQuote,
   updateDevPricingSettings,
 } from '@/lib/dev-data'
 import { DEFAULT_PRICING_SETTINGS } from '@/lib/calculator'
@@ -58,6 +60,58 @@ describe('dev data store', () => {
     const quote = createDevQuote({
       customerName: 'Smith Family',
       customerAddress: '123 Main St',
+      jobberSnapshot: {
+        jobberQuoteId: 'encoded-quote-id',
+        sourceType: 'quote',
+        quoteNumber: '2345',
+        createdAt: '2026-05-13T01:23:45Z',
+        customerName: 'Smith Family',
+        customerAddress: '123 Main St',
+        workType: 'Exterior',
+        areaSqft: null,
+        customerType: 'Real Estate',
+        sourceUrl: 'https://secure.getjobber.com/quotes/2345',
+        productsAndServices: [
+          {
+            id: 'line-item-1',
+            name: 'Exterior repaint',
+            category: 'SERVICE',
+            description: 'Walls and trim',
+            quantity: 1,
+            unitPrice: 2500,
+            totalPrice: 2500,
+            linkedName: null,
+          },
+        ],
+        jobExpenses: [
+          {
+            jobId: 'job-id-1',
+            jobNumber: 6789,
+            jobTitle: 'Exterior repaint job',
+            jobStatus: 'ACTIVE',
+            jobUrl: 'https://secure.getjobber.com/jobs/6789',
+            expenses: [
+              {
+                id: 'expense-id-1',
+                title: 'Paint supplies',
+                description: 'Primer',
+                date: '2026-05-14T00:00:00Z',
+                total: 245.5,
+                enteredBy: 'Admin User',
+                paidBy: 'Painter One',
+                reimbursableTo: null,
+              },
+            ],
+          },
+        ],
+        jobExpensesError: null,
+        financialSummary: {
+          quoteTotal: 2500,
+          expensesTotal: 245.5,
+          profit: 2254.5,
+          profitMarginPercent: 90.2,
+        },
+      },
       workingDays: 5,
       labourPerDay: 2,
       materialMarket: 342.5,
@@ -91,6 +145,8 @@ describe('dev data store', () => {
     expect(getDevQuote(quote.id)?.items[0].areaNameSnapshot).toBe('Eaves')
     expect(getDevQuote(quote.id)?.items[0].workingDays).toBe('5.00')
     expect(getDevQuote(quote.id)?.items[0].labourPerDay).toBe('2.00')
+    expect(getDevQuote(quote.id)?.jobberSnapshot?.productsAndServices[0].name).toBe('Exterior repaint')
+    expect(getDevQuote(quote.id)?.jobberSnapshot?.jobExpenses[0].expenses[0].title).toBe('Paint supplies')
   })
 
   it('uses summed item labour days for formula totals while saving visible field totals', () => {
@@ -177,5 +233,71 @@ describe('dev data store', () => {
 
     expect(quote.formula1Total).toBe('2450.00')
     expect(quote.pricingSettingsSnapshot.f1LabourRate).toBe(600)
+  })
+
+  it('updates an existing quote and replaces its saved material items', () => {
+    const quote = createDevQuote({
+      customerName: 'Before Customer',
+      customerAddress: '1 Before St',
+      workingDays: 1,
+      labourPerDay: 1,
+      materialMarket: 25,
+      materialActual: 25,
+      selectedMin: 1,
+      selectedMax: 1,
+      items: [
+        {
+          productNameSnapshot: 'Old item',
+          marketPriceSnapshot: 25,
+          actualPriceSnapshot: 25,
+          quantity: 1,
+          isCustom: true,
+          position: 0,
+        },
+      ],
+    })
+
+    const updated = updateDevQuote(quote.id, {
+      customerName: 'After Customer',
+      customerAddress: '2 After St',
+      workingDays: 2,
+      labourPerDay: 2,
+      materialMarket: 80,
+      materialActual: 80,
+      selectedMin: 4,
+      selectedMax: 1,
+      items: [
+        {
+          productNameSnapshot: 'New item',
+          marketPriceSnapshot: 40,
+          actualPriceSnapshot: 40,
+          quantity: 2,
+          isCustom: true,
+          position: 0,
+        },
+      ],
+    })
+
+    expect(updated?.id).toBe(quote.id)
+    expect(getDevQuote(quote.id)?.customerName).toBe('After Customer')
+    expect(getDevQuote(quote.id)?.items).toHaveLength(1)
+    expect(getDevQuote(quote.id)?.items[0].productNameSnapshot).toBe('New item')
+  })
+
+  it('deletes an existing quote', () => {
+    const quote = createDevQuote({
+      customerName: 'Delete Me',
+      workingDays: 1,
+      labourPerDay: 1,
+      materialMarket: 0,
+      materialActual: 0,
+      selectedMin: 1,
+      selectedMax: 1,
+      items: [],
+    })
+
+    expect(deleteDevQuote(quote.id)).toBe(true)
+    expect(getDevQuote(quote.id)).toBeNull()
+    expect(listDevQuotes()).toHaveLength(0)
   })
 })

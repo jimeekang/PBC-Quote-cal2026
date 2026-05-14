@@ -136,7 +136,7 @@ function JobExpensesGroup({ job }: { job: JobberQuoteDraftJobExpenses }) {
   )
 }
 
-function JobberQuoteSummary({ quote }: { quote: JobberQuoteDraft }) {
+export function JobberQuoteSummary({ quote }: { quote: JobberQuoteDraft }) {
   const sourceLabel = quote.sourceType === 'job' ? 'Jobber job' : 'Jobber quote'
 
   return (

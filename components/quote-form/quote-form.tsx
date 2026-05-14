@@ -11,7 +11,8 @@ import {
   type PricingSettings,
 } from '@/lib/calculator'
 import { calculateLabourTotals, decimalFromInput } from '@/lib/quote-labour'
-import { createQuote } from '@/lib/actions/quotes'
+import { createQuote, updateQuote } from '@/lib/actions/quotes'
+import type { QuoteRecord } from '@/lib/dev-data'
 import { CustomerPanel } from './customer-panel'
 import { MaterialsPanel } from './materials-panel'
 import { FormulaResults } from './formula-results'
@@ -30,6 +31,7 @@ import { getVisibleJobberQuoteLookupAfterFetch } from '@/lib/jobber/quote-lookup
 interface QuoteFormProps {
   settings: PricingSettings
   areas: AreaRecord[]
+  initialQuote?: QuoteRecord
 }
 
 type JobberQuoteResponse =
@@ -119,23 +121,40 @@ function isJobberQuoteFinancialSummary(value: unknown): value is JobberQuoteFina
   )
 }
 
-export function QuoteForm({ settings, areas }: QuoteFormProps) {
+function mapQuoteItemsToMaterials(quote: QuoteRecord): MaterialItem[] {
+  return quote.items.map((item) => ({
+    id: item.id,
+    productId: item.productId ?? undefined,
+    name: item.productNameSnapshot,
+    marketPrice: item.marketPriceSnapshot,
+    actualPrice: item.actualPriceSnapshot,
+    quantity: item.quantity,
+    workingDays: item.workingDays ?? '0',
+    labourPerDay: item.labourPerDay ?? '0',
+    areaId: item.areaId ?? undefined,
+    areaName: item.areaNameSnapshot ?? undefined,
+    areaScope: item.areaScopeSnapshot ?? undefined,
+    isCustom: item.isCustom,
+  }))
+}
+
+export function QuoteForm({ settings, areas, initialQuote }: QuoteFormProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  const [customerName, setCustomerName] = useState('')
-  const [customerAddress, setCustomerAddress] = useState('')
-  const [jobberLookupType, setJobberLookupType] = useState<JobberLookupType>('quote')
-  const [jobberQuoteLookup, setJobberQuoteLookup] = useState('')
-  const [jobberQuoteId, setJobberQuoteId] = useState('')
-  const [workType, setWorkType] = useState('')
-  const [customerType, setCustomerType] = useState('')
-  const [materials, setMaterials] = useState<MaterialItem[]>([])
-  const [selectedMin, setSelectedMin] = useState<FormulaNumber>(4)
-  const [selectedMax, setSelectedMax] = useState<FormulaNumber>(1)
+  const [customerName, setCustomerName] = useState(initialQuote?.customerName ?? '')
+  const [customerAddress, setCustomerAddress] = useState(initialQuote?.customerAddress ?? '')
+  const [jobberLookupType, setJobberLookupType] = useState<JobberLookupType>(initialQuote?.jobberSnapshot?.sourceType ?? 'quote')
+  const [jobberQuoteLookup, setJobberQuoteLookup] = useState(initialQuote?.jobberSnapshot?.quoteNumber ?? initialQuote?.jobberQuoteId ?? '')
+  const [jobberQuoteId, setJobberQuoteId] = useState(initialQuote?.jobberQuoteId ?? '')
+  const [workType, setWorkType] = useState(initialQuote?.workType ?? '')
+  const [customerType, setCustomerType] = useState(initialQuote?.jobberSnapshot?.customerType ?? '')
+  const [materials, setMaterials] = useState<MaterialItem[]>(initialQuote ? mapQuoteItemsToMaterials(initialQuote) : [])
+  const [selectedMin, setSelectedMin] = useState<FormulaNumber>(initialQuote?.selectedMin ?? 4)
+  const [selectedMax, setSelectedMax] = useState<FormulaNumber>(initialQuote?.selectedMax ?? 1)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [jobberFetchError, setJobberFetchError] = useState<string | null>(null)
   const [isFetchingJobberQuote, setIsFetchingJobberQuote] = useState(false)
-  const [jobberQuoteDraft, setJobberQuoteDraft] = useState<JobberQuoteDraft | null>(null)
+  const [jobberQuoteDraft, setJobberQuoteDraft] = useState<JobberQuoteDraft | null>(initialQuote?.jobberSnapshot ?? null)
 
   const totals = useMemo(() => {
     const materialMarket = materials.reduce(
@@ -213,10 +232,11 @@ export function QuoteForm({ settings, areas }: QuoteFormProps) {
   function saveQuote() {
     setSaveError(null)
     startTransition(async () => {
-      const result = await createQuote({
+      const payload = {
         customerName,
         customerAddress,
         jobberQuoteId: jobberQuoteId || jobberQuoteLookup,
+        jobberSnapshot: jobberQuoteDraft ?? undefined,
         workType,
         workingDays: Number(totals.labour.workingDays.toString()),
         labourPerDay: Number(totals.labour.labourPerDay.toString()),
@@ -238,10 +258,13 @@ export function QuoteForm({ settings, areas }: QuoteFormProps) {
           isCustom: item.isCustom,
           position: index,
         })),
-      })
+      }
+      const result = initialQuote
+        ? await updateQuote({ ...payload, id: initialQuote.id })
+        : await createQuote(payload)
 
       if (result.ok) {
-        router.push('/quotes')
+        router.push(initialQuote ? `/quotes/${initialQuote.id}` : '/quotes')
       } else {
         setSaveError(result.error)
       }
@@ -253,10 +276,10 @@ export function QuoteForm({ settings, areas }: QuoteFormProps) {
       <div className="mb-5 flex items-center justify-between gap-4">
         <div>
           <Link href="/quotes" className="text-sm text-gray-500 hover:text-gray-900">Back to Quotes</Link>
-          <h1 className="mt-1 text-2xl font-bold text-gray-900">New Quote <span className="text-blue-500">.</span></h1>
+          <h1 className="mt-1 text-2xl font-bold text-gray-900">{initialQuote ? 'Edit Quote' : 'New Quote'} <span className="text-blue-500">.</span></h1>
         </div>
         <button type="button" onClick={saveQuote} disabled={isPending} className="rounded-md bg-slate-700 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50">
-          {isPending ? 'Saving...' : 'Save Quote'}
+          {isPending ? 'Saving...' : initialQuote ? 'Update Quote' : 'Save Quote'}
         </button>
       </div>
 

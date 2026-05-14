@@ -1,5 +1,6 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
 import {
   type QuoteRecord,
 } from '@/lib/dev-data'
@@ -7,11 +8,13 @@ import {
   calculateAllFormulas,
   calculateFinal,
   calculateSubtotal,
+  type PricingSettings,
 } from '@/lib/calculator'
 import { calculateFormulaLabourDays } from '@/lib/quote-labour'
 import { createClient } from '@/lib/supabase/server'
 import type { Database, Json } from '@/lib/supabase/types'
-import { quoteSchema } from '@/lib/validators'
+import { jobberQuoteSnapshotSchema, pricingSettingsSchema, quoteSchema } from '@/lib/validators'
+import type { JobberQuoteDraft } from '@/lib/jobber/mapper'
 import { getPricingSettings } from './settings'
 import type { ActionResult } from './types'
 import { isDevNoAuthMode } from './types'
@@ -29,6 +32,57 @@ function money(value: { toFixed(decimalPlaces: number): string } | number): stri
 function optionalMoney(value: { toFixed(decimalPlaces: number): string } | number | undefined): string | null {
   if (value === undefined) return null
   return money(value)
+}
+
+function parseJobberSnapshot(value: unknown): JobberQuoteDraft | null {
+  const parsed = jobberQuoteSnapshotSchema.safeParse(value)
+  return parsed.success ? parsed.data : null
+}
+
+function parsePricingSettingsSnapshot(value: unknown): PricingSettings | null {
+  const parsed = pricingSettingsSchema.safeParse(value)
+  return parsed.success ? parsed.data : null
+}
+
+function toQuoteRecord(row: QuoteWithItemsRow): QuoteRecord {
+  return {
+    id: row.id,
+    customerName: row.customer_name,
+    customerAddress: row.customer_address,
+    jobberQuoteId: row.jobber_quote_id,
+    jobberSnapshot: parseJobberSnapshot(row.jobber_snapshot),
+    areaSqft: row.area_sqft,
+    workType: row.work_type,
+    workingDays: row.working_days,
+    labourPerDay: row.labour_per_day,
+    formula1Total: row.formula1_total,
+    formula2Total: row.formula2_total,
+    formula3Total: row.formula3_total,
+    formula4Total: row.formula4_total,
+    formula5Total: row.formula5_total,
+    selectedMin: row.selected_min as 1 | 2 | 3 | 4 | 5,
+    selectedMax: row.selected_max as 1 | 2 | 3 | 4 | 5,
+    subtotal: row.subtotal,
+    finalTotal: row.final_total,
+    pricingSettingsSnapshot: row.pricing_settings_snapshot as never,
+    createdAt: row.created_at,
+    items: row.quote_items?.map((item) => ({
+      id: item.id,
+      quoteId: item.quote_id,
+      productId: item.product_id,
+      productNameSnapshot: item.product_name_snapshot,
+      marketPriceSnapshot: item.market_price_snapshot,
+      actualPriceSnapshot: item.actual_price_snapshot,
+      quantity: item.quantity,
+      workingDays: item.working_days,
+      labourPerDay: item.labour_per_day,
+      areaId: item.area_id,
+      areaNameSnapshot: item.area_name_snapshot,
+      areaScopeSnapshot: item.area_scope_snapshot,
+      isCustom: item.is_custom,
+      position: item.position,
+    })) ?? [],
+  }
 }
 
 export async function createQuote(input: unknown): Promise<ActionResult<{ id: string }>> {
@@ -70,6 +124,7 @@ export async function createQuote(input: unknown): Promise<ActionResult<{ id: st
       customer_name: parsed.data.customerName || null,
       customer_address: parsed.data.customerAddress || null,
       jobber_quote_id: parsed.data.jobberQuoteId || null,
+      jobber_snapshot: (parsed.data.jobberSnapshot ?? null) as unknown as Json | null,
       area_sqft: parsed.data.areaSqft ?? null,
       work_type: parsed.data.workType || null,
       working_days: parsed.data.workingDays.toFixed(2),
@@ -113,7 +168,136 @@ export async function createQuote(input: unknown): Promise<ActionResult<{ id: st
     if (itemsError) return { ok: false, error: itemsError.message }
   }
 
+  revalidatePath('/quotes')
   return { ok: true, data: { id: quote.id } }
+}
+
+export async function updateQuote(input: unknown): Promise<ActionResult<{ id: string }>> {
+  const inputRecord = typeof input === 'object' && input !== null ? input as Record<string, unknown> : {}
+  const id = typeof inputRecord.id === 'string' ? inputRecord.id : ''
+  if (!id.trim()) return { ok: false, error: 'Quote id is required' }
+
+  const parsed = quoteSchema.safeParse(input)
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.message }
+  }
+
+  if (isDevNoAuthMode()) {
+    const { updateDevQuote } = await import('@/lib/dev-data')
+    const quote = updateDevQuote(id, parsed.data)
+    if (!quote) return { ok: false, error: 'Quote not found' }
+    revalidatePath('/quotes')
+    revalidatePath(`/quotes/${id}`)
+    return { ok: true, data: { id } }
+  }
+
+  const supabase = await createClient()
+  const { data: userData, error: userError } = await supabase.auth.getUser()
+  if (userError || !userData.user) {
+    return { ok: false, error: 'Authentication required' }
+  }
+
+  const { data: existingQuote, error: existingQuoteError } = await supabase
+    .from('quotes')
+    .select('pricing_settings_snapshot')
+    .eq('id', id)
+    .single()
+  if (existingQuoteError) return { ok: false, error: existingQuoteError.message }
+
+  const fallbackSettings = await getPricingSettings()
+  if (!fallbackSettings.ok) return fallbackSettings
+  const settings = parsePricingSettingsSnapshot(existingQuote.pricing_settings_snapshot) ?? fallbackSettings.data
+
+  const formulas = calculateAllFormulas(
+    {
+      workingDays: calculateFormulaLabourDays(parsed.data.workingDays, parsed.data.labourPerDay, parsed.data.items),
+      labourPerDay: 1,
+      materialMarket: parsed.data.materialMarket,
+      materialActual: parsed.data.materialActual,
+    },
+    settings
+  )
+  const subtotal = calculateSubtotal(formulas, parsed.data.selectedMin, parsed.data.selectedMax)
+  const finalTotal = calculateFinal(subtotal)
+
+  const { error: quoteError } = await supabase
+    .from('quotes')
+    .update({
+      customer_name: parsed.data.customerName || null,
+      customer_address: parsed.data.customerAddress || null,
+      jobber_quote_id: parsed.data.jobberQuoteId || null,
+      jobber_snapshot: (parsed.data.jobberSnapshot ?? null) as unknown as Json | null,
+      area_sqft: parsed.data.areaSqft ?? null,
+      work_type: parsed.data.workType || null,
+      working_days: parsed.data.workingDays.toFixed(2),
+      labour_per_day: parsed.data.labourPerDay.toFixed(2),
+      formula1_total: money(formulas[0].total),
+      formula2_total: money(formulas[1].total),
+      formula3_total: money(formulas[2].total),
+      formula4_total: money(formulas[3].total),
+      formula5_total: money(formulas[4].total),
+      selected_min: parsed.data.selectedMin,
+      selected_max: parsed.data.selectedMax,
+      subtotal: money(subtotal),
+      final_total: money(finalTotal),
+      pricing_settings_snapshot: settings as unknown as Json,
+      updated_by: userData.user.id,
+    })
+    .eq('id', id)
+
+  if (quoteError) return { ok: false, error: quoteError.message }
+
+  const { error: deleteItemsError } = await supabase.from('quote_items').delete().eq('quote_id', id)
+  if (deleteItemsError) return { ok: false, error: deleteItemsError.message }
+
+  const items = parsed.data.items.map((item, index) => ({
+    quote_id: id,
+    product_id: item.productId ?? null,
+    product_name_snapshot: item.productNameSnapshot,
+    market_price_snapshot: item.marketPriceSnapshot.toFixed(2),
+    actual_price_snapshot: item.actualPriceSnapshot.toFixed(2),
+    quantity: item.quantity.toFixed(2),
+    working_days: optionalMoney(item.workingDays),
+    labour_per_day: optionalMoney(item.labourPerDay),
+    area_id: item.areaId ?? null,
+    area_name_snapshot: item.areaNameSnapshot ?? null,
+    area_scope_snapshot: item.areaScopeSnapshot ?? null,
+    is_custom: item.isCustom,
+    position: item.position ?? index,
+  }))
+
+  if (items.length > 0) {
+    const { error: itemsError } = await supabase.from('quote_items').insert(items)
+    if (itemsError) return { ok: false, error: itemsError.message }
+  }
+
+  revalidatePath('/quotes')
+  revalidatePath(`/quotes/${id}`)
+  return { ok: true, data: { id } }
+}
+
+export async function deleteQuote(id: string): Promise<ActionResult<{ id: string }>> {
+  if (!id.trim()) return { ok: false, error: 'Quote id is required' }
+
+  if (isDevNoAuthMode()) {
+    const { deleteDevQuote } = await import('@/lib/dev-data')
+    const deleted = deleteDevQuote(id)
+    if (!deleted) return { ok: false, error: 'Quote not found' }
+    revalidatePath('/quotes')
+    return { ok: true, data: { id } }
+  }
+
+  const supabase = await createClient()
+  const { data: userData, error: userError } = await supabase.auth.getUser()
+  if (userError || !userData.user) {
+    return { ok: false, error: 'Authentication required' }
+  }
+
+  const { error } = await supabase.from('quotes').delete().eq('id', id)
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath('/quotes')
+  return { ok: true, data: { id } }
 }
 
 export async function searchQuotes(query = ''): Promise<ActionResult<QuoteRecord[]>> {
@@ -139,43 +323,7 @@ export async function searchQuotes(query = ''): Promise<ActionResult<QuoteRecord
 
   return {
     ok: true,
-    data: rows.map((row) => ({
-      id: row.id,
-      customerName: row.customer_name,
-      customerAddress: row.customer_address,
-      jobberQuoteId: row.jobber_quote_id,
-      areaSqft: row.area_sqft,
-      workType: row.work_type,
-      workingDays: row.working_days,
-      labourPerDay: row.labour_per_day,
-      formula1Total: row.formula1_total,
-      formula2Total: row.formula2_total,
-      formula3Total: row.formula3_total,
-      formula4Total: row.formula4_total,
-      formula5Total: row.formula5_total,
-      selectedMin: row.selected_min as 1 | 2 | 3 | 4 | 5,
-      selectedMax: row.selected_max as 1 | 2 | 3 | 4 | 5,
-      subtotal: row.subtotal,
-      finalTotal: row.final_total,
-      pricingSettingsSnapshot: row.pricing_settings_snapshot as never,
-      createdAt: row.created_at,
-      items: row.quote_items?.map((item) => ({
-        id: item.id,
-        quoteId: item.quote_id,
-        productId: item.product_id,
-        productNameSnapshot: item.product_name_snapshot,
-        marketPriceSnapshot: item.market_price_snapshot,
-        actualPriceSnapshot: item.actual_price_snapshot,
-        quantity: item.quantity,
-        workingDays: item.working_days,
-        labourPerDay: item.labour_per_day,
-        areaId: item.area_id,
-        areaNameSnapshot: item.area_name_snapshot,
-        areaScopeSnapshot: item.area_scope_snapshot,
-        isCustom: item.is_custom,
-        position: item.position,
-      })) ?? [],
-    })),
+    data: rows.map(toQuoteRecord),
   }
 }
 
@@ -196,42 +344,6 @@ export async function getQuote(id: string): Promise<ActionResult<QuoteRecord | n
   const row = data as unknown as QuoteWithItemsRow
   return {
     ok: true,
-    data: {
-      id: row.id,
-      customerName: row.customer_name,
-      customerAddress: row.customer_address,
-      jobberQuoteId: row.jobber_quote_id,
-      areaSqft: row.area_sqft,
-      workType: row.work_type,
-      workingDays: row.working_days,
-      labourPerDay: row.labour_per_day,
-      formula1Total: row.formula1_total,
-      formula2Total: row.formula2_total,
-      formula3Total: row.formula3_total,
-      formula4Total: row.formula4_total,
-      formula5Total: row.formula5_total,
-      selectedMin: row.selected_min as 1 | 2 | 3 | 4 | 5,
-      selectedMax: row.selected_max as 1 | 2 | 3 | 4 | 5,
-      subtotal: row.subtotal,
-      finalTotal: row.final_total,
-      pricingSettingsSnapshot: row.pricing_settings_snapshot as never,
-      createdAt: row.created_at,
-      items: row.quote_items?.map((item) => ({
-        id: item.id,
-        quoteId: item.quote_id,
-        productId: item.product_id,
-        productNameSnapshot: item.product_name_snapshot,
-        marketPriceSnapshot: item.market_price_snapshot,
-        actualPriceSnapshot: item.actual_price_snapshot,
-        quantity: item.quantity,
-        workingDays: item.working_days,
-        labourPerDay: item.labour_per_day,
-        areaId: item.area_id,
-        areaNameSnapshot: item.area_name_snapshot,
-        areaScopeSnapshot: item.area_scope_snapshot,
-        isCustom: item.is_custom,
-        position: item.position,
-      })) ?? [],
-    },
+    data: toQuoteRecord(row),
   }
 }

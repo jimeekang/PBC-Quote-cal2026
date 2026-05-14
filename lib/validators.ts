@@ -1,9 +1,57 @@
 import { z } from 'zod'
 
+export const jobberQuoteSnapshotSchema = z.object({
+  jobberQuoteId: z.string(),
+  sourceType: z.enum(['quote', 'job']),
+  quoteNumber: z.string(),
+  createdAt: z.string(),
+  customerName: z.string(),
+  customerAddress: z.string(),
+  workType: z.string(),
+  areaSqft: z.number().int().nonnegative().nullable(),
+  customerType: z.string(),
+  sourceUrl: z.string(),
+  productsAndServices: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    category: z.string(),
+    description: z.string(),
+    quantity: z.number(),
+    unitPrice: z.number(),
+    totalPrice: z.number(),
+    linkedName: z.string().nullable(),
+  })),
+  jobExpenses: z.array(z.object({
+    jobId: z.string(),
+    jobNumber: z.number(),
+    jobTitle: z.string(),
+    jobStatus: z.string(),
+    jobUrl: z.string(),
+    expenses: z.array(z.object({
+      id: z.string(),
+      title: z.string(),
+      description: z.string(),
+      date: z.string(),
+      total: z.number().nullable(),
+      enteredBy: z.string().nullable(),
+      paidBy: z.string().nullable(),
+      reimbursableTo: z.string().nullable(),
+    })),
+  })),
+  jobExpensesError: z.string().nullable(),
+  financialSummary: z.object({
+    quoteTotal: z.number(),
+    expensesTotal: z.number(),
+    profit: z.number(),
+    profitMarginPercent: z.number().nullable(),
+  }),
+})
+
 export const quoteSchema = z.object({
   customerName: z.string().optional(),
   customerAddress: z.string().optional(),
   jobberQuoteId: z.string().optional(),
+  jobberSnapshot: jobberQuoteSnapshotSchema.optional(),
   areaSqft: z.number().int().nonnegative().optional(),
   workType: z.string().optional(),
   workingDays: z.number().nonnegative(),

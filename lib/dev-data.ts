@@ -13,6 +13,7 @@ import type { AreaInput } from './validators'
 import type { QuoteInput } from './validators'
 import type { AreaRecord } from './areas/types'
 import type { Database } from './supabase/types'
+import type { JobberQuoteDraft } from './jobber/mapper'
 
 export type { ProductRecord }
 
@@ -21,6 +22,7 @@ export interface QuoteRecord {
   customerName: string | null
   customerAddress: string | null
   jobberQuoteId: string | null
+  jobberSnapshot: JobberQuoteDraft | null
   areaSqft: number | null
   workType: string | null
   workingDays: string
@@ -297,8 +299,7 @@ export function getDevQuote(id: string): QuoteRecord | null {
   return store.quotes.find((quote) => quote.id === id) ?? null
 }
 
-export function createDevQuote(input: QuoteInput): QuoteRecord {
-  const settings = getDevPricingSettings()
+function buildDevQuoteRecord(id: string, createdAt: string, input: QuoteInput, settings: PricingSettings): QuoteRecord {
   const formulaResults = calculateAllFormulas(
     {
       workingDays: calculateFormulaLabourDays(input.workingDays, input.labourPerDay, input.items),
@@ -310,13 +311,13 @@ export function createDevQuote(input: QuoteInput): QuoteRecord {
   )
   const subtotal = calculateSubtotal(formulaResults, input.selectedMin, input.selectedMax)
   const finalTotal = calculateFinal(subtotal)
-  const id = nextId('quote')
 
-  const quote: QuoteRecord = {
+  return {
     id,
     customerName: input.customerName?.trim() || null,
     customerAddress: input.customerAddress?.trim() || null,
     jobberQuoteId: input.jobberQuoteId?.trim() || null,
+    jobberSnapshot: input.jobberSnapshot ?? null,
     areaSqft: input.areaSqft ?? null,
     workType: input.workType?.trim() || null,
     workingDays: money(input.workingDays),
@@ -331,7 +332,7 @@ export function createDevQuote(input: QuoteInput): QuoteRecord {
     subtotal: money(subtotal),
     finalTotal: money(finalTotal),
     pricingSettingsSnapshot: settings,
-    createdAt: new Date().toISOString(),
+    createdAt,
     items: input.items.map((item, index) => ({
       id: nextId('item'),
       quoteId: id,
@@ -349,9 +350,33 @@ export function createDevQuote(input: QuoteInput): QuoteRecord {
       position: item.position ?? index,
     })),
   }
+}
+
+export function createDevQuote(input: QuoteInput): QuoteRecord {
+  const settings = getDevPricingSettings()
+  const id = nextId('quote')
+  const quote = buildDevQuoteRecord(id, new Date().toISOString(), input, settings)
 
   store.quotes = [quote, ...store.quotes]
   return quote
+}
+
+export function updateDevQuote(id: string, input: QuoteInput): QuoteRecord | null {
+  const index = store.quotes.findIndex((quote) => quote.id === id)
+  if (index === -1) return null
+
+  const current = store.quotes[index]
+  const quote = buildDevQuoteRecord(id, current.createdAt, input, current.pricingSettingsSnapshot)
+  store.quotes = [...store.quotes]
+  store.quotes[index] = quote
+  return quote
+}
+
+export function deleteDevQuote(id: string): boolean {
+  const nextQuotes = store.quotes.filter((quote) => quote.id !== id)
+  const deleted = nextQuotes.length !== store.quotes.length
+  store.quotes = nextQuotes
+  return deleted
 }
 
 export function resetDevData(): void {

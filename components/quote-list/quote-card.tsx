@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import type { QuoteRecord } from '@/lib/dev-data'
+import { QuoteDeleteButton } from './quote-delete-button'
 
 export function QuoteCard({ quote }: { quote: QuoteRecord }) {
   const title = quote.customerName || 'Untitled Quote'
@@ -16,9 +17,15 @@ export function QuoteCard({ quote }: { quote: QuoteRecord }) {
         </div>
         <div className="text-right">
           <div className="font-mono text-sm font-semibold text-gray-900">${quote.finalTotal}</div>
-          <Link href={`/quotes/${quote.id}`} className="mt-2 inline-block text-sm text-blue-600 hover:text-blue-700">
-            View
-          </Link>
+          <div className="mt-2 flex flex-wrap items-center justify-end gap-3">
+            <Link href={`/quotes/${quote.id}`} className="text-sm text-blue-600 hover:text-blue-700">
+              View
+            </Link>
+            <Link href={`/quotes/${quote.id}/edit`} className="text-sm text-gray-700 hover:text-gray-900">
+              Edit
+            </Link>
+            <QuoteDeleteButton quoteId={quote.id} />
+          </div>
         </div>
       </div>
     </article>

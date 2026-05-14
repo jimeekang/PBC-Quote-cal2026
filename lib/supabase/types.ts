@@ -86,6 +86,7 @@ export interface Database {
           customer_name: string | null
           customer_address: string | null
           jobber_quote_id: string | null
+          jobber_snapshot: Json | null
           area_sqft: number | null
           work_type: string | null
           working_days: string
