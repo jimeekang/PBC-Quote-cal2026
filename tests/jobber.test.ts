@@ -63,6 +63,13 @@ describe('jobber config', () => {
 
     expect(getMissingGraphqlConfigKeys(config)).toEqual([])
   })
+
+  it('uses the default Jobber GraphQL version when the env key is not configured', () => {
+    const config = getJobberConfig({})
+
+    expect(config.graphqlVersion).toBe('2025-04-16')
+    expect(getMissingGraphqlConfigKeys(config)).toEqual([])
+  })
 })
 
 describe('jobber oauth', () => {

@@ -1,6 +1,7 @@
 export const JOBBER_AUTHORIZATION_URL = 'https://api.getjobber.com/api/oauth/authorize'
 export const JOBBER_TOKEN_URL = 'https://api.getjobber.com/api/oauth/token'
 export const JOBBER_GRAPHQL_URL = 'https://api.getjobber.com/api/graphql'
+export const DEFAULT_JOBBER_GRAPHQL_VERSION = '2025-04-16'
 
 export interface JobberConfig {
   clientId: string
@@ -21,7 +22,7 @@ export function getJobberConfig(env: Env = process.env): JobberConfig {
     clientId: envValue(env, 'JOBBER_CLIENT_ID'),
     clientSecret: envValue(env, 'JOBBER_CLIENT_SECRET'),
     redirectUri: envValue(env, 'JOBBER_REDIRECT_URI') || envValue(env, 'JOBBER_CALLBACK_URL'),
-    graphqlVersion: envValue(env, 'JOBBER_GRAPHQL_VERSION'),
+    graphqlVersion: envValue(env, 'JOBBER_GRAPHQL_VERSION') || DEFAULT_JOBBER_GRAPHQL_VERSION,
     accessToken: envValue(env, 'JOBBER_ACCESS_TOKEN'),
   }
 }
