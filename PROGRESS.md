@@ -139,7 +139,7 @@
 - [x] `tests/calculator.test.ts` — 계산기 커버리지 100% 보강
 - [x] Server Actions Supabase 경로 단위 테스트 보강: `tests/settings-actions-supabase.test.ts`, `tests/areas-actions-supabase.test.ts`, `tests/products-actions-supabase.test.ts`, `tests/quote-actions-supabase.test.ts`
 - [x] `vitest.config.ts` — `lib/actions/**/*.ts` statements/lines/functions 80% threshold 강제
-- [x] 로컬 검증: `npm.cmd run verify` 추가 및 최신 재통과(2026-05-15 18:12, git diff whitespace check, typecheck, lint, test:run 36 passed files / 171 passed tests + 1 skipped file / 2 skipped tests, test:coverage, build, audit, `npm audit --audit-level=high` 0 vulnerabilities)
+- [x] 로컬 검증: `npm.cmd run verify` 추가 및 최신 재통과(2026-05-15 18:15, git diff whitespace check, typecheck, lint, test:run 36 passed files / 171 passed tests + 1 skipped file / 2 skipped tests, test:coverage, build, audit, `npm audit --audit-level=high` 0 vulnerabilities)
 - [x] `npm.cmd audit --audit-level=high` 0 vulnerabilities (`postcss` override로 Next 내부 transitive `postcss`를 8.5.14로 고정)
 - [x] `npm.cmd ls postcss` 확인: `next`/`vite`/`@tailwindcss/postcss` 모두 `postcss@8.5.14` dedupe/override 적용
 - [x] `npm.cmd ci` 재현성 검증 시도: Windows `lightningcss` native binary unlink `EPERM`으로 차단, `npm.cmd install`로 복구 후 typecheck/lint/test/audit/build 재통과
@@ -201,7 +201,7 @@
 | 요구사항 | 증거 | 상태 |
 |---|---|---|
 | Jobber 영구 read-only 유지 | `lib/jobber/client.ts` GraphQL mutation 차단, OAuth/저장/dev token scope 검증, Jobber 네트워크 경로가 OAuth token endpoint와 중앙 GraphQL client뿐임을 정적 확인, `tests/jobber-readonly-regression.test.ts` 포함 Jobber 테스트 통과 | 완료 |
-| 모든 로컬 오류 제거 | `npm.cmd run verify` 재통과(2026-05-15 18:12): whitespace, typecheck, lint, test 36 passed files / 171 passed tests + 1 skipped file / 2 skipped tests, coverage, build, audit 0 vulnerabilities | 완료 |
+| 모든 로컬 오류 제거 | `npm.cmd run verify` 재통과(2026-05-15 18:15): whitespace, typecheck, lint, test 36 passed files / 171 passed tests + 1 skipped file / 2 skipped tests, coverage, build, audit 0 vulnerabilities | 완료 |
 | `PROGRESS.md` 최신화 | 완료/차단 항목, Supabase MCP RLS CRUD 대체 검증, 프로덕션 Supabase 0009 적용/검증, fixture 원본 부재, 백업 제외 지시 반영 | 완료 |
 | RLS 자동 회귀 테스트 | `tests/rls.test.ts`로 migration RLS/policy 정적 검증 완료 | 완료 |
 | Supabase RLS CRUD 통합 검증 | 사용자 지시에 따라 MCP 대체 검증 완료: anon select 0 rows/insert denied, authenticated CRUD affected=1, ROLLBACK 후 marker 잔여 0건 | 완료 |
