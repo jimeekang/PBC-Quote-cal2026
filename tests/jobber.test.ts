@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
+  assertJobberReadOnlyScopes,
   buildJobberAuthorizationUrl,
   getJobberConfig,
   getMissingGraphqlConfigKeys,
@@ -7,6 +8,7 @@ import {
 } from '@/lib/jobber/config'
 import { exchangeAuthorizationCode, getTokenExpiresAt, refreshAccessToken } from '@/lib/jobber/oauth'
 import {
+  assertJobberReadOnlyGraphqlDocument,
   fetchJobberQuote,
   fetchJobberQuoteJobs,
   fetchJobberJob,
@@ -80,6 +82,19 @@ describe('jobber config', () => {
     expect(config.graphqlVersion).toBe('2025-04-16')
     expect(getMissingGraphqlConfigKeys(config)).toEqual([])
   })
+
+  it('accepts only read-only Jobber OAuth scopes when scope data is present', () => {
+    expect(() => assertJobberReadOnlyScopes('clients:read quotes:read jobs:read expenses:read')).not.toThrow()
+    expect(() => assertJobberReadOnlyScopes('clients:read,quotes:read')).not.toThrow()
+    expect(() => assertJobberReadOnlyScopes('clients.read products_read jobs-read read')).not.toThrow()
+    expect(() => assertJobberReadOnlyScopes(null)).not.toThrow()
+    expect(() => assertJobberReadOnlyScopes('quotes:read jobs:write')).toThrow('Jobber OAuth scopes must be read-only')
+    expect(() => assertJobberReadOnlyScopes('clients:read quoteCreate')).toThrow('Jobber OAuth scopes must be read-only')
+    expect(() => assertJobberReadOnlyScopes('clients:read jobs:manage')).toThrow('Jobber OAuth scopes must be read-only')
+    expect(() => assertJobberReadOnlyScopes('clients:read jobs:write:read')).toThrow('Jobber OAuth scopes must be read-only')
+    expect(() => assertJobberReadOnlyScopes('clients quotes:read')).toThrow('Jobber OAuth scopes must be read-only')
+    expect(() => assertJobberReadOnlyScopes('spreadsheet quotes:read')).toThrow('Jobber OAuth scopes must be read-only')
+  })
 })
 
 describe('jobber oauth', () => {
@@ -142,18 +157,48 @@ describe('jobber oauth', () => {
     expect((request.body as URLSearchParams).get('refresh_token')).toBe('old-refresh-token')
   })
 
+  it('rejects refreshed Jobber tokens that gain write scopes', async () => {
+    const fetcher = vi.fn(async () => new Response(JSON.stringify({
+      access_token: 'new-access-token',
+      refresh_token: 'new-refresh-token',
+      expires_in: 7200,
+      token_type: 'Bearer',
+      scope: 'quotes:read jobs:write',
+    }), { status: 200 }))
+
+    await expect(refreshAccessToken('old-refresh-token', {
+      clientId: 'client-123',
+      clientSecret: 'secret-456',
+      redirectUri: 'https://example.com/api/jobber/callback',
+      graphqlVersion: '2025-04-16',
+      accessToken: '',
+    }, fetcher)).rejects.toThrow('Jobber OAuth scopes must be read-only')
+  })
+
   it('computes token expiration timestamps from expires_in', () => {
     expect(getTokenExpiresAt({
       accessToken: 'access-token',
       refreshToken: 'refresh-token',
       expiresIn: 60,
       tokenType: 'Bearer',
-      scope: null,
+      scope: 'quotes:read',
     }, new Date('2026-05-13T00:00:00.000Z'))).toBe('2026-05-13T00:01:00.000Z')
   })
 })
 
 describe('jobber client', () => {
+  it('rejects GraphQL mutation documents before sending requests', () => {
+    expect(() => assertJobberReadOnlyGraphqlDocument(`
+      mutation PbcWrite($id: EncodedId!) {
+        quoteDelete(input: { quoteId: $id }) {
+          quote {
+            id
+          }
+        }
+      }
+    `)).toThrow('Jobber integration is read-only')
+  })
+
   it('posts GraphQL requests with bearer auth and Jobber version headers', async () => {
     const fetcher = vi.fn(async () => new Response(JSON.stringify({
       data: {

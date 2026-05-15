@@ -1,7 +1,7 @@
 import { isDevNoAuthMode } from '@/lib/actions/types'
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { JobberConfig } from './config'
+import { assertJobberReadOnlyScopes, type JobberConfig } from './config'
 import { getTokenExpiresAt, refreshAccessToken, type JobberTokenResponse } from './oauth'
 import type { StoredJobberToken } from './tokens'
 
@@ -30,6 +30,11 @@ function isStoredJobberToken(value: unknown): value is StoredJobberToken {
     typeof (value as StoredJobberToken).accessToken === 'string' &&
     typeof (value as StoredJobberToken).refreshToken === 'string' &&
     (
+      (value as StoredJobberToken).scope === undefined ||
+      (value as StoredJobberToken).scope === null ||
+      typeof (value as StoredJobberToken).scope === 'string'
+    ) &&
+    (
       (value as StoredJobberToken).expiresAt === null ||
       typeof (value as StoredJobberToken).expiresAt === 'string'
     )
@@ -56,10 +61,12 @@ async function writeDevTokenToDisk(token: StoredJobberToken): Promise<void> {
 
 export async function saveDevJobberToken(token: JobberTokenResponse): Promise<StoredJobberToken> {
   ensureDevMode()
+  assertJobberReadOnlyScopes(token.scope)
 
   const storedToken = {
     accessToken: token.accessToken,
     refreshToken: token.refreshToken,
+    scope: token.scope,
     expiresAt: getTokenExpiresAt(token),
   }
   globalThis.__pbcJobberDevToken = storedToken
@@ -82,6 +89,7 @@ export async function getUsableDevJobberToken(config: JobberConfig): Promise<Sto
 
   const token = globalThis.__pbcJobberDevToken ?? await readDevTokenFromDisk()
   if (!token) return null
+  assertJobberReadOnlyScopes(token.scope ?? null)
   globalThis.__pbcJobberDevToken = token
   if (!shouldRefresh(token.expiresAt)) return token
 

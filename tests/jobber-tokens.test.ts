@@ -15,7 +15,7 @@ vi.mock('@/lib/jobber/oauth', () => ({
   getTokenExpiresAt: () => '2026-05-14T01:00:00.000Z',
 }))
 
-import { getStoredJobberToken, getUsableJobberToken } from '@/lib/jobber/tokens'
+import { getStoredJobberToken, getUsableJobberToken, refreshStoredJobberToken } from '@/lib/jobber/tokens'
 import { encryptTokenValue } from '@/lib/jobber/token-encryption'
 
 const config: JobberConfig = {
@@ -30,6 +30,7 @@ interface JobberTokenRow {
   user_id: string
   access_token: string
   refresh_token: string
+  scope: string | null
   expires_at: string | null
 }
 
@@ -74,12 +75,14 @@ describe('jobber tokens', () => {
       user_id: 'current-user',
       access_token: 'stale-access-token',
       refresh_token: 'stale-refresh-token',
+      scope: 'quotes:read',
       expires_at: '2026-05-14T00:30:00.000Z',
     }
     const latestRow = {
       user_id: 'jobber-owner',
       access_token: 'latest-access-token',
       refresh_token: 'latest-refresh-token',
+      scope: 'quotes:read',
       expires_at: '2026-05-14T00:30:00.000Z',
     }
     const selectBuilder = createSelectBuilder(currentUserRow, latestRow)
@@ -106,12 +109,14 @@ describe('jobber tokens', () => {
       user_id: 'current-user',
       access_token: 'stale-access-token',
       refresh_token: 'stale-refresh-token',
+      scope: 'quotes:read',
       expires_at: '2026-05-14T00:30:00.000Z',
     }
     const latestRow = {
       user_id: 'jobber-owner',
       access_token: encryptTokenValue('latest-access-token'),
       refresh_token: encryptTokenValue('latest-refresh-token'),
+      scope: 'quotes:read',
       expires_at: '2026-05-14T00:30:00.000Z',
     }
     const selectBuilder = createSelectBuilder(currentUserRow, latestRow)
@@ -134,6 +139,7 @@ describe('jobber tokens', () => {
       user_id: 'jobber-owner',
       access_token: 'expired-access-token',
       refresh_token: 'owner-refresh-token',
+      scope: 'quotes:read',
       expires_at: '2026-05-14T00:00:00.000Z',
     }
     const selectBuilder = createSelectBuilder(latestRow, latestRow)
@@ -169,12 +175,14 @@ describe('jobber tokens', () => {
       user_id: 'jobber-owner',
       access_token: 'expired-access-token',
       refresh_token: 'old-refresh-token',
+      scope: 'quotes:read',
       expires_at: '2026-05-14T00:00:00.000Z',
     }
     const refreshedRow = {
       user_id: 'jobber-owner',
       access_token: 'already-refreshed-access-token',
       refresh_token: 'already-refreshed-refresh-token',
+      scope: 'quotes:read',
       expires_at: '2099-05-14T00:00:00.000Z',
     }
     const firstSelectBuilder = createSelectBuilder(expiredRow, expiredRow)
@@ -197,5 +205,35 @@ describe('jobber tokens', () => {
       refreshToken: 'already-refreshed-refresh-token',
       expiresAt: '2099-05-14T00:00:00.000Z',
     })
+  })
+
+  it('does not save refreshed Jobber tokens when the refresh response gains write scopes', async () => {
+    mocks.refreshAccessToken.mockRejectedValueOnce(new Error('Jobber OAuth scopes must be read-only'))
+
+    await expect(refreshStoredJobberToken(
+      'current-user',
+      'owner-refresh-token',
+      config,
+      'jobber-owner'
+    )).rejects.toThrow('Jobber OAuth scopes must be read-only')
+
+    expect(mocks.createServiceClient).not.toHaveBeenCalled()
+  })
+
+  it('rejects stored Jobber tokens whose saved scope is no longer read-only', async () => {
+    const storedRow = {
+      user_id: 'jobber-owner',
+      access_token: 'access-token',
+      refresh_token: 'refresh-token',
+      scope: 'quotes:read jobs:write',
+      expires_at: '2099-05-14T00:00:00.000Z',
+    }
+    const selectBuilder = createSelectBuilder(storedRow, storedRow)
+
+    mocks.createServiceClient.mockResolvedValueOnce({
+      from: vi.fn(() => selectBuilder),
+    })
+
+    await expect(getStoredJobberToken('current-user')).rejects.toThrow('Jobber OAuth scopes must be read-only')
   })
 })

@@ -181,6 +181,18 @@ const DEFAULT_THROTTLE_RETRIES = 2
 const DEFAULT_THROTTLE_RETRY_DELAY_MS = 500
 const MAX_THROTTLE_RETRY_DELAY_MS = 3000
 
+export function assertJobberReadOnlyGraphqlDocument(query: string): void {
+  const executableLines = query
+    .split('\n')
+    .map((line) => line.replace(/#.*/, '').trim())
+    .filter(Boolean)
+  const document = executableLines.join(' ')
+
+  if (/\bmutation\b/i.test(document)) {
+    throw new Error('Jobber integration is read-only; GraphQL mutations are not allowed')
+  }
+}
+
 const JOBBER_QUOTE_QUERY = `
   fragment PbcCustomFieldParts on CustomFieldUnion {
     ... on CustomFieldText {
@@ -863,6 +875,8 @@ async function postJobberGraphql(
   variables: Record<string, string>,
   options: FetchJobberQuoteOptions
 ): Promise<unknown> {
+  assertJobberReadOnlyGraphqlDocument(query)
+
   const fetcher = options.fetcher ?? fetch
   const maxRetries = options.maxThrottleRetries ?? DEFAULT_THROTTLE_RETRIES
   const requestInit: RequestInit = {

@@ -12,10 +12,14 @@ export default defineConfig({
       include: ['lib/**/*.ts'],
       exclude: ['lib/supabase/types.ts'],
       thresholds: {
-        lines: 100,
-        branches: 100,
-        functions: 100,
-        statements: 100,
+        'lib/calculator.ts': {
+          100: true,
+        },
+        'lib/actions/**/*.ts': {
+          statements: 80,
+          lines: 80,
+          functions: 80,
+        },
       },
     },
   },

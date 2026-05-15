@@ -11,7 +11,7 @@
 |---|---|
 | **앱** | PBC 견적 계산기 — 페인팅 회사 PBC 사내 도구 |
 | **스택** | Next.js 16 (App Router) + React 19 + TypeScript + Tailwind CSS 4 + Supabase + Vercel |
-| **현재 버전** | v1.0 핵심 플로우 완성, v1.0+ (옵션·Jobber 연동) 진행 중 |
+| **현재 버전** | v1.0 핵심 플로우 완성, v1.0+ (옵션·Jobber 읽기 전용 연동) 진행 중 |
 | **배포 URL** | https://pbc-quote-cal2026-kjm12081-3858s-projects.vercel.app |
 | **GitHub Repo** | jimeekang/PBC-Quote-cal2026 (branch: main) |
 
@@ -20,7 +20,7 @@
 ## v1.0 전체 진행 현황
 
 ```
-[█████████████████░░░] 85% — 핵심 플로우/Auth/Jobber 읽기/옵션 완료, QA·RLS 테스트 잔여
+[██████████████████░░] 90% — 핵심 플로우/Auth/Jobber 읽기 전용/옵션 완료, QA·프로덕션 게이트 잔여
 ```
 
 ---
@@ -117,7 +117,9 @@
 - [x] `app/api/jobber/callback/route.ts` — OAuth code → token 교환
 - [x] `app/api/jobber/quote/[quoteId]/route.ts` — Jobber GraphQL 견적 조회 + refresh 처리
 - [x] `quotes.jobber_quote_id` + `jobber_snapshot JSONB`로 견적 원본 캐시
-- [x] 테스트: `tests/jobber.test.ts`, `tests/jobber-tokens.test.ts`, `tests/jobber-token-encryption.test.ts`, `tests/jobber-quote-route-refresh.test.ts`, `tests/jobber-route-security.test.ts`
+- [x] `lib/jobber/client.ts` — Jobber GraphQL mutation 문서 차단 가드로 영구 read-only 보장
+- [x] `lib/jobber/config.ts`, `lib/jobber/tokens.ts`, `lib/jobber/dev-tokens.ts`, `app/api/jobber/callback/route.ts` — OAuth token scope가 응답/저장값에 있으면 `:read` 또는 `.read`/`_read`/`-read`/`read` 명시 표기만 허용, write/create/update/delete/edit/manage 단어가 포함되면 위치와 무관하게 연결 거부; scope가 없는 Jobber 공식 token 응답은 GraphQL mutation 차단 가드로 read-only 보장
+- [x] 테스트: `tests/jobber.test.ts`, `tests/jobber-tokens.test.ts`, `tests/jobber-dev-tokens.test.ts`, `tests/jobber-token-encryption.test.ts`, `tests/jobber-quote-route-refresh.test.ts`, `tests/jobber-route-security.test.ts`, `tests/jobber-readonly-regression.test.ts`
 
 ### 옵션 견적 (2026-05-15)
 
@@ -129,23 +131,99 @@
 - [x] `lib/dev-data.ts`, `lib/actions/quotes.ts` 옵션 영속화·복원
 - [x] 테스트 보강: `tests/quote-draft.test.ts`, `tests/quote-actions.test.ts`
 
+### 테스트/검증 보강 (2026-05-15)
+
+- [x] `tests/rls.test.ts` — RLS 마이그레이션 회귀 검증(앱 테이블 RLS 활성화, 인증 사용자 CRUD 정책, anon/public 정책 부재, `jobber_tokens` service-role only)
+- [x] `tests/rls-local-integration.test.ts` — Supabase local RLS CRUD 조건부 통합 테스트 추가(필수 환경 변수 없으면 skip, 준비되면 anon 거부 + authenticated CRUD 실행)
+- [x] `vitest.config.ts` — `DECISIONS.md` #9에 맞춰 `lib/calculator.ts` 100% 커버리지 threshold 강제
+- [x] `tests/calculator.test.ts` — 계산기 커버리지 100% 보강
+- [x] Server Actions Supabase 경로 단위 테스트 보강: `tests/settings-actions-supabase.test.ts`, `tests/areas-actions-supabase.test.ts`, `tests/products-actions-supabase.test.ts`, `tests/quote-actions-supabase.test.ts`
+- [x] `vitest.config.ts` — `lib/actions/**/*.ts` statements/lines/functions 80% threshold 강제
+- [x] 로컬 검증: `npm.cmd run verify` 추가 및 최신 재통과(2026-05-15 17:57, git diff whitespace check, typecheck, lint, test:run 36 passed files / 171 passed tests + 1 skipped file / 2 skipped tests, test:coverage, build, audit, `npm audit --audit-level=high` 0 vulnerabilities)
+- [x] `npm.cmd audit --audit-level=high` 0 vulnerabilities (`postcss` override로 Next 내부 transitive `postcss`를 8.5.14로 고정)
+- [x] `npm.cmd ls postcss` 확인: `next`/`vite`/`@tailwindcss/postcss` 모두 `postcss@8.5.14` dedupe/override 적용
+- [x] `npm.cmd ci` 재현성 검증 시도: Windows `lightningcss` native binary unlink `EPERM`으로 차단, `npm.cmd install`로 복구 후 typecheck/lint/test/audit/build 재통과
+- [x] 로컬 HTTP smoke: `npm.cmd run dev -- --port 3000` 후 `/login` 200, `/`·`/quotes`·`/quotes/new`·`/settings`·`/api/jobber/connect` 307 확인
+- [x] Production HTTP smoke: `npm.cmd run start -- --port 3100` 후 `/login` 200, `/`·`/quotes`·`/quotes/new`·`/settings`·`/api/jobber/connect` 307 확인
+- [x] Edge headless 보조 smoke(2026-05-15): `npm.cmd run start -- --port 3200` 후 `/login` 실제 브라우저 screenshot 생성(`.gstack/qa-reports/screenshots/edge-login-smoke-2026-05-15.png`) 및 로그인 폼 렌더링 확인. 추가 HTTP 재확인에서 `/`·`/quotes`·`/quotes/new`·`/settings`는 모두 `/login` 307 리다이렉트 정상. Edge `--dump-dom`은 리다이렉트 대상 DOM을 비워 반환해 보호 라우트 브라우저 판정에는 부적합. 이는 `/gstack-qa` 수정 루프 대체가 아니라 gstack browse 차단 중 가능한 보조 검증
+- [x] 프로덕션 Supabase 읽기 전용 재확인(MCP, 2026-05-15): 적용 migration은 `0001_initial_schema`, `0002_rls_policies`, `add_jobber_tokens`, `sync_quote_area_and_labour_schema`, `add_quote_jobber_snapshot`; 앱 테이블 RLS + `authenticated_all` policy 확인, `jobber_tokens` RLS enabled + policy 없음 확인, `quote_options`/`quote_option_items` 미존재 확인
+- [x] 프로덕션 Supabase 0009 preflight 및 적용/검증(MCP, 2026-05-15): `quotes`/`products`/`quote_areas` 및 `gen_random_uuid()` 존재, `quote_options`/`quote_option_items`·관련 index·policy 이름 충돌 없음 확인. 사용자 승인 후 `add_quote_options` migration 적용 완료, `quote_options`/`quote_option_items` 테이블 존재, RLS enabled, `authenticated_all` ALL policy, 관련 index 3개, FK 4개 확인
+- [x] Supabase MCP RLS CRUD 대체 검증(2026-05-15, 사용자 지시): `anon` role은 `products` select 0 rows + insert RLS denied, `authenticated` role은 트랜잭션/ROLLBACK 안에서 `pricing_settings` read/update, `products`/`quote_areas`/`quotes`/`quote_items` create/read/update/delete 모두 affected=1, 테스트 marker 잔여 0건 확인
+- [x] 프로덕션 Supabase anon Data API smoke: `products`/`pricing_settings`/`quotes`/`quote_items`/`quote_areas`/`jobber_tokens` 모두 200 + 0 rows로 미인증 데이터 노출 없음 확인
+- [x] 완료 감사(2026-05-15): `supabase`, `docker`, `pg_dump`, `vercel` 로컬 명령 모두 미설치 확인, Jobber GraphQL 호출 경로가 `postJobberGraphql` 단일 read-only 가드를 통과하는지 정적 확인, OAuth/저장/dev token read·refresh write scope 거부 및 route-level GraphQL 호출 차단 테스트, `tests/jobber-readonly-regression.test.ts`로 회귀 방지
+- [x] Jobber dev token 보안 확인: `.jobber.local.json`은 `.gitignore`에 포함되어 로컬 OAuth token 파일 commit 방지
+- [x] 보안 정적 검색/회귀 테스트: `.env*`/`.jobber.local.json` ignore, `console.log`/`dangerouslySetInnerHTML` 없음, `SUPABASE_SERVICE_ROLE_KEY`는 `lib/supabase/server.ts` 경계에만 존재, `tests/security-static.test.ts`로 재발 방지, `actual_price`는 DB 필드·테스트 데이터 경로에서만 확인
+- [x] 충돌/디버그 잔여 확인: unmerged 파일 및 conflict marker 없음, `console.log`/`debugger` 없음, TODO는 실제 PBC 과거 견적 3건 대기 fixture placeholder에만 존재
+- [x] Jobber 네트워크 경로 정적 확인: Jobber 외부 통신은 OAuth token endpoint(`lib/jobber/oauth.ts`)와 중앙 GraphQL client(`lib/jobber/client.ts`)뿐이며, GraphQL 호출은 `postJobberGraphql`의 mutation 차단 가드를 통과
+- [x] Jobber 공식 문서 확인(2026-05-15): OAuth scope는 authorization URL이 아니라 Developer Center 앱 설정 기준으로 승인되므로, 코드에서는 token 응답/저장 scope 검증과 GraphQL mutation 차단을 병행해 read-only를 보장
+
 ---
 
 ## 🔲 남은 작업 (v1.0 완료 전)
 
 ### 테스트 보강
 
-- [ ] `tests/rls.test.ts` — RLS 정책 자동 검증 (사용자 격리·미인증 거부)
-- [ ] Server Actions 단위 테스트 커버리지 80%+ 정식 측정
-- [ ] `tests/fixtures/historical-quotes.ts` — 실제 PBC 과거 견적 3건으로 교체
+- [x] `tests/rls.test.ts` — RLS 마이그레이션 자동 회귀 검증 완료
+- [x] Supabase RLS CRUD 통합 검증 — local stack 대신 사용자 지시에 따라 MCP 대체 검증 완료(`tests/rls-local-integration.test.ts`는 환경 준비 시 재실행 가능한 조건부 테스트로 유지)
+- [x] Server Actions 단위 테스트 커버리지 80%+ 달성 및 threshold 설정 (2026-05-15 측정: `lib/actions` statements 80.40%, lines 85.60%, functions 85.24%)
+- [ ] `tests/fixtures/historical-quotes.ts` — 실제 PBC 과거 견적 3건으로 교체 (현재 `tests/calculator.test.ts`에 연결된 샘플 1건 placeholder만 통과 중; `PBC quotation cal - new.xlsx` 재확인 결과 `Sheet1` 단일 시트, `A1:W47` 범위의 계산기 파일이며 작업공간 내 다른 과거 견적 원본 파일 없음)
 
 ### QA / 배포 준비
 
-- [ ] `/gstack-qa`로 전체 플로우 QA 실행 + 회귀 수정
-- [ ] 프로덕션 Supabase 마이그레이션 0003~0009 적용 확인
-- [ ] 자동 백업 셋업 (Pro Plan 또는 cron `pg_dump` — `TODOS.md` #2)
+- [ ] `/gstack-qa`로 전체 플로우 QA 실행 + 회귀 수정 (원본 dirty worktree는 gstack QA 규칙상 commit/stash/abort 결정 전 차단; `docs/UI-UX-REVIEW.md` 미추적 파일이 섞여 있어 Codex가 임의 처리하지 않음. 대체 시도로 `PBC-Quote-cal-qa-worktree` 임시 worktree에 Codex 변경분만 적용해 baseline commit 후 `npm.cmd install` 및 `npm.cmd run verify` 재통과했으나, gstack browse 실행 파일이 `server.ts`를 찾지 못해 브라우저 QA 단계 차단. report-only QA는 전체 수정 루프 대체 불가)
+- [x] 프로덕션 Supabase 마이그레이션 0009 적용 확인 (2026-05-15 MCP: `add_quote_options` migration 적용, `quote_options`/`quote_option_items` 테이블·RLS·policy·index·FK 확인)
+- [x] 자동 백업 셋업 제외 — 사용자 지시로 진행하지 않음 (2026-05-15)
 
-### UX 잔여
+### 완료 감사 체크리스트
+
+- [x] Jobber 영구 read-only: OAuth write scope 거부 + GraphQL mutation 차단 + 소스 레벨 read-only 회귀 테스트 통과
+- [x] 로컬 품질 게이트: `npm.cmd run verify` 통과
+- [x] PROGRESS.md 업데이트: 완료/차단 항목과 실제 검증 증거 기록
+- [ ] 실제 PBC 과거 견적 3건 확보 후 `tests/fixtures/historical-quotes.ts` 교체
+- [x] Supabase local dev stack 대신 MCP 대체 검증 승인 후 RLS CRUD 통합 검증 완료
+- [ ] dirty worktree 처리(commit/stash/abort) 결정 후 `/gstack-qa` 실행
+- [x] 프로덕션 Supabase 0009 마이그레이션 명시 승인 후 적용/검증
+- [x] 백업 방식 설정 제외 — 사용자 지시로 진행하지 않음 (2026-05-15)
+
+### 작업 목표 기준
+
+| 원 요청 | 완료 기준 |
+|---|---|
+| `PROGRESS.md` 134번째 줄 이후 남은 v1.0 작업 계획/진행 | 완료된 항목은 체크 처리, 차단 항목은 원인과 승인/입력 조건 기록 |
+| Jobber를 영구 read-only로 유지 | token scope 검증, GraphQL mutation 차단, Jobber endpoint 중앙화 회귀 테스트, 공식 문서 근거 기록 |
+| 모든 오류 제거 | `npm.cmd run verify` 전체 통과 및 audit 0 vulnerabilities |
+| 완료되면 파일 업데이트 | `PROGRESS.md`에 검증 결과, 남은 차단 항목, 승인 후 실행 작업 기록 |
+| 백업 방식은 진행하지 않기 | 백업 관련 항목을 제외 완료로 표시하고 실행하지 않음 |
+
+### 완료 감사 증거 매핑 (2026-05-15)
+
+| 요구사항 | 증거 | 상태 |
+|---|---|---|
+| Jobber 영구 read-only 유지 | `lib/jobber/client.ts` GraphQL mutation 차단, OAuth/저장/dev token scope 검증, Jobber 네트워크 경로가 OAuth token endpoint와 중앙 GraphQL client뿐임을 정적 확인, `tests/jobber-readonly-regression.test.ts` 포함 Jobber 테스트 통과 | 완료 |
+| 모든 로컬 오류 제거 | `npm.cmd run verify` 재통과(2026-05-15 17:57): whitespace, typecheck, lint, test 36 passed files / 171 passed tests + 1 skipped file / 2 skipped tests, coverage, build, audit 0 vulnerabilities | 완료 |
+| `PROGRESS.md` 최신화 | 완료/차단 항목, Supabase MCP RLS CRUD 대체 검증, 프로덕션 Supabase 0009 적용/검증, fixture 원본 부재, 백업 제외 지시 반영 | 완료 |
+| RLS 자동 회귀 테스트 | `tests/rls.test.ts`로 migration RLS/policy 정적 검증 완료 | 완료 |
+| Supabase RLS CRUD 통합 검증 | 사용자 지시에 따라 MCP 대체 검증 완료: anon select 0 rows/insert denied, authenticated CRUD affected=1, ROLLBACK 후 marker 잔여 0건 | 완료 |
+| 실제 PBC 과거 견적 fixture 3건 | `tests/calculator.test.ts`는 `HISTORICAL_FIXTURES`를 실행하지만 현재 fixture는 샘플 1건 placeholder뿐이며, 작업공간 파일 재확인 결과 `PBC quotation cal - new.xlsx`는 `Sheet1` 단일 시트 `A1:W47`; 3건 과거 견적 원본 없음 | 사용자 데이터 제공 필요 |
+| `/gstack-qa` 전체 플로우 QA | 원본 dirty worktree에서는 commit/stash/abort 결정 전 중단; `docs/UI-UX-REVIEW.md` 미추적 파일이 섞여 있어 Codex가 임의 처리하지 않음. 임시 QA worktree(`PBC-Quote-cal-qa-worktree`, branch `codex-qa-temp`)에 Codex 변경분만 적용해 baseline commit `bccca42` 생성, `npm.cmd install` 및 `npm.cmd run verify` 재통과. 이후 gstack browse `browse.exe status`가 `Cannot find server.ts. Set BROWSE_SERVER_SCRIPT env or run from the browse source tree.`로 실패해 브라우저 QA 차단. `qa-only`는 dirty 차단은 없지만 수정/커밋/재검증 루프가 없어 acceptance 대체 불가 | 사용자 결정/gstack setup 필요 |
+| 프로덕션 Supabase 0009 적용 | 사용자 승인 후 MCP로 `add_quote_options` migration 적용 완료. `quote_options`/`quote_option_items` 테이블 존재, RLS enabled, `authenticated_all` ALL policy, 관련 index 3개, FK 4개 확인 | 완료 |
+| 백업 방식 | 사용자 지시로 진행하지 않음 | 제외 완료 |
+
+### 사용자 입력/승인 필요 (남은 차단 2개)
+
+- 실제 PBC 과거 견적 3건의 입력값/기대 결과 제공 필요
+- `/gstack-qa` 실행 전 현재 변경사항 commit/stash/abort 중 하나 결정 필요, 또는 gstack browse setup/source tree 복구 필요
+- 백업 방식은 사용자 지시로 진행하지 않음 (2026-05-15)
+
+### 승인 후 실행 작업
+
+| 승인/입력 | 바로 실행할 작업 |
+|---|---|
+| 실제 PBC 과거 견적 3건 제공 | `tests/fixtures/historical-quotes.ts`를 실제 3건으로 교체하고 `npm.cmd run test:run` 및 `npm.cmd run verify` 재실행 |
+| dirty worktree 처리 방식 결정 | 결정된 방식(commit/stash/abort)에 맞춰 정리 후 `/gstack-qa` 실행, 발견 이슈 수정 및 재검증 |
+| 백업 방식 | 사용자 지시로 진행하지 않음 |
+
+### UX 잔여 (v1.0 완료 차단 아님, v1.1+로 이관 — `docs/DECISIONS.md` #1 기준)
 
 - [ ] 과거 견적 복제(Duplicate) 기능 (`TODOS.md` #4)
 - [ ] 페인트 DB 관리 UI 정식판 (`TODOS.md` #3)
@@ -193,3 +271,5 @@
 | 2026-05-15 | "fixed loop error" 안정화 — 검색 URL 동기화, products 액션 보안, 보안 헤더 회귀 테스트 | Codex |
 | 2026-05-15 | 옵션 견적(add-on) 1차 구현 — 설계/계획 문서, 마이그레이션 0009, `QuoteOptionsPanel`/`OptionTotalsSummary`, Server Action 옵션 영속화, `quote-draft` 로컬 저장 | Codex |
 | 2026-05-15 | PROGRESS.md·DB-SCHEMA·CALCULATION·ARCHITECTURE·README·TODOS 동기화 (Jobber·옵션·labour_per_day·GST 반영) | Claude Code |
+| 2026-05-15 | RLS 마이그레이션 회귀 테스트 추가, Jobber GraphQL mutation 및 write scope 차단으로 read-only 보강, 계산기 100% 및 Server Actions 80%+ 커버리지 threshold 정렬, 로컬 검증 통과 | Codex |
+| 2026-05-15 | 사용자 승인 후 프로덕션 Supabase `add_quote_options` migration 적용 및 MCP로 option 테이블 RLS/policy/index/FK 검증 | Codex |

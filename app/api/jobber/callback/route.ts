@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getJobberConfig, getMissingOAuthConfigKeys } from '@/lib/jobber/config'
+import { assertJobberReadOnlyScopes, getJobberConfig, getMissingOAuthConfigKeys } from '@/lib/jobber/config'
 import { saveDevJobberToken } from '@/lib/jobber/dev-tokens'
 import { exchangeAuthorizationCode, getTokenExpiresAt } from '@/lib/jobber/oauth'
 import { encryptTokenValue } from '@/lib/jobber/token-encryption'
@@ -30,6 +30,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const token = await exchangeAuthorizationCode(code, config)
+    assertJobberReadOnlyScopes(token.scope)
     const expiresAt = getTokenExpiresAt(token)
 
     if (isDevNoAuthMode()) {

@@ -38,8 +38,8 @@ function toDecimal(value: Decimal | number): Decimal {
 
 function toCompactDecimal(value: Decimal | number): string {
   const text = toDecimal(value).toFixed(2)
-  const [integerPart, fractionPart] = text.split('.')
-  if (!fractionPart || Number(fractionPart) === 0) return integerPart
+  const [integerPart, fractionPart = ''] = text.split('.')
+  if (Number(fractionPart) === 0) return integerPart
   return `${integerPart}.${fractionPart.replace(/0+$/, '')}`
 }
 

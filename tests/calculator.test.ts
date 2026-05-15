@@ -6,6 +6,7 @@ import {
   calculateFinal,
   ValidationError,
   DEFAULT_PRICING_SETTINGS,
+  formatFormulaRate,
   getFormulaDescriptions,
   type PricingSettings,
   type CalculatorInput,
@@ -98,6 +99,11 @@ describe('calculateAllFormulas', () => {
     ])
   })
 
+  it('keeps non-zero decimal places in formula rate labels', () => {
+    expect(formatFormulaRate(new Decimal('500.25'))).toBe('L500.25')
+    expect(formatFormulaRate(460.50)).toBe('L460.5')
+  })
+
   it('works with 0.5 day increments', () => {
     const results = calculateAllFormulas({ ...base, workingDays: 0.5 }, s)
     // 500 × 0.5 + 342.50 = 592.50
@@ -155,6 +161,10 @@ describe('calculateSubtotal', () => {
 
   it('throws ValidationError for invalid formula number', () => {
     expect(() => calculateSubtotal(results, 1, 6 as 1)).toThrow(ValidationError)
+  })
+
+  it('throws ValidationError when the min formula is missing', () => {
+    expect(() => calculateSubtotal(results, 6 as 1, 1)).toThrow(ValidationError)
   })
 })
 

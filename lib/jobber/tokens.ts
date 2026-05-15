@@ -1,5 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
-import type { JobberConfig } from './config'
+import { assertJobberReadOnlyScopes, type JobberConfig } from './config'
 import { getTokenExpiresAt, refreshAccessToken } from './oauth'
 import { decryptTokenValue, encryptTokenValue } from './token-encryption'
 
@@ -7,6 +7,7 @@ export interface StoredJobberToken {
   ownerUserId?: string
   accessToken: string
   refreshToken: string
+  scope?: string | null
   expiresAt: string | null
 }
 
@@ -26,7 +27,7 @@ export async function getStoredJobberToken(userId: string): Promise<StoredJobber
   const service = await createServiceClient()
   const { data, error } = await service
     .from('jobber_tokens')
-    .select('user_id, access_token, refresh_token, expires_at')
+    .select('user_id, access_token, refresh_token, scope, expires_at')
     .order('updated_at', { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -36,6 +37,7 @@ export async function getStoredJobberToken(userId: string): Promise<StoredJobber
   }
 
   if (!data) return null
+  assertJobberReadOnlyScopes(data.scope)
 
   return {
     ownerUserId: data.user_id,

@@ -1,4 +1,4 @@
-import { JOBBER_TOKEN_URL, type JobberConfig } from './config'
+import { assertJobberReadOnlyScopes, JOBBER_TOKEN_URL, type JobberConfig } from './config'
 
 export interface JobberTokenResponse {
   accessToken: string
@@ -17,13 +17,15 @@ function parseTokenResponse(payload: unknown): JobberTokenResponse {
     throw new Error('Invalid Jobber token response')
   }
 
-  return {
+  const token = {
     accessToken: payload.access_token,
     refreshToken: payload.refresh_token,
     expiresIn: typeof payload.expires_in === 'number' ? payload.expires_in : null,
     tokenType: typeof payload.token_type === 'string' ? payload.token_type : null,
     scope: typeof payload.scope === 'string' ? payload.scope : null,
   }
+  assertJobberReadOnlyScopes(token.scope)
+  return token
 }
 
 export async function exchangeAuthorizationCode(

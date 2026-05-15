@@ -111,4 +111,20 @@ describe('jobber quote route token refresh', () => {
       graphqlVersion: '2025-04-16',
     })
   })
+
+  it('does not call Jobber GraphQL when the stored token scope is not read-only', async () => {
+    mocks.getUsableJobberToken.mockRejectedValueOnce(new Error('Jobber OAuth scopes must be read-only'))
+    const request = new NextRequest(
+      'http://localhost:3000/api/jobber/quote/Z2lkOi8vSm9iYmVyL1F1b3RlLzE='
+    )
+
+    const response = await jobberQuoteRoute(request, {
+      params: Promise.resolve({ quoteId: 'Z2lkOi8vSm9iYmVyL1F1b3RlLzE=' }),
+    })
+
+    expect(response.status).toBe(502)
+    expect(await response.json()).toEqual({ ok: false, error: 'Jobber OAuth scopes must be read-only' })
+    expect(mocks.fetchJobberQuote).not.toHaveBeenCalled()
+    expect(mocks.fetchJobberQuoteJobs).not.toHaveBeenCalled()
+  })
 })

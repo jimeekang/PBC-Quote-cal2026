@@ -43,6 +43,26 @@ export function getMissingGraphqlConfigKeys(config: JobberConfig): string[] {
   return missing
 }
 
+export function assertJobberReadOnlyScopes(scope: string | null): void {
+  if (!scope) return
+
+  const scopes = scope
+    .split(/[\s,]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+
+  const hasWriteScope = scopes.some((item) => {
+    const normalized = item.toLowerCase()
+    if (/(write|create|update|delete|edit|manage)/i.test(normalized)) return true
+    if (normalized.includes(':')) return !normalized.endsWith(':read')
+    return !/(^|[._-])read$/.test(normalized)
+  })
+
+  if (hasWriteScope) {
+    throw new Error('Jobber OAuth scopes must be read-only')
+  }
+}
+
 export function buildJobberAuthorizationUrl(config: JobberConfig, state: string): URL {
   const url = new URL(JOBBER_AUTHORIZATION_URL)
   url.searchParams.set('response_type', 'code')
