@@ -4,7 +4,7 @@
 
 Excel 2개 + Jobber를 오가던 견적 작업을 **한 페이지**에서 끝낸다. 페인트 자재 검색, 5가지 견적 공식 동시 계산, min/max 선택, 견적 저장·검색까지.
 
-**상태:** v1.0 핵심 플로우 완성 (Auth · 견적 생성·수정·삭제 · 옵션 견적 · Jobber 읽기 연동 완료 / QA·테스트 보강 잔여)
+**상태:** v1.0 핵심 플로우 완성 (Auth · 견적 생성·수정·삭제 · 옵션 견적 · Jobber 읽기 연동 · QA/RLS 검증 완료 / 실제 과거 견적 fixture 잔여)
 
 ---
 
@@ -35,8 +35,11 @@ npm test
 |---|---|
 | **[CLAUDE.md](./CLAUDE.md)** | Claude Code 작업 가이드. 역할(설계자), 스킬 라우팅, 핵심 결정 |
 | **[AGENTS.md](./AGENTS.md)** | Codex/AI agent 작업 가이드. 역할(실행자), 코딩 스타일, 금지 사항 |
+| **[PROGRESS.md](./PROGRESS.md)** | 현재 진행 상태, 완료/차단 항목, 전체 변경 이력 |
+| **[docs/AGENT-MAP.md](./docs/AGENT-MAP.md)** | 작업 유형별 필독 문서 매트릭스 |
 | **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)** | 시스템 구조, DB 스키마, RLS 정책, 환경 변수 |
 | **[docs/CALCULATION.md](./docs/CALCULATION.md)** | 5가지 견적 공식 정확한 명세, 정밀도 규칙, 검증 |
+| **[docs/UI-UX-REVIEW.md](./docs/UI-UX-REVIEW.md)** | v1.0 UI/UX 정적 리뷰, 접근성·시각 위계·quick win 개선안 |
 | **[docs/WORKFLOW.md](./docs/WORKFLOW.md)** | Claude ↔ Codex 협업 흐름, 작업 분담, 충돌 처리 |
 | **[TODOS.md](./TODOS.md)** | v1.1+ 작업 목록 (Jobber 연동, 자동 백업 등) |
 
@@ -69,7 +72,7 @@ npm test
 
 | 버전 | 범위 | 상태 |
 |---|---|---|
-| v1.0 | Auth, 페인트 DB(Dulux 시드), 5가지 공식 계산기(GST 포함), 견적 CRUD, 작업 영역(area), 옵션 견적, Settings, Jobber 읽기 전용 연동 | 핵심 플로우 완료, QA·RLS 테스트 잔여 |
+| v1.0 | Auth, 페인트 DB(Dulux 시드), 5가지 공식 계산기(GST 포함), 견적 CRUD, 작업 영역(area), 옵션 견적, Settings, Jobber 읽기 전용 연동 | 핵심 플로우·QA·RLS 검증 완료, 실제 과거 견적 fixture 3건 대기 |
 | v1.1 | 과거 견적 복제 기능, Jobber 옵션 line item 매핑 | TODOS #4 |
 | v1.5 | 페인트 DB 관리 정식 UI, 자동 백업 강화 | TODOS #2, #3 |
 | v2 | 자동 견적가 추산 (ML), 분석 대시보드 | 데이터 쌓인 후 |

@@ -48,6 +48,7 @@
 | `docs/UI-DESIGN.md` | UI 개요·페이지 목록·디자인 토큰·구현 순서 |
 | `docs/UI-QUOTE-FORM.md` | `/quotes/new` 상세 (메인 화면) |
 | `docs/UI-PAGES.md` | 로그인·목록·상세·설정 페이지 |
+| `docs/UI-UX-REVIEW.md` | v1.0 UI/UX 정적 리뷰·접근성·시각 위계·quick win 개선안 |
 
 ### 워크플로우
 
@@ -84,7 +85,7 @@
 | **DB 마이그레이션** (Codex) | `AGENTS.md` → `docs/DB-SCHEMA.md` → `docs/SECURITY.md` |
 | **계산 로직** (Codex) | `AGENTS.md` → `docs/CALCULATION.md` → `docs/CALCULATION-API.md` → `docs/CODING-STYLE.md` |
 | **Server Actions** (Codex) | `AGENTS.md` → `docs/ARCHITECTURE.md` → `docs/DB-SCHEMA.md` → `docs/CODING-STYLE.md` |
-| **UI 컴포넌트** (Codex) | `AGENTS.md` → `docs/UI-DESIGN.md` → (페이지별: `UI-QUOTE-FORM.md` 또는 `UI-PAGES.md`) → `docs/CODING-STYLE.md` |
+| **UI 컴포넌트** (Codex) | `AGENTS.md` → `docs/UI-DESIGN.md` → (페이지별: `UI-QUOTE-FORM.md` 또는 `UI-PAGES.md`) → `docs/UI-UX-REVIEW.md` → `docs/CODING-STYLE.md` |
 | **테스트 작성** (Codex) | `AGENTS.md` → `docs/CALCULATION.md` → `docs/CALCULATION-API.md` → `PROGRESS.md` |
 | **코드 리뷰** (Claude) | `CLAUDE.md` → `docs/DECISIONS.md` → `docs/CODING-STYLE.md` → `docs/SECURITY.md` |
 | **배포** (Codex) | `AGENTS.md` → `docs/DEPLOY.md` → `docs/SECURITY.md` |

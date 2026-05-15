@@ -11,7 +11,7 @@
 |---|---|
 | **앱** | PBC 견적 계산기 — 페인팅 회사 PBC 사내 도구 |
 | **스택** | Next.js 16 (App Router) + React 19 + TypeScript + Tailwind CSS 4 + Supabase + Vercel |
-| **현재 버전** | v1.0 핵심 플로우 완성, v1.0+ (옵션·Jobber 읽기 전용 연동) 진행 중 |
+| **현재 버전** | v1.0 핵심 플로우 완성, v1.0+ 옵션·Jobber 읽기 전용·QA 완료, 실제 과거 견적 fixture 대기 |
 | **배포 URL** | https://pbc-quote-cal2026-kjm12081-3858s-projects.vercel.app |
 | **GitHub Repo** | jimeekang/PBC-Quote-cal2026 (branch: main) |
 
@@ -73,7 +73,7 @@
 - [x] `lib/validators.ts` — quote / pricing settings / product search / quote options Zod 스키마
 - [x] `lib/utils.ts` — `cn`, CAD 통화 포맷, Decimal 기반 숫자 포맷 helper
 - [x] `app/page.tsx` — 루트 → `/login` redirect
-- [x] `next.config.ts` — 보안 헤더 + 빌드 옵션 / `tests/security-headers.test.ts`로 회귀 보호
+- [x] `next.config.ts` — 보안 헤더 + Turbopack root 빌드 옵션 / `tests/security-headers.test.ts`로 회귀 보호
 
 ### 견적 핵심 플로우 (v1.0)
 
@@ -105,6 +105,10 @@
 
 - [x] `/settings` 페이지 — pricing settings (일당, 마진율) 수정 UI (`components/settings/settings-form.tsx`)
 - [x] `tests/settings-ui.test.tsx`
+
+### UI/UX 리뷰 (2026-05-15)
+
+- [x] `docs/UI-UX-REVIEW.md` — v1.0 전체 화면/컴포넌트 정적 리뷰 작성. Design Score C+ 기준으로 포커스 링, 삭제 버튼, 시각 위계, 폰트/색상 토큰, sticky 결과 카드, 모달 a11y 등 P0/P1 quick win 정리
 
 ### 제품 관리
 
@@ -224,6 +228,7 @@
 
 ### UX 잔여 (v1.0 완료 차단 아님, v1.1+로 이관 — `docs/DECISIONS.md` #1 기준)
 
+- [ ] `docs/UI-UX-REVIEW.md` P0 quick win 검토: 전역 focus-visible, 삭제 버튼 아이콘화, contrast 보정, draft 이탈 모달 a11y
 - [ ] 과거 견적 복제(Duplicate) 기능 (`TODOS.md` #4)
 - [ ] 페인트 DB 관리 UI 정식판 (`TODOS.md` #3)
 
@@ -273,3 +278,4 @@
 | 2026-05-15 | RLS 마이그레이션 회귀 테스트 추가, Jobber GraphQL mutation 및 write scope 차단으로 read-only 보강, 계산기 100% 및 Server Actions 80%+ 커버리지 threshold 정렬, 로컬 검증 통과 | Codex |
 | 2026-05-15 | 사용자 승인 후 프로덕션 Supabase `add_quote_options` migration 적용 및 MCP로 option 테이블 RLS/policy/index/FK 검증 | Codex |
 | 2026-05-15 | `/gstack-qa` 브라우저 QA 실행 — gstack browse 런타임 복구, 임시 Supabase Auth 사용자로 로그인 후 견적 생성/상세/편집/Settings 확인, QA 데이터 정리 | Codex |
+| 2026-05-15 | `docs/UI-UX-REVIEW.md` 문서 발견성 반영, README/AGENT-MAP/PROGRESS 동기화, `next.config.ts` Turbopack root 설정 기록 | Codex |
