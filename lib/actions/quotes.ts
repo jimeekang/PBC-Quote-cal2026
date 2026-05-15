@@ -11,7 +11,7 @@ import {
   type PricingSettings,
 } from '@/lib/calculator'
 import Decimal from 'decimal.js'
-import { calculateLabourTotals } from '@/lib/quote-labour'
+import { calculateFormulaLabourDays, calculateLabourTotals } from '@/lib/quote-labour'
 import { createClient } from '@/lib/supabase/server'
 import type { Database, Json } from '@/lib/supabase/types'
 import { jobberQuoteSnapshotSchema, pricingSettingsSchema, quoteSchema, type QuoteInput } from '@/lib/validators'
@@ -251,8 +251,8 @@ export async function createQuote(input: unknown): Promise<ActionResult<{ id: st
 
   const formulas = calculateAllFormulas(
     {
-      workingDays: parsed.data.workingDays,
-      labourPerDay: parsed.data.labourPerDay,
+      workingDays: calculateFormulaLabourDays(parsed.data.workingDays, parsed.data.labourPerDay, parsed.data.items),
+      labourPerDay: 1,
       materialMarket: parsed.data.materialMarket,
       materialActual: parsed.data.materialActual,
     },
@@ -356,8 +356,8 @@ export async function updateQuote(input: unknown): Promise<ActionResult<{ id: st
 
   const formulas = calculateAllFormulas(
     {
-      workingDays: parsed.data.workingDays,
-      labourPerDay: parsed.data.labourPerDay,
+      workingDays: calculateFormulaLabourDays(parsed.data.workingDays, parsed.data.labourPerDay, parsed.data.items),
+      labourPerDay: 1,
       materialMarket: parsed.data.materialMarket,
       materialActual: parsed.data.materialActual,
     },

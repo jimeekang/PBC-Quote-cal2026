@@ -26,6 +26,7 @@ import {
 } from './quote-draft'
 import { QuoteOptionsPanel } from './quote-options-panel'
 import { OptionTotalsSummary } from './option-totals-summary'
+import { calculateMainQuoteTotals } from './quote-calculation-totals'
 import type { FormulaNumber, MaterialItem, QuoteOptionItem } from './types'
 import type { AreaRecord } from '@/lib/areas/types'
 import type {
@@ -265,30 +266,13 @@ export function QuoteForm({ settings, areas, initialQuote }: QuoteFormProps) {
   }, [draftStorageKey])
 
   const totals = useMemo(() => {
-    const materialMarket = materials.reduce(
-      (total, item) => total.add(decimalFromInput(item.marketPrice).mul(decimalFromInput(item.quantity))),
-      new Decimal(0)
-    )
-    const materialActual = materialMarket
-    const materialLabour = calculateLabourTotals(materials)
-    const totalWorkingDays = decimalFromInput(workingDays)
-    const totalLabourPerDay = decimalFromInput(labourPerDay)
-    const results = calculateAllFormulas(
-      {
-        workingDays: totalWorkingDays,
-        labourPerDay: totalLabourPerDay,
-        materialMarket,
-        materialActual,
-      },
-      settings
-    )
-    const subtotal = calculateSubtotal(results, selectedMin, selectedMax)
-    const finalTotal = calculateFinal(subtotal)
-    const subtotalLabour = Decimal.max(subtotal.sub(materialMarket), 0)
-    const totalLabourDays = totalWorkingDays.mul(totalLabourPerDay)
-
-    return { materialMarket, materialActual, materialLabour, totalWorkingDays, totalLabourPerDay, totalLabourDays, results, subtotal, subtotalLabour, finalTotal }
-  }, [labourPerDay, materials, selectedMax, selectedMin, settings, workingDays])
+    return calculateMainQuoteTotals({
+      materials,
+      selectedMin,
+      selectedMax,
+      settings,
+    })
+  }, [materials, selectedMax, selectedMin, settings])
 
   useEffect(() => {
     const storedDraft = parseQuoteFormDraft(window.localStorage.getItem(draftStorageKey))
@@ -678,19 +662,21 @@ export function QuoteForm({ settings, areas, initialQuote }: QuoteFormProps) {
             <div className="grid gap-4 sm:grid-cols-2">
               <DecimalInput
                 label="Total Working Days"
-                value={workingDays}
-                onValueChange={setWorkingDays}
+                value={totals.totalWorkingDays.toFixed(2)}
+                onValueChange={() => undefined}
                 labelClassName="space-y-1 text-sm font-medium text-gray-700"
-                inputClassName="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900"
+                inputClassName="w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900"
                 warningClassName="block text-xs font-normal text-amber-600"
+                readOnly
               />
               <DecimalInput
                 label="Labour Per Day"
-                value={labourPerDay}
-                onValueChange={setLabourPerDay}
+                value={totals.totalLabourPerDay.toFixed(2)}
+                onValueChange={() => undefined}
                 labelClassName="space-y-1 text-sm font-medium text-gray-700"
-                inputClassName="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900"
+                inputClassName="w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900"
                 warningClassName="block text-xs font-normal text-amber-600"
+                readOnly
               />
             </div>
             <p className="text-sm text-gray-500">Labour days: {totals.totalLabourDays.toFixed(2)}</p>

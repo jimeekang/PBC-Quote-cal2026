@@ -104,6 +104,71 @@ describe('quote actions', () => {
     }
   })
 
+  it('stores main labour column totals while pricing formulas use summed main row labour days', async () => {
+    const created = await createQuote({
+      customerName: 'Main Labour Customer',
+      workingDays: 3,
+      labourPerDay: 3,
+      materialMarket: 60,
+      materialActual: 60,
+      selectedMin: 1,
+      selectedMax: 1,
+      items: [
+        {
+          productNameSnapshot: 'Main wall paint',
+          marketPriceSnapshot: 40,
+          actualPriceSnapshot: 40,
+          quantity: 1,
+          workingDays: 2,
+          labourPerDay: 1,
+          isCustom: true,
+          position: 0,
+        },
+        {
+          productNameSnapshot: 'Main trim paint',
+          marketPriceSnapshot: 20,
+          actualPriceSnapshot: 20,
+          quantity: 1,
+          workingDays: 1,
+          labourPerDay: 2,
+          isCustom: true,
+          position: 1,
+        },
+      ],
+      options: [
+        {
+          title: 'Option 1 - Excluded labour',
+          selectedMin: 1,
+          selectedMax: 1,
+          items: [
+            {
+              productNameSnapshot: 'Option paint',
+              marketPriceSnapshot: 999,
+              actualPriceSnapshot: 999,
+              quantity: 1,
+              workingDays: 10,
+              labourPerDay: 10,
+              isCustom: true,
+              position: 0,
+            },
+          ],
+          position: 0,
+        },
+      ],
+    })
+    if (!created.ok) throw new Error(created.error)
+
+    const fetched = await getQuote(created.data.id)
+
+    expect(fetched.ok).toBe(true)
+    if (fetched.ok && fetched.data) {
+      expect(fetched.data.workingDays).toBe('3.00')
+      expect(fetched.data.labourPerDay).toBe('3.00')
+      expect(fetched.data.formula1Total).toBe('2060.00')
+      expect(fetched.data.finalTotal).toBe('2266.00')
+    }
+  })
+
   it('deletes a saved quote through the action layer', async () => {
     const created = await createQuote({
       customerName: 'Delete Customer',
