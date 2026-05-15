@@ -1,8 +1,7 @@
 'use client'
 
 import Decimal from 'decimal.js'
-import { useMemo, useState, useTransition } from 'react'
-import Link from 'next/link'
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   calculateAllFormulas,
@@ -17,6 +16,14 @@ import { CustomerPanel } from './customer-panel'
 import { MaterialsPanel } from './materials-panel'
 import { FormulaResults } from './formula-results'
 import { FinalSummary } from './final-summary'
+import { DecimalInput } from './decimal-input'
+import {
+  createEmptyQuoteFormDraft,
+  getQuoteDraftStorageKey,
+  hasMeaningfulQuoteDraft,
+  parseQuoteFormDraft,
+  type QuoteFormDraft,
+} from './quote-draft'
 import type { FormulaNumber, MaterialItem } from './types'
 import type { AreaRecord } from '@/lib/areas/types'
 import type {
@@ -39,6 +46,10 @@ type JobberQuoteResponse =
   | { ok: false; error: string }
 
 type JobberLookupType = 'quote' | 'job'
+
+function getComparableDraftValue(draft: QuoteFormDraft): string {
+  return JSON.stringify({ ...draft, updatedAt: '' })
+}
 
 function isJobberQuoteResponse(value: unknown): value is JobberQuoteResponse {
   if (typeof value !== 'object' || value === null) return false
@@ -149,12 +160,76 @@ export function QuoteForm({ settings, areas, initialQuote }: QuoteFormProps) {
   const [workType, setWorkType] = useState(initialQuote?.workType ?? '')
   const [customerType, setCustomerType] = useState(initialQuote?.jobberSnapshot?.customerType ?? '')
   const [materials, setMaterials] = useState<MaterialItem[]>(initialQuote ? mapQuoteItemsToMaterials(initialQuote) : [])
+  const [workingDays, setWorkingDays] = useState(initialQuote?.workingDays ?? '0')
+  const [labourPerDay, setLabourPerDay] = useState(initialQuote?.labourPerDay ?? '0')
   const [selectedMin, setSelectedMin] = useState<FormulaNumber>(initialQuote?.selectedMin ?? 4)
   const [selectedMax, setSelectedMax] = useState<FormulaNumber>(initialQuote?.selectedMax ?? 1)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [jobberFetchError, setJobberFetchError] = useState<string | null>(null)
   const [isFetchingJobberQuote, setIsFetchingJobberQuote] = useState(false)
   const [jobberQuoteDraft, setJobberQuoteDraft] = useState<JobberQuoteDraft | null>(initialQuote?.jobberSnapshot ?? null)
+  const [availableDraft, setAvailableDraft] = useState<QuoteFormDraft | null>(null)
+  const [draftMessage, setDraftMessage] = useState<string | null>(null)
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
+  const [hasCheckedStoredDraft, setHasCheckedStoredDraft] = useState(false)
+  const isNavigatingRef = useRef(false)
+
+  const draftStorageKey = useMemo(() => getQuoteDraftStorageKey(initialQuote?.id), [initialQuote?.id])
+
+  const currentDraft = useMemo<QuoteFormDraft>(() => ({
+    ...createEmptyQuoteFormDraft(),
+    customerName,
+    customerAddress,
+    jobberLookupType,
+    jobberQuoteLookup,
+    jobberQuoteId,
+    workType,
+    customerType,
+    materials,
+    workingDays,
+    labourPerDay,
+    selectedMin,
+    selectedMax,
+    jobberQuoteDraft,
+    updatedAt: new Date().toISOString(),
+  }), [
+    customerAddress,
+    customerName,
+    customerType,
+    jobberLookupType,
+    jobberQuoteDraft,
+    jobberQuoteId,
+    jobberQuoteLookup,
+    labourPerDay,
+    materials,
+    selectedMax,
+    selectedMin,
+    workType,
+    workingDays,
+  ])
+
+  const currentComparableDraft = useMemo(() => getComparableDraftValue(currentDraft), [currentDraft])
+  const [initialComparableDraft] = useState(currentComparableDraft)
+  const isDirty = hasCheckedStoredDraft &&
+    currentComparableDraft !== initialComparableDraft &&
+    hasMeaningfulQuoteDraft(currentDraft)
+
+  const writeDraftToStorage = useCallback(() => {
+    if (typeof window === 'undefined') return
+    const draft = { ...currentDraft, updatedAt: new Date().toISOString() }
+    window.localStorage.setItem(draftStorageKey, JSON.stringify(draft))
+  }, [currentDraft, draftStorageKey])
+
+  const persistDraft = useCallback(() => {
+    writeDraftToStorage()
+    setDraftMessage('Draft saved locally.')
+  }, [writeDraftToStorage])
+
+  const clearDraft = useCallback(() => {
+    if (typeof window === 'undefined') return
+    window.localStorage.removeItem(draftStorageKey)
+    setDraftMessage(null)
+  }, [draftStorageKey])
 
   const totals = useMemo(() => {
     const materialMarket = materials.reduce(
@@ -162,11 +237,13 @@ export function QuoteForm({ settings, areas, initialQuote }: QuoteFormProps) {
       new Decimal(0)
     )
     const materialActual = materialMarket
-    const labour = calculateLabourTotals(materials)
+    const materialLabour = calculateLabourTotals(materials)
+    const totalWorkingDays = decimalFromInput(workingDays)
+    const totalLabourPerDay = decimalFromInput(labourPerDay)
     const results = calculateAllFormulas(
       {
-        workingDays: labour.labourDays,
-        labourPerDay: 1,
+        workingDays: totalWorkingDays,
+        labourPerDay: totalLabourPerDay,
         materialMarket,
         materialActual,
       },
@@ -175,9 +252,132 @@ export function QuoteForm({ settings, areas, initialQuote }: QuoteFormProps) {
     const subtotal = calculateSubtotal(results, selectedMin, selectedMax)
     const finalTotal = calculateFinal(subtotal)
     const subtotalLabour = Decimal.max(subtotal.sub(materialMarket), 0)
+    const totalLabourDays = totalWorkingDays.mul(totalLabourPerDay)
 
-    return { materialMarket, materialActual, labour, results, subtotal, subtotalLabour, finalTotal }
-  }, [materials, selectedMax, selectedMin, settings])
+    return { materialMarket, materialActual, materialLabour, totalWorkingDays, totalLabourPerDay, totalLabourDays, results, subtotal, subtotalLabour, finalTotal }
+  }, [labourPerDay, materials, selectedMax, selectedMin, settings, workingDays])
+
+  useEffect(() => {
+    const storedDraft = parseQuoteFormDraft(window.localStorage.getItem(draftStorageKey))
+    const timeoutId = window.setTimeout(() => {
+      if (storedDraft && hasMeaningfulQuoteDraft(storedDraft)) {
+        setAvailableDraft(storedDraft)
+      }
+      setHasCheckedStoredDraft(true)
+    }, 0)
+    return () => window.clearTimeout(timeoutId)
+  }, [draftStorageKey])
+
+  useEffect(() => {
+    if (!isDirty) return
+    writeDraftToStorage()
+  }, [isDirty, writeDraftToStorage])
+
+  useEffect(() => {
+    if (!isDirty) return
+
+    function handleBeforeUnload(event: BeforeUnloadEvent) {
+      writeDraftToStorage()
+      event.preventDefault()
+      event.returnValue = ''
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [isDirty, writeDraftToStorage])
+
+  useEffect(() => {
+    if (!isDirty) return
+
+    function handleDocumentClick(event: MouseEvent) {
+      if (
+        isNavigatingRef.current ||
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      ) {
+        return
+      }
+
+      const target = event.target instanceof Element ? event.target.closest('a[href]') : null
+      if (!(target instanceof HTMLAnchorElement)) return
+
+      const targetUrl = new URL(target.href)
+      if (targetUrl.origin !== window.location.origin) return
+      if (`${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}` === `${window.location.pathname}${window.location.search}${window.location.hash}`) return
+
+      event.preventDefault()
+      setPendingNavigation(`${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`)
+    }
+
+    document.addEventListener('click', handleDocumentClick, true)
+    return () => document.removeEventListener('click', handleDocumentClick, true)
+  }, [isDirty])
+
+  useEffect(() => {
+    if (!isDirty) return
+
+    window.history.pushState({ quoteDraftGuard: true }, '', window.location.href)
+
+    function handlePopState() {
+      if (isNavigatingRef.current) return
+      window.history.pushState({ quoteDraftGuard: true }, '', window.location.href)
+      setPendingNavigation('/quotes')
+    }
+
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [isDirty])
+
+  function restoreDraft(draft: QuoteFormDraft) {
+    setCustomerName(draft.customerName)
+    setCustomerAddress(draft.customerAddress)
+    setJobberLookupType(draft.jobberLookupType)
+    setJobberQuoteLookup(draft.jobberQuoteLookup)
+    setJobberQuoteId(draft.jobberQuoteId)
+    setWorkType(draft.workType)
+    setCustomerType(draft.customerType)
+    setMaterials(draft.materials)
+    setWorkingDays(draft.workingDays)
+    setLabourPerDay(draft.labourPerDay)
+    setSelectedMin(draft.selectedMin)
+    setSelectedMax(draft.selectedMax)
+    setJobberQuoteDraft(draft.jobberQuoteDraft)
+    setAvailableDraft(null)
+    setDraftMessage('Draft restored.')
+  }
+
+  function discardStoredDraft() {
+    clearDraft()
+    setAvailableDraft(null)
+  }
+
+  function navigateTo(target: string) {
+    isNavigatingRef.current = true
+    router.push(target)
+  }
+
+  function requestNavigation(target: string) {
+    if (isDirty) {
+      setPendingNavigation(target)
+      return
+    }
+
+    navigateTo(target)
+  }
+
+  function saveDraftAndLeave() {
+    persistDraft()
+    navigateTo(pendingNavigation ?? '/quotes')
+  }
+
+  function leaveWithoutDraft() {
+    clearDraft()
+    navigateTo(pendingNavigation ?? '/quotes')
+  }
 
   function addMaterial(item: MaterialItem) {
     setMaterials((current) => [...current, item])
@@ -238,8 +438,8 @@ export function QuoteForm({ settings, areas, initialQuote }: QuoteFormProps) {
         jobberQuoteId: jobberQuoteId || jobberQuoteLookup,
         jobberSnapshot: jobberQuoteDraft ?? undefined,
         workType,
-        workingDays: Number(totals.labour.workingDays.toString()),
-        labourPerDay: Number(totals.labour.labourPerDay.toString()),
+        workingDays: Number(totals.totalWorkingDays.toString()),
+        labourPerDay: Number(totals.totalLabourPerDay.toString()),
         materialMarket: Number(totals.materialMarket.toString()),
         materialActual: Number(totals.materialActual.toString()),
         selectedMin,
@@ -264,6 +464,8 @@ export function QuoteForm({ settings, areas, initialQuote }: QuoteFormProps) {
         : await createQuote(payload)
 
       if (result.ok) {
+        clearDraft()
+        isNavigatingRef.current = true
         router.push(initialQuote ? `/quotes/${initialQuote.id}` : '/quotes')
       } else {
         setSaveError(result.error)
@@ -275,7 +477,7 @@ export function QuoteForm({ settings, areas, initialQuote }: QuoteFormProps) {
     <div className="mx-auto max-w-7xl px-6 py-6">
       <div className="mb-5 flex items-center justify-between gap-4">
         <div>
-          <Link href="/quotes" className="text-sm text-gray-500 hover:text-gray-900">Back to Quotes</Link>
+          <button type="button" onClick={() => requestNavigation('/quotes')} className="text-sm text-gray-500 hover:text-gray-900">Back to Quotes</button>
           <h1 className="mt-1 text-2xl font-bold text-gray-900">{initialQuote ? 'Edit Quote' : 'New Quote'} <span className="text-blue-500">.</span></h1>
         </div>
         <button type="button" onClick={saveQuote} disabled={isPending} className="rounded-md bg-slate-700 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50">
@@ -284,6 +486,20 @@ export function QuoteForm({ settings, areas, initialQuote }: QuoteFormProps) {
       </div>
 
       {saveError ? <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{saveError}</p> : null}
+      {availableDraft ? (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <span>Unsaved draft found from {new Date(availableDraft.updatedAt).toLocaleString('en-AU')}.</span>
+          <span className="flex gap-2">
+            <button type="button" onClick={() => restoreDraft(availableDraft)} className="rounded-md bg-amber-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-800">
+              Restore Draft
+            </button>
+            <button type="button" onClick={discardStoredDraft} className="rounded-md border border-amber-300 px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100">
+              Discard
+            </button>
+          </span>
+        </div>
+      ) : null}
+      {draftMessage ? <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">{draftMessage}</p> : null}
 
       <div className="grid gap-6 xl:grid-cols-2">
         <div className="space-y-8 rounded-md border border-gray-200 bg-white p-5">
@@ -311,17 +527,28 @@ export function QuoteForm({ settings, areas, initialQuote }: QuoteFormProps) {
           <section className="space-y-4">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Calculation</h2>
             <div className="grid gap-4 sm:grid-cols-2">
-              <label className="space-y-1 text-sm font-medium text-gray-700">
-                Working Days
-                <input value={totals.labour.workingDays.toFixed(2)} readOnly className="w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700" />
-              </label>
-              <label className="space-y-1 text-sm font-medium text-gray-700">
-                Labour Per Day
-                <input value={totals.labour.labourPerDay.toFixed(2)} readOnly className="w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700" />
-              </label>
+              <DecimalInput
+                label="Total Working Days"
+                value={workingDays}
+                onValueChange={setWorkingDays}
+                labelClassName="space-y-1 text-sm font-medium text-gray-700"
+                inputClassName="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900"
+                warningClassName="block text-xs font-normal text-amber-600"
+              />
+              <DecimalInput
+                label="Labour Per Day"
+                value={labourPerDay}
+                onValueChange={setLabourPerDay}
+                labelClassName="space-y-1 text-sm font-medium text-gray-700"
+                inputClassName="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900"
+                warningClassName="block text-xs font-normal text-amber-600"
+              />
             </div>
-            <p className="text-sm text-gray-500">Labour days: {totals.labour.labourDays.toFixed(2)}</p>
-            {totals.labour.workingDays.gt(365) ? <p className="text-sm text-amber-600">Over 365 days - double check.</p> : null}
+            <p className="text-sm text-gray-500">Labour days: {totals.totalLabourDays.toFixed(2)}</p>
+            {totals.materialLabour.labourDays.gt(0) ? (
+              <p className="text-xs text-gray-400">Material row labour: {totals.materialLabour.labourDays.toFixed(2)}</p>
+            ) : null}
+            {totals.totalWorkingDays.gt(365) ? <p className="text-sm text-amber-600">Over 365 days - double check.</p> : null}
           </section>
 
           <FormulaResults results={totals.results} selectedMin={selectedMin} selectedMax={selectedMax} onSelectedMinChange={setSelectedMin} onSelectedMaxChange={setSelectedMax} />
@@ -334,6 +561,25 @@ export function QuoteForm({ settings, areas, initialQuote }: QuoteFormProps) {
           />
         </div>
       </div>
+      {pendingNavigation ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-md bg-white p-5 shadow-xl">
+            <h2 className="text-lg font-semibold text-gray-900">Save draft before leaving?</h2>
+            <p className="mt-2 text-sm text-gray-600">You have unsaved quote changes. Save a local draft so this quote can be restored when you return.</p>
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <button type="button" onClick={() => setPendingNavigation(null)} className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                Cancel
+              </button>
+              <button type="button" onClick={leaveWithoutDraft} className="rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50">
+                Leave without draft
+              </button>
+              <button type="button" onClick={saveDraftAndLeave} className="rounded-md bg-slate-700 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
+                Save draft
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { searchProducts } from '@/lib/actions/products'
 import type { ProductRecord } from '@/lib/products/types'
 import type { MaterialItem } from './types'
+import { createCustomMaterialItem, createProductMaterialItem } from './material-item-factory'
 
 interface PaintSearchProps {
   onAdd: (item: MaterialItem) => void
@@ -36,26 +37,7 @@ export function PaintSearch({ onAdd }: PaintSearchProps) {
   }, [query])
 
   function addProduct(product: ProductRecord) {
-    onAdd({
-      id: crypto.randomUUID(),
-      productId: product.id,
-      name: product.name,
-      manufacturer: product.manufacturer,
-      type: product.type,
-      unit: product.unit,
-      category: product.category,
-      productLine: product.productLine,
-      base: product.base,
-      sheen: product.sheen,
-      volumeLitres: product.volumeLitres,
-      productCode: product.productCode,
-      marketPrice: product.marketPrice,
-      actualPrice: product.marketPrice,
-      quantity: '1',
-      workingDays: '1',
-      labourPerDay: '1',
-      isCustom: false,
-    })
+    onAdd(createProductMaterialItem(product))
     setQuery('')
     setResults([])
   }
@@ -63,16 +45,7 @@ export function PaintSearch({ onAdd }: PaintSearchProps) {
   function addCustom() {
     const name = query.trim()
     if (!name) return
-    onAdd({
-      id: crypto.randomUUID(),
-      name,
-      marketPrice: '0',
-      actualPrice: '0',
-      quantity: '1',
-      workingDays: '1',
-      labourPerDay: '1',
-      isCustom: true,
-    })
+    onAdd(createCustomMaterialItem(name))
     setQuery('')
     setResults([])
   }

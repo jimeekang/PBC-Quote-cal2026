@@ -149,7 +149,7 @@ describe('dev data store', () => {
     expect(getDevQuote(quote.id)?.jobberSnapshot?.jobExpenses[0].expenses[0].title).toBe('Paint supplies')
   })
 
-  it('uses summed item labour days for formula totals while saving visible field totals', () => {
+  it('uses editable total labour fields for formula totals while saving row labour fields', () => {
     const quote = createDevQuote({
       workingDays: 3,
       labourPerDay: 3,
@@ -183,7 +183,9 @@ describe('dev data store', () => {
 
     expect(quote.workingDays).toBe('3.00')
     expect(quote.labourPerDay).toBe('3.00')
-    expect(quote.formula1Total).toBe('2000.00')
+    expect(quote.formula1Total).toBe('4500.00')
+    expect(quote.items[0].workingDays).toBe('2.00')
+    expect(quote.items[0].labourPerDay).toBe('1.00')
   })
 
   it('lists newest quotes first and filters by customer or address', () => {

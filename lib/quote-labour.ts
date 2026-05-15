@@ -1,5 +1,9 @@
 import Decimal from 'decimal.js'
 
+function isCompleteDecimalText(value: string): boolean {
+  return /^\d+(?:\.\d*)?$/.test(value)
+}
+
 export interface LabourLineInput {
   workingDays?: Decimal | number | string | null
   labourPerDay?: Decimal | number | string | null
@@ -15,7 +19,9 @@ export function decimalFromInput(value: Decimal | number | string | null | undef
   if (value instanceof Decimal) return value
 
   const text = String(value ?? '').trim()
-  return new Decimal(text === '' ? 0 : text)
+  if (text === '' || !isCompleteDecimalText(text)) return new Decimal(0)
+
+  return new Decimal(text)
 }
 
 export function calculateLabourTotals(lines: LabourLineInput[]): LabourTotals {

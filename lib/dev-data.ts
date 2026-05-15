@@ -6,7 +6,6 @@ import {
   calculateSubtotal,
   type PricingSettings,
 } from './calculator'
-import { calculateFormulaLabourDays } from './quote-labour'
 import { DULUX_PAINT_PRODUCTS } from './products/dulux-paints'
 import { normalizeRrpProduct, type ProductRecord } from './products/types'
 import type { AreaInput } from './validators'
@@ -302,8 +301,8 @@ export function getDevQuote(id: string): QuoteRecord | null {
 function buildDevQuoteRecord(id: string, createdAt: string, input: QuoteInput, settings: PricingSettings): QuoteRecord {
   const formulaResults = calculateAllFormulas(
     {
-      workingDays: calculateFormulaLabourDays(input.workingDays, input.labourPerDay, input.items),
-      labourPerDay: 1,
+      workingDays: input.workingDays,
+      labourPerDay: input.labourPerDay,
       materialMarket: input.materialMarket,
       materialActual: input.materialActual,
     },

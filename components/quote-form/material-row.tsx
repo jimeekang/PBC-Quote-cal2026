@@ -1,5 +1,6 @@
 import type { MaterialItem } from './types'
 import type { AreaRecord } from '@/lib/areas/types'
+import { DecimalInput } from './decimal-input'
 
 interface MaterialRowProps {
   item: MaterialItem
@@ -25,19 +26,22 @@ export function MaterialRow({ item, areas, onChange, onRemove }: MaterialRowProp
         <div className="truncate text-sm font-medium text-gray-900">{item.name}</div>
       </div>
       <div className="mt-2 grid gap-2 md:grid-cols-[3.75rem_4.75rem_1.3fr_4.75rem_4.75rem_2.75rem] md:items-end">
-        <label className="space-y-1 text-xs font-medium text-gray-600">
-          Qty
-          <input value={item.quantity} onChange={(event) => onChange({ ...item, quantity: event.target.value })} inputMode="decimal" className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs" />
-        </label>
-        <label className="space-y-1 text-xs font-medium text-gray-600">
-          RRP
-          <input
-            value={item.marketPrice}
-            onChange={(event) => onChange({ ...item, marketPrice: event.target.value, actualPrice: event.target.value })}
-            inputMode="decimal"
-            className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs"
-          />
-        </label>
+        <DecimalInput
+          label="Qty"
+          value={item.quantity}
+          onValueChange={(value) => onChange({ ...item, quantity: value })}
+          labelClassName="space-y-1 text-xs font-medium text-gray-600"
+          inputClassName="w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs"
+          warningClassName="block text-[11px] font-normal text-amber-600"
+        />
+        <DecimalInput
+          label="RRP"
+          value={item.marketPrice}
+          onValueChange={(value) => onChange({ ...item, marketPrice: value, actualPrice: value })}
+          labelClassName="space-y-1 text-xs font-medium text-gray-600"
+          inputClassName="w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs"
+          warningClassName="block text-[11px] font-normal text-amber-600"
+        />
         <label className="space-y-1 text-xs font-medium text-gray-600">
           Area
           <select
@@ -58,14 +62,22 @@ export function MaterialRow({ item, areas, onChange, onRemove }: MaterialRowProp
             ))}
           </select>
         </label>
-        <label className="space-y-1 text-xs font-medium text-gray-600">
-          Working Days
-          <input value={item.workingDays} onChange={(event) => onChange({ ...item, workingDays: event.target.value })} inputMode="decimal" className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs" />
-        </label>
-        <label className="space-y-1 text-xs font-medium text-gray-600">
-          Labour / Day
-          <input value={item.labourPerDay} onChange={(event) => onChange({ ...item, labourPerDay: event.target.value })} inputMode="decimal" className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs" />
-        </label>
+        <DecimalInput
+          label="Working Days"
+          value={item.workingDays}
+          onValueChange={(value) => onChange({ ...item, workingDays: value })}
+          labelClassName="space-y-1 text-xs font-medium text-gray-600"
+          inputClassName="w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs"
+          warningClassName="block text-[11px] font-normal text-amber-600"
+        />
+        <DecimalInput
+          label="Labour / Day"
+          value={item.labourPerDay}
+          onValueChange={(value) => onChange({ ...item, labourPerDay: value })}
+          labelClassName="space-y-1 text-xs font-medium text-gray-600"
+          inputClassName="w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs"
+          warningClassName="block text-[11px] font-normal text-amber-600"
+        />
         <label className="space-y-1 text-xs font-medium text-gray-600">
           <span>Action</span>
           <button
