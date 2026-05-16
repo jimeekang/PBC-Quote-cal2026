@@ -599,35 +599,36 @@ export function QuoteForm({ settings, areas, initialQuote }: QuoteFormProps) {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-6 py-6">
-      <div className="mb-5 flex items-center justify-between gap-4">
+    <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <button type="button" onClick={() => requestNavigation('/quotes')} className="text-sm text-gray-500 hover:text-gray-900">Back to Quotes</button>
-          <h1 className="mt-1 text-2xl font-bold text-gray-900">{initialQuote ? 'Edit Quote' : 'New Quote'} <span className="text-blue-500">.</span></h1>
+          <button type="button" onClick={() => requestNavigation('/quotes')} className="text-sm font-semibold text-slate-400 hover:text-[var(--primary)]">Back to Quotes</button>
+          <h1 className="mt-1 text-3xl font-bold text-slate-950">{initialQuote ? 'Edit Quote' : 'New Quote'}</h1>
+          <p className="mt-1 text-sm text-slate-500">Build the quote, compare formulas, and lock the final total.</p>
         </div>
-        <button type="button" onClick={saveQuote} disabled={isPending} className="rounded-md bg-slate-700 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50">
+        <button type="button" onClick={saveQuote} disabled={isPending} className="rounded-lg bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[var(--primary-strong)] disabled:opacity-50">
           {isPending ? 'Saving...' : initialQuote ? 'Update Quote' : 'Save Quote'}
         </button>
       </div>
 
-      {saveError ? <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{saveError}</p> : null}
+      {saveError ? <p className="mb-4 rounded-lg border border-red-100 bg-[var(--danger-soft)] px-3 py-2 text-sm font-medium text-[var(--danger)]">{saveError}</p> : null}
       {availableDraft ? (
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-100 bg-[var(--warning-soft)] px-4 py-3 text-sm text-amber-800">
           <span>Unsaved draft found from {new Date(availableDraft.updatedAt).toLocaleString('en-AU')}.</span>
           <span className="flex gap-2">
-            <button type="button" onClick={() => restoreDraft(availableDraft)} className="rounded-md bg-amber-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-800">
+            <button type="button" onClick={() => restoreDraft(availableDraft)} className="rounded-lg bg-amber-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-800">
               Restore Draft
             </button>
-            <button type="button" onClick={discardStoredDraft} className="rounded-md border border-amber-300 px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100">
+            <button type="button" onClick={discardStoredDraft} className="rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100">
               Discard
             </button>
           </span>
         </div>
       ) : null}
-      {draftMessage ? <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">{draftMessage}</p> : null}
+      {draftMessage ? <p className="mb-4 rounded-lg border border-green-100 bg-[var(--success-soft)] px-3 py-2 text-sm font-medium text-green-700">{draftMessage}</p> : null}
 
-      <div className="grid gap-6 xl:grid-cols-2">
-        <div className="space-y-8 rounded-md border border-gray-200 bg-white p-5">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.06fr)_minmax(360px,0.94fr)]">
+        <div className="space-y-8 rounded-lg border border-white bg-white/90 p-5 shadow-[var(--shadow-soft)]">
           <CustomerPanel
             customerName={customerName}
             customerAddress={customerAddress}
@@ -656,16 +657,16 @@ export function QuoteForm({ settings, areas, initialQuote }: QuoteFormProps) {
           />
         </div>
 
-        <div className="space-y-6 rounded-md border border-gray-200 bg-white p-5">
+        <aside className="space-y-6 rounded-lg border border-white bg-white/90 p-5 shadow-[var(--shadow-soft)] xl:sticky xl:top-24 xl:self-start">
           <section className="space-y-4">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Calculation</h2>
+            <h2 className="text-sm font-bold uppercase text-slate-400">Calculation</h2>
             <div className="grid gap-4 sm:grid-cols-2">
               <DecimalInput
                 label="Total Working Days"
                 value={totals.totalWorkingDays.toFixed(2)}
                 onValueChange={() => undefined}
-                labelClassName="space-y-1 text-sm font-medium text-gray-700"
-                inputClassName="w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900"
+                labelClassName="space-y-1 text-sm font-semibold text-slate-600"
+                inputClassName="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900"
                 warningClassName="block text-xs font-normal text-amber-600"
                 readOnly
               />
@@ -673,15 +674,15 @@ export function QuoteForm({ settings, areas, initialQuote }: QuoteFormProps) {
                 label="Labour Per Day"
                 value={totals.totalLabourPerDay.toFixed(2)}
                 onValueChange={() => undefined}
-                labelClassName="space-y-1 text-sm font-medium text-gray-700"
-                inputClassName="w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900"
+                labelClassName="space-y-1 text-sm font-semibold text-slate-600"
+                inputClassName="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900"
                 warningClassName="block text-xs font-normal text-amber-600"
                 readOnly
               />
             </div>
-            <p className="text-sm text-gray-500">Labour days: {totals.totalLabourDays.toFixed(2)}</p>
+            <p className="text-sm text-slate-500">Labour days: {totals.totalLabourDays.toFixed(2)}</p>
             {totals.materialLabour.labourDays.gt(0) ? (
-              <p className="text-xs text-gray-400">Material row labour: {totals.materialLabour.labourDays.toFixed(2)}</p>
+              <p className="text-xs text-slate-400">Material row labour: {totals.materialLabour.labourDays.toFixed(2)}</p>
             ) : null}
             {totals.totalWorkingDays.gt(365) ? <p className="text-sm text-amber-600">Over 365 days - double check.</p> : null}
           </section>
@@ -695,27 +696,27 @@ export function QuoteForm({ settings, areas, initialQuote }: QuoteFormProps) {
             jobberFinancialSummary={jobberQuoteDraft && !jobberQuoteDraft.jobExpensesError ? jobberQuoteDraft.financialSummary : null}
           />
           <OptionTotalsSummary options={optionSummaryItems} />
-        </div>
+        </aside>
       </div>
       {pendingNavigation ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-md rounded-md bg-white p-5 shadow-xl">
-            <h2 className="text-lg font-semibold text-gray-900">Save draft before leaving?</h2>
-            <p className="mt-2 text-sm text-gray-600">You have unsaved quote changes. Save a local draft so this quote can be restored when you return.</p>
+          <div role="dialog" aria-modal="true" aria-labelledby="leave-dialog-title" className="w-full max-w-md rounded-lg bg-white p-5 shadow-xl">
+            <h2 id="leave-dialog-title" className="text-lg font-bold text-slate-950">Save draft before leaving?</h2>
+            <p className="mt-2 text-sm text-slate-600">You have unsaved quote changes. Save a local draft so this quote can be restored when you return.</p>
             <div className="mt-5 flex flex-wrap justify-end gap-2">
-              <button type="button" onClick={() => setPendingNavigation(null)} className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+              <button type="button" onClick={() => setPendingNavigation(null)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">
                 Cancel
               </button>
-              <button type="button" onClick={leaveWithoutDraft} className="rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50">
+              <button type="button" onClick={leaveWithoutDraft} className="rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">
                 Leave without draft
               </button>
-              <button type="button" onClick={saveDraftAndLeave} className="rounded-md bg-slate-700 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
+              <button type="button" onClick={saveDraftAndLeave} className="rounded-lg bg-[var(--primary)] px-3 py-2 text-sm font-semibold text-white hover:bg-[var(--primary-strong)]">
                 Save draft
               </button>
             </div>
           </div>
         </div>
       ) : null}
-    </div>
+    </main>
   )
 }

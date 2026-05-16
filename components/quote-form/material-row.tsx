@@ -21,33 +21,43 @@ export function MaterialRow({ item, areas, onChange, onRemove }: MaterialRowProp
   }
 
   return (
-    <div className="border-t border-gray-100 py-3">
-      <div className="space-y-1">
-        <div className="truncate text-sm font-medium text-gray-900">{item.name}</div>
+    <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 truncate text-sm font-bold text-slate-950">{item.name}</div>
+        <button
+          type="button"
+          onClick={onRemove}
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+          aria-label={`Remove ${item.name}`}
+        >
+          <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 20 20" fill="none">
+            <path d="M7.25 8.25v5.5M10 8.25v5.5M12.75 8.25v5.5M4.5 5.5h11M8.25 3.5h3.5M6 5.5l.5 10.25c.04.7.62 1.25 1.32 1.25h4.36c.7 0 1.28-.55 1.32-1.25L14 5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+        </button>
       </div>
-      <div className="mt-2 grid gap-2 md:grid-cols-[3.75rem_4.75rem_1.3fr_4.75rem_4.75rem_2.75rem] md:items-end">
+      <div className="mt-3 grid gap-2 md:grid-cols-[4.25rem_5.25rem_minmax(8rem,1fr)_5.5rem_5.5rem] md:items-end">
         <DecimalInput
           label="Qty"
           value={item.quantity}
           onValueChange={(value) => onChange({ ...item, quantity: value })}
-          labelClassName="space-y-1 text-xs font-medium text-gray-600"
-          inputClassName="w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs"
+          labelClassName="space-y-1 text-xs font-bold text-slate-500"
+          inputClassName="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
           warningClassName="block text-[11px] font-normal text-amber-600"
         />
         <DecimalInput
           label="RRP"
           value={item.marketPrice}
           onValueChange={(value) => onChange({ ...item, marketPrice: value, actualPrice: value })}
-          labelClassName="space-y-1 text-xs font-medium text-gray-600"
-          inputClassName="w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs"
+          labelClassName="space-y-1 text-xs font-bold text-slate-500"
+          inputClassName="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm font-semibold"
           warningClassName="block text-[11px] font-normal text-amber-600"
         />
-        <label className="space-y-1 text-xs font-medium text-gray-600">
+        <label className="space-y-1 text-xs font-bold text-slate-500">
           Area
           <select
             value={item.areaId ?? ''}
             onChange={(event) => changeArea(event.target.value)}
-            className="w-full min-w-0 rounded-md border border-gray-300 px-2 py-1.5 text-xs"
+            className="w-full min-w-0 rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
             title={item.areaName ?? (areas.length === 0 ? 'Add in Settings' : 'Select area')}
           >
             <option value="">{areas.length === 0 ? 'Add in Settings' : 'Select area'}</option>
@@ -66,29 +76,18 @@ export function MaterialRow({ item, areas, onChange, onRemove }: MaterialRowProp
           label="Working Days"
           value={item.workingDays}
           onValueChange={(value) => onChange({ ...item, workingDays: value })}
-          labelClassName="space-y-1 text-xs font-medium text-gray-600"
-          inputClassName="w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs"
+          labelClassName="space-y-1 text-xs font-bold text-slate-500"
+          inputClassName="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
           warningClassName="block text-[11px] font-normal text-amber-600"
         />
         <DecimalInput
           label="Labour / Day"
           value={item.labourPerDay}
           onValueChange={(value) => onChange({ ...item, labourPerDay: value })}
-          labelClassName="space-y-1 text-xs font-medium text-gray-600"
-          inputClassName="w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs"
+          labelClassName="space-y-1 text-xs font-bold text-slate-500"
+          inputClassName="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
           warningClassName="block text-[11px] font-normal text-amber-600"
         />
-        <label className="space-y-1 text-xs font-medium text-gray-600">
-          <span>Action</span>
-          <button
-            type="button"
-            onClick={onRemove}
-            className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs text-gray-600 hover:bg-gray-100"
-            aria-label={`Remove ${item.name}`}
-          >
-            X
-          </button>
-        </label>
       </div>
     </div>
   )

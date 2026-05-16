@@ -52,9 +52,11 @@ export default async function SettingsPage() {
   }
 
   return (
-    <main className="mx-auto max-w-4xl px-6 py-8">
+    <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+        <p className="text-sm font-bold uppercase text-slate-400">Admin tools</p>
+        <h1 className="mt-1 text-3xl font-bold text-slate-950">Settings</h1>
+        <p className="mt-1 text-sm text-slate-500">Control labour rates, material pricing, and quote areas.</p>
         {!normalized.settings.ok ? (
           <p className="mt-1 text-sm text-red-600">{normalized.settings.error}</p>
         ) : null}

@@ -186,62 +186,62 @@ export function MaterialAddItemForm({
         event.preventDefault()
         if (canAdd) onAdd()
       }}
-      className="mb-5 border-b border-gray-200 pb-5"
+      className="mb-5 border-b border-slate-100 pb-5"
     >
-      <h3 className="text-sm font-semibold text-gray-900">Add Item</h3>
+      <h3 className="text-sm font-bold text-slate-950">Add Item</h3>
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-        <label className="space-y-1 text-xs font-medium text-gray-600">
+        <label className="space-y-1 text-xs font-bold text-slate-500">
           Brand
           <input
             value={form.manufacturer}
             onChange={(event) => onFieldChange('manufacturer', event.target.value)}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
             placeholder="e.g. Dulux"
           />
         </label>
-        <label className="space-y-1 text-xs font-medium text-gray-600 sm:col-span-2">
+        <label className="space-y-1 text-xs font-bold text-slate-500 sm:col-span-2">
           Material or service name
           <input
             value={form.productLine}
             onChange={(event) => onFieldChange('productLine', event.target.value)}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
             placeholder="e.g. Minor drywall repair"
           />
         </label>
-        <label className="space-y-1 text-xs font-medium text-gray-600">
+        <label className="space-y-1 text-xs font-bold text-slate-500">
           Base
           <input
             value={form.base}
             onChange={(event) => onFieldChange('base', event.target.value)}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
             placeholder="Optional"
           />
         </label>
-        <label className="space-y-1 text-xs font-medium text-gray-600">
+        <label className="space-y-1 text-xs font-bold text-slate-500">
           Sheen/Finish
           <input
             value={form.sheen}
             onChange={(event) => onFieldChange('sheen', event.target.value)}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
             placeholder="Optional"
           />
         </label>
-        <label className="space-y-1 text-xs font-medium text-gray-600">
+        <label className="space-y-1 text-xs font-bold text-slate-500">
           Unit
           <input
             value={form.unit}
             onChange={(event) => onFieldChange('unit', event.target.value)}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
             placeholder="each / 4L"
           />
         </label>
-        <label className="space-y-1 text-xs font-medium text-gray-600">
+        <label className="space-y-1 text-xs font-bold text-slate-500">
           Price
           <input
             value={form.rrpPrice}
             onChange={(event) => onFieldChange('rrpPrice', event.target.value)}
             inputMode="decimal"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
             placeholder="0.00"
           />
         </label>
@@ -249,7 +249,7 @@ export function MaterialAddItemForm({
       <button
         type="submit"
         disabled={!canAdd}
-        className="mt-3 rounded-md bg-slate-700 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+        className="mt-3 rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-bold text-white hover:bg-[var(--primary-strong)] disabled:opacity-50"
       >
         Add Item
       </button>
@@ -279,7 +279,7 @@ export function MaterialProductsTable({
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full text-left text-sm">
-        <thead className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-500">
+        <thead className="border-b border-slate-100 text-xs uppercase text-slate-400">
           <tr>
             <th className="px-3 py-2 font-semibold">Brand</th>
             <th className="px-3 py-2 font-semibold">Kind</th>
@@ -290,7 +290,7 @@ export function MaterialProductsTable({
             <th className="px-3 py-2 text-right font-semibold">Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100">
+        <tbody className="divide-y divide-slate-100">
           {products.map((product) => {
             const isEditing = editingProductId === product.id
             return (
@@ -300,10 +300,10 @@ export function MaterialProductsTable({
                     <input
                       value={editForm.manufacturer}
                       onChange={(event) => onFieldChange('manufacturer', event.target.value)}
-                      className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm"
+                      className="w-full rounded-lg border border-slate-200 px-2 py-1 text-sm"
                     />
                   ) : (
-                    <span className="font-medium text-gray-900">{product.manufacturer ?? '-'}</span>
+                    <span className="font-semibold text-slate-950">{product.manufacturer ?? '-'}</span>
                   )}
                 </td>
                 <td className="px-3 py-2">
@@ -311,24 +311,24 @@ export function MaterialProductsTable({
                     <input
                       value={editForm.productLine}
                       onChange={(event) => onFieldChange('productLine', event.target.value)}
-                      className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm"
+                      className="w-full rounded-lg border border-slate-200 px-2 py-1 text-sm"
                     />
                   ) : (
-                    <span className="font-medium text-gray-700">{product.productLine ?? product.type ?? '-'}</span>
+                    <span className="font-semibold text-slate-700">{product.productLine ?? product.type ?? '-'}</span>
                   )}
                 </td>
                 <td className="px-3 py-2">
                   {isEditing ? (
-                    <input value={editForm.base} onChange={(event) => onFieldChange('base', event.target.value)} className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm" />
+                    <input value={editForm.base} onChange={(event) => onFieldChange('base', event.target.value)} className="w-full rounded-lg border border-slate-200 px-2 py-1 text-sm" />
                   ) : (
-                    <span className="text-gray-700">{product.base ?? '-'}</span>
+                    <span className="text-slate-600">{product.base ?? '-'}</span>
                   )}
                 </td>
                 <td className="px-3 py-2">
                   {isEditing ? (
-                    <input value={editForm.sheen} onChange={(event) => onFieldChange('sheen', event.target.value)} className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm" />
+                    <input value={editForm.sheen} onChange={(event) => onFieldChange('sheen', event.target.value)} className="w-full rounded-lg border border-slate-200 px-2 py-1 text-sm" />
                   ) : (
-                    <span className="text-gray-700">{product.sheen ?? '-'}</span>
+                    <span className="text-slate-600">{product.sheen ?? '-'}</span>
                   )}
                 </td>
                 <td className="px-3 py-2">
@@ -336,10 +336,10 @@ export function MaterialProductsTable({
                     <input
                       value={editForm.volumeLitres}
                       onChange={(event) => onFieldChange('volumeLitres', event.target.value)}
-                      className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm"
+                      className="w-full rounded-lg border border-slate-200 px-2 py-1 text-sm"
                     />
                   ) : (
-                    <span className="text-gray-700">{product.volumeLitres ? `${product.volumeLitres}L` : product.unit}</span>
+                    <span className="text-slate-600">{product.volumeLitres ? `${product.volumeLitres}L` : product.unit}</span>
                   )}
                 </td>
                 <td className="px-3 py-2 text-right">
@@ -348,10 +348,10 @@ export function MaterialProductsTable({
                       value={editForm.rrpPrice}
                       onChange={(event) => onFieldChange('rrpPrice', event.target.value)}
                       inputMode="decimal"
-                      className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm text-right"
+                      className="w-full rounded-lg border border-slate-200 px-2 py-1 text-right text-sm"
                     />
                   ) : (
-                    <span className="font-mono text-gray-900">${product.rrpPrice ?? product.marketPrice}</span>
+                    <span className="font-mono font-semibold text-slate-950">${product.rrpPrice ?? product.marketPrice}</span>
                   )}
                 </td>
                 <td className="px-3 py-2">
@@ -361,7 +361,7 @@ export function MaterialProductsTable({
                         type="button"
                         onClick={() => onSave()}
                         disabled={disabled}
-                        className="rounded-md bg-green-700 px-2 py-1 text-xs font-semibold text-white hover:bg-green-800 disabled:opacity-50"
+                        className="rounded-lg bg-green-700 px-2 py-1 text-xs font-bold text-white hover:bg-green-800 disabled:opacity-50"
                       >
                         Save
                       </button>
@@ -369,7 +369,7 @@ export function MaterialProductsTable({
                         type="button"
                         onClick={onCancel}
                         disabled={disabled}
-                        className="rounded-md border border-gray-300 px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                        className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
                       >
                         Cancel
                       </button>
@@ -380,7 +380,7 @@ export function MaterialProductsTable({
                         type="button"
                         onClick={() => onEdit(product)}
                         disabled={disabled}
-                        className="rounded-md border border-blue-300 px-2 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-50 disabled:opacity-50"
+                        className="rounded-lg border border-blue-100 px-2 py-1 text-xs font-bold text-[var(--primary)] hover:bg-[var(--primary-soft)] disabled:opacity-50"
                       >
                         Edit
                       </button>
@@ -388,7 +388,7 @@ export function MaterialProductsTable({
                         type="button"
                         onClick={() => onDelete(product.id)}
                         disabled={disabled}
-                        className="rounded-md border border-red-300 px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                        className="rounded-lg border border-red-100 px-2 py-1 text-xs font-bold text-red-600 hover:bg-red-50 disabled:opacity-50"
                       >
                         Delete
                       </button>
@@ -661,23 +661,23 @@ export function SettingsForm({ initialAreas, initialProducts, initialSettings }:
   })
 
   return (
-    <div className="rounded-md border border-gray-200 bg-white">
-      <div className="flex border-b border-gray-200">
-        <button type="button" onClick={() => setActiveTab('labour')} className={`px-4 py-3 text-sm font-medium ${activeTab === 'labour' ? 'border-b-2 border-slate-700 text-slate-900' : 'text-gray-500 hover:text-gray-900'}`}>
+    <div className="overflow-hidden rounded-lg border border-white bg-white/90 shadow-[var(--shadow-soft)]">
+      <div className="flex gap-1 border-b border-slate-100 bg-slate-50/80 p-2">
+        <button type="button" onClick={() => setActiveTab('labour')} className={`rounded-lg px-4 py-2 text-sm font-bold ${activeTab === 'labour' ? 'bg-white text-[var(--primary)] shadow-sm' : 'text-slate-500 hover:text-slate-950'}`}>
           Labour Rates
         </button>
-        <button type="button" onClick={() => setActiveTab('material')} className={`px-4 py-3 text-sm font-medium ${activeTab === 'material' ? 'border-b-2 border-slate-700 text-slate-900' : 'text-gray-500 hover:text-gray-900'}`}>
+        <button type="button" onClick={() => setActiveTab('material')} className={`rounded-lg px-4 py-2 text-sm font-bold ${activeTab === 'material' ? 'bg-white text-[var(--primary)] shadow-sm' : 'text-slate-500 hover:text-slate-950'}`}>
           Material
         </button>
-        <button type="button" onClick={() => setActiveTab('area')} className={`px-4 py-3 text-sm font-medium ${activeTab === 'area' ? 'border-b-2 border-slate-700 text-slate-900' : 'text-gray-500 hover:text-gray-900'}`}>
+        <button type="button" onClick={() => setActiveTab('area')} className={`rounded-lg px-4 py-2 text-sm font-bold ${activeTab === 'area' ? 'bg-white text-[var(--primary)] shadow-sm' : 'text-slate-500 hover:text-slate-950'}`}>
           Area
         </button>
       </div>
 
       {activeTab === 'labour' ? (
-        <div className="max-w-2xl p-5">
+        <div className="max-w-3xl p-5">
           <section className="space-y-4">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Labour Rates</h2>
+            <h2 className="text-sm font-bold uppercase text-slate-400">Labour Rates</h2>
             {[
               ['f1LabourRate', 'F1 (Labor Rate)'],
               ['f2LabourRate', 'F2 (Labor Rate)'],
@@ -685,7 +685,7 @@ export function SettingsForm({ initialAreas, initialProducts, initialSettings }:
               ['f4LabourRate', 'F4 (Labor Rate)'],
               ['f5LabourRate', 'F5 (Labor Rate)'],
             ].map(([field, label]) => (
-              <label key={field} className="grid gap-2 text-sm font-medium text-gray-700 sm:grid-cols-[1fr_160px] sm:items-center">
+              <label key={field} className="grid gap-2 text-sm font-semibold text-slate-600 sm:grid-cols-[1fr_180px] sm:items-center">
                 <span>{label}</span>
                 <div className="space-y-1">
                   <input
@@ -693,23 +693,23 @@ export function SettingsForm({ initialAreas, initialProducts, initialSettings }:
                     onChange={(event) => setField(field as keyof typeof settings, event.target.value)}
                     inputMode="decimal"
                     step="0.01"
-                    className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                   />
-                  <p className="text-xs text-gray-500">$/day</p>
+                  <p className="text-xs text-slate-400">$/day</p>
                 </div>
               </label>
             ))}
           </section>
 
-          <section className="mt-8 space-y-4 border-t border-gray-200 pt-6">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Margins</h2>
+          <section className="mt-8 space-y-4 border-t border-slate-100 pt-6">
+            <h2 className="text-sm font-bold uppercase text-slate-400">Margins</h2>
             {[
               ['f2Margin', 'F2 margin'],
               ['f3Margin', 'F3 margin'],
               ['f4Margin', 'F4 margin'],
               ['f5Margin', 'F5 margin'],
             ].map(([field, label]) => (
-              <label key={field} className="grid gap-2 text-sm font-medium text-gray-700 sm:grid-cols-[1fr_160px] sm:items-center">
+              <label key={field} className="grid gap-2 text-sm font-semibold text-slate-600 sm:grid-cols-[1fr_180px] sm:items-center">
                 <span>{label}</span>
                 <div className="space-y-1">
                   <input
@@ -717,28 +717,28 @@ export function SettingsForm({ initialAreas, initialProducts, initialSettings }:
                     onChange={(event) => setField(field as keyof typeof settings, event.target.value)}
                     inputMode="decimal"
                     step="0.01"
-                    className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                   />
-                  <p className="text-xs text-gray-500">Use 30 or 0.30 or 30%</p>
+                  <p className="text-xs text-slate-400">Use 30 or 0.30 or 30%</p>
                 </div>
               </label>
             ))}
           </section>
 
           <div className="mt-6 flex items-center gap-4">
-            <button type="button" onClick={save} disabled={isPending} className="rounded-md bg-slate-700 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50">
+            <button type="button" onClick={save} disabled={isPending} className="rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-bold text-white hover:bg-[var(--primary-strong)] disabled:opacity-50">
               {isPending ? 'Saving...' : 'Save Settings'}
             </button>
-            {message ? <p className="text-sm text-gray-600">{message}</p> : null}
+            {message ? <p className="text-sm font-medium text-slate-600">{message}</p> : null}
           </div>
-          <p className="mt-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700">Changes affect future quotes only. Existing quotes preserve their snapshot.</p>
+          <p className="mt-4 rounded-lg border border-amber-100 bg-[var(--warning-soft)] px-3 py-2 text-sm text-amber-700">Changes affect future quotes only. Existing quotes preserve their snapshot.</p>
         </div>
       ) : activeTab === 'material' ? (
         <div className="p-5">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Paint Materials</h2>
+            <h2 className="text-sm font-bold uppercase text-slate-400">Paint Materials</h2>
             <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-              <input value={materialQuery} onChange={(event) => setMaterialQuery(event.target.value)} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm sm:max-w-xs" placeholder="Search material..." />
+              <input value={materialQuery} onChange={(event) => setMaterialQuery(event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm sm:max-w-xs" placeholder="Search material..." />
               <input
                 ref={fileInputRef}
                 type="file"
@@ -753,7 +753,7 @@ export function SettingsForm({ initialAreas, initialProducts, initialSettings }:
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isPending}
-                  className="rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
                 >
                   Import CSV
                 </button>
@@ -761,14 +761,14 @@ export function SettingsForm({ initialAreas, initialProducts, initialSettings }:
                   type="button"
                   onClick={exportMaterials}
                   disabled={isPending || materialProducts.filter((product) => product.active !== false).length === 0}
-                  className="rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
                 >
                   Export CSV
                 </button>
                 <button
                   type="button"
                   onClick={exportMaterialTemplate}
-                  className="rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
                 >
                   CSV Template
                 </button>
@@ -792,14 +792,14 @@ export function SettingsForm({ initialAreas, initialProducts, initialSettings }:
             onFieldChange={setEditField}
             disabled={isPending}
           />
-          <p className="mt-3 text-sm text-gray-500">{filteredProducts.length} materials</p>
-          {materialMessage ? <p className="mt-2 text-sm text-gray-600">{materialMessage}</p> : null}
+          <p className="mt-3 text-sm text-slate-500">{filteredProducts.length} materials</p>
+          {materialMessage ? <p className="mt-2 text-sm text-slate-600">{materialMessage}</p> : null}
           {materialImportError ? <p className="mt-2 text-sm text-red-600">{materialImportError}</p> : null}
         </div>
       ) : (
         <div className="p-5">
           <div className="mb-5">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Areas</h2>
+            <h2 className="text-sm font-bold uppercase text-slate-400">Areas</h2>
           </div>
           <form
             onSubmit={(event) => {
@@ -808,30 +808,30 @@ export function SettingsForm({ initialAreas, initialProducts, initialSettings }:
             }}
             className="grid gap-3 sm:grid-cols-[160px_1fr_auto]"
           >
-            <select value={areaScope} onChange={(event) => setAreaScope(event.target.value as AreaScope)} className="rounded-md border border-gray-300 px-3 py-2 text-sm">
+            <select value={areaScope} onChange={(event) => setAreaScope(event.target.value as AreaScope)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
               <option value="interior">Interior</option>
               <option value="exterior">Exterior</option>
             </select>
-            <input value={areaName} onChange={(event) => setAreaName(event.target.value)} className="rounded-md border border-gray-300 px-3 py-2 text-sm" placeholder="e.g. eaves, fascia" />
-            <button type="submit" disabled={isPending || !areaName.trim()} className="rounded-md bg-slate-700 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50">
+            <input value={areaName} onChange={(event) => setAreaName(event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="e.g. eaves, fascia" />
+            <button type="submit" disabled={isPending || !areaName.trim()} className="rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-bold text-white hover:bg-[var(--primary-strong)] disabled:opacity-50">
               Add Area
             </button>
           </form>
-          {areaMessage ? <p className="mt-3 text-sm text-gray-600">{areaMessage}</p> : null}
+          {areaMessage ? <p className="mt-3 text-sm text-slate-600">{areaMessage}</p> : null}
 
           <div className="mt-6 grid gap-6 sm:grid-cols-2">
             {(['interior', 'exterior'] as AreaScope[]).map((scope) => (
               <section key={scope}>
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">{scope === 'interior' ? 'Interior' : 'Exterior'}</h3>
-                <div className="mt-3 divide-y divide-gray-100 rounded-md border border-gray-200">
+                <h3 className="text-xs font-bold uppercase text-slate-400">{scope === 'interior' ? 'Interior' : 'Exterior'}</h3>
+                <div className="mt-3 divide-y divide-slate-100 rounded-lg border border-[var(--border)]">
                   {areas.filter((area) => area.scope === scope).length === 0 ? (
-                    <p className="px-3 py-3 text-sm text-gray-500">No areas yet.</p>
+                    <p className="px-3 py-3 text-sm text-slate-500">No areas yet.</p>
                   ) : null}
                   {areas
                     .filter((area) => area.scope === scope)
                     .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name))
                     .map((area) => (
-                      <div key={area.id} className="px-3 py-2 text-sm font-medium text-gray-900">
+                      <div key={area.id} className="px-3 py-2 text-sm font-semibold text-slate-950">
                         {area.name}
                       </div>
                     ))}

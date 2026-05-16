@@ -25,6 +25,13 @@ function getMarginBarWidth(value: number | null): string {
   return `${Math.min(Math.max(value, 0), 100)}%`
 }
 
+function getMarginBarTone(value: number | null): string {
+  if (value === null) return 'bg-slate-300'
+  if (value < 20) return 'bg-[var(--danger)]'
+  if (value < 35) return 'bg-amber-500'
+  return 'bg-[var(--success)]'
+}
+
 export function FinalSummary({
   labourTotal,
   materialTotal,
@@ -35,59 +42,60 @@ export function FinalSummary({
   const gstTotal = Decimal.max(finalTotal.sub(subtotal), 0)
 
   return (
-    <section className="border-t border-gray-200 pt-4">
-      <div className="space-y-2 text-sm">
-        <div className="flex justify-between">
-          <span className="text-gray-500">Labour total</span>
-          <span className="font-mono text-gray-900">${labourTotal.toFixed(2)}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-gray-500">Material total</span>
-          <span className="font-mono text-gray-900">${materialTotal.toFixed(2)}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-gray-500">Subtotal</span>
-          <span className="font-mono font-semibold text-gray-900">${subtotal.toFixed(2)}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-gray-500">GST 10%</span>
-          <span className="font-mono text-gray-900">${gstTotal.toFixed(2)}</span>
-        </div>
+    <section className="rounded-lg border border-[var(--border)] bg-white p-4">
+      <div className="rounded-lg bg-[var(--primary-soft)] px-4 py-4">
+        <span className="text-sm font-bold uppercase text-[var(--primary)]">Final total</span>
+        <div className="mt-2 font-mono text-4xl font-bold tabular-nums text-slate-950">${finalTotal.toFixed(2)}</div>
+        <p className="mt-1 text-xs font-medium text-slate-500">GST included. Snapshot is saved with the quote.</p>
       </div>
-      <div className="mt-4 flex items-end justify-between border-t border-gray-200 pt-4">
-        <span className="text-sm font-semibold uppercase tracking-wide text-gray-500">Final total</span>
-        <span className="font-mono text-2xl font-bold tabular-nums text-gray-900">${finalTotal.toFixed(2)}</span>
+      <div className="space-y-2 text-sm">
+        <div className="mt-4 flex justify-between">
+          <span className="text-slate-500">Labour total</span>
+          <span className="font-mono text-slate-900">${labourTotal.toFixed(2)}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-slate-500">Material total</span>
+          <span className="font-mono text-slate-900">${materialTotal.toFixed(2)}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-slate-500">Subtotal</span>
+          <span className="font-mono font-semibold text-slate-950">${subtotal.toFixed(2)}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-slate-500">GST 10%</span>
+          <span className="font-mono text-slate-900">${gstTotal.toFixed(2)}</span>
+        </div>
       </div>
       {jobberFinancialSummary ? (
-        <div className="mt-5 border-t border-gray-200 pt-4">
+        <div className="mt-5 border-t border-slate-100 pt-4">
           <div className="flex items-center justify-between gap-3">
-            <span className="text-sm font-semibold uppercase tracking-wide text-gray-500">Jobber profit</span>
-            <span className="font-mono text-sm font-semibold text-gray-900">
+            <span className="text-sm font-bold uppercase text-slate-400">Jobber profit</span>
+            <span className="font-mono text-sm font-bold text-slate-950">
               {formatMargin(jobberFinancialSummary.profitMarginPercent)}
             </span>
           </div>
           <div className="mt-3 space-y-2 text-sm">
             <div className="flex justify-between gap-3">
-              <span className="text-gray-500">Quote total</span>
-              <span className="font-mono text-gray-900">{formatJobberMoney(jobberFinancialSummary.quoteTotal)}</span>
+              <span className="text-slate-500">Quote total</span>
+              <span className="font-mono text-slate-900">{formatJobberMoney(jobberFinancialSummary.quoteTotal)}</span>
             </div>
             <div className="flex justify-between gap-3">
-              <span className="text-gray-500">Expenses total</span>
-              <span className="font-mono text-gray-900">{formatJobberMoney(jobberFinancialSummary.expensesTotal)}</span>
+              <span className="text-slate-500">Expenses total</span>
+              <span className="font-mono text-slate-900">{formatJobberMoney(jobberFinancialSummary.expensesTotal)}</span>
             </div>
             <div className="flex justify-between gap-3">
-              <span className="text-gray-500">Profit</span>
-              <span className="font-mono font-semibold text-gray-900">{formatJobberMoney(jobberFinancialSummary.profit)}</span>
+              <span className="text-slate-500">Profit</span>
+              <span className="font-mono font-semibold text-slate-950">{formatJobberMoney(jobberFinancialSummary.profit)}</span>
             </div>
           </div>
           <div className="mt-4">
-            <div className="mb-1 flex items-center justify-between text-xs text-gray-500">
+            <div className="mb-1 flex items-center justify-between text-xs text-slate-500">
               <span>Profit margin</span>
               <span className="font-mono">{formatMargin(jobberFinancialSummary.profitMarginPercent)}</span>
             </div>
-            <div className="h-3 overflow-hidden rounded-full bg-gray-200">
+            <div className="h-3 overflow-hidden rounded-full bg-slate-100">
               <div
-                className="h-full rounded-full bg-green-600"
+                className={`h-full rounded-full ${getMarginBarTone(jobberFinancialSummary.profitMarginPercent)}`}
                 style={{ width: getMarginBarWidth(jobberFinancialSummary.profitMarginPercent) }}
               />
             </div>

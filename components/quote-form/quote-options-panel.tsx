@@ -30,56 +30,56 @@ export function QuoteOptionsPanel({
   onRemoveOption,
 }: QuoteOptionsPanelProps) {
   return (
-    <section className="space-y-4 border-t border-gray-200 pt-6">
+    <section className="space-y-4 border-t border-slate-100 pt-6">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Options</h2>
-          <p className="mt-1 text-xs text-gray-500">Optional add-ons are priced separately from the main quote.</p>
+          <h2 className="text-sm font-bold uppercase text-slate-400">Options</h2>
+          <p className="mt-1 text-xs text-slate-500">Optional add-ons are priced separately from the main quote.</p>
         </div>
         <button
           type="button"
           onClick={onAddOption}
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          className="rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50"
         >
           + Add Option
         </button>
       </div>
 
       {options.length === 0 ? (
-        <p className="rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-500">No optional add-ons.</p>
+        <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-500">No optional add-ons.</p>
       ) : null}
 
       <div className="space-y-3">
         {options.map((option, index) => {
           const totals = optionTotals[option.id]
           return (
-            <div key={option.id} className="rounded-md border border-gray-200 bg-gray-50">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-white p-3">
+            <div key={option.id} className="rounded-lg border border-[var(--border)] bg-slate-50">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-white p-3">
                 <div className="min-w-0 flex-1">
                   <label className="sr-only" htmlFor={`${option.id}-title`}>Option title</label>
                   <input
                     id={`${option.id}-title`}
                     value={option.title}
                     onChange={(event) => onChangeOption({ ...option, title: event.target.value })}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-900"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-950"
                     placeholder={`Option ${index + 1}`}
                   />
                 </div>
                 <div className="flex items-center gap-2">
                   {totals ? (
-                    <span className="font-mono text-sm font-semibold text-gray-900">${totals.finalTotal}</span>
+                    <span className="font-mono text-sm font-bold text-slate-950">${totals.finalTotal}</span>
                   ) : null}
                   <button
                     type="button"
                     onClick={() => onChangeOption({ ...option, isExpanded: !option.isExpanded })}
-                    className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
                   >
-                    {option.isExpanded ? 'Collapse' : 'Edit'}
+                    {option.isExpanded ? 'Collapse' : 'Expand'}
                   </button>
                   <button
                     type="button"
                     onClick={() => onRemoveOption(option.id)}
-                    className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                    className="rounded-lg border border-red-100 px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50"
                   >
                     Delete
                   </button>
@@ -103,17 +103,17 @@ export function QuoteOptionsPanel({
                   />
                   {totals ? (
                     <div className="grid gap-3 sm:grid-cols-3">
-                      <div className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm">
-                        <div className="text-xs text-gray-500">Working Days</div>
-                        <div className="font-mono text-gray-900">{totals.workingDays}</div>
+                      <div className="rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-sm">
+                        <div className="text-xs font-semibold text-slate-400">Working Days</div>
+                        <div className="font-mono text-slate-950">{totals.workingDays}</div>
                       </div>
-                      <div className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm">
-                        <div className="text-xs text-gray-500">Labour / Day</div>
-                        <div className="font-mono text-gray-900">{totals.labourPerDay}</div>
+                      <div className="rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-sm">
+                        <div className="text-xs font-semibold text-slate-400">Labour / Day</div>
+                        <div className="font-mono text-slate-950">{totals.labourPerDay}</div>
                       </div>
-                      <div className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm">
-                        <div className="text-xs text-gray-500">Material</div>
-                        <div className="font-mono text-gray-900">${totals.materialTotal}</div>
+                      <div className="rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-sm">
+                        <div className="text-xs font-semibold text-slate-400">Material</div>
+                        <div className="font-mono text-slate-950">${totals.materialTotal}</div>
                       </div>
                     </div>
                   ) : null}

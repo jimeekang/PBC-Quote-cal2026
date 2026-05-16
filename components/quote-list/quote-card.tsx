@@ -7,21 +7,26 @@ export function QuoteCard({ quote }: { quote: QuoteRecord }) {
   const savedDate = new Intl.DateTimeFormat('en-AU', { dateStyle: 'medium' }).format(new Date(quote.createdAt))
 
   return (
-    <article className="rounded-md border border-gray-200 bg-white p-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-sm font-semibold text-gray-900">{title}</h2>
-          <p className="mt-1 text-sm text-gray-500">
-            {quote.customerAddress || 'No address'} - {quote.workingDays} days x {quote.labourPerDay} labour - {savedDate}
+    <article className="rounded-lg border border-white bg-white/90 p-4 shadow-sm hover:-translate-y-0.5 hover:shadow-[var(--shadow-soft)]">
+      <div className="flex items-start justify-between gap-5">
+        <div className="min-w-0">
+          <h2 className="truncate text-sm font-bold text-slate-950">{title}</h2>
+          <p className="mt-1 truncate text-sm text-slate-500">
+            {quote.customerAddress || 'No address'}
           </p>
+          <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-slate-500">
+            <span className="rounded-full bg-slate-50 px-2.5 py-1">{quote.workingDays} days</span>
+            <span className="rounded-full bg-slate-50 px-2.5 py-1">{quote.labourPerDay} labour</span>
+            <span className="rounded-full bg-slate-50 px-2.5 py-1">{savedDate}</span>
+          </div>
         </div>
-        <div className="text-right">
-          <div className="font-mono text-sm font-semibold text-gray-900">${quote.finalTotal}</div>
-          <div className="mt-2 flex flex-wrap items-center justify-end gap-3">
-            <Link href={`/quotes/${quote.id}`} className="text-sm text-blue-600 hover:text-blue-700">
+        <div className="shrink-0 text-right">
+          <div className="font-mono text-lg font-bold text-slate-950">${quote.finalTotal}</div>
+          <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+            <Link href={`/quotes/${quote.id}`} className="rounded-lg bg-[var(--primary-soft)] px-3 py-1.5 text-xs font-bold text-[var(--primary)] hover:bg-blue-100">
               View
             </Link>
-            <Link href={`/quotes/${quote.id}/edit`} className="text-sm text-gray-700 hover:text-gray-900">
+            <Link href={`/quotes/${quote.id}/edit`} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50">
               Edit
             </Link>
             <QuoteDeleteButton quoteId={quote.id} />

@@ -29,15 +29,15 @@ export function QuoteDetailView({ quote }: QuoteDetailViewProps) {
   }))
 
   return (
-    <main className="mx-auto max-w-6xl px-6 py-8">
+    <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <Link href="/quotes" className="text-sm text-gray-500 hover:text-gray-900">Back to Quotes</Link>
-          <h1 className="mt-1 text-2xl font-bold text-gray-900">{quote.customerName || 'Untitled Quote'}</h1>
-          <p className="mt-1 text-sm text-gray-500">{quote.customerAddress || 'No address'}</p>
+          <Link href="/quotes" className="text-sm font-semibold text-slate-400 hover:text-[var(--primary)]">Back to Quotes</Link>
+          <h1 className="mt-1 text-3xl font-bold text-slate-950">{quote.customerName || 'Untitled Quote'}</h1>
+          <p className="mt-1 text-sm text-slate-500">{quote.customerAddress || 'No address'}</p>
         </div>
         <div className="flex items-center gap-3">
-          <Link href={`/quotes/${quote.id}/edit`} className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+          <Link href={`/quotes/${quote.id}/edit`} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50">
             Edit
           </Link>
           <QuoteDeleteButton quoteId={quote.id} redirectToQuotes />
@@ -45,26 +45,26 @@ export function QuoteDetailView({ quote }: QuoteDetailViewProps) {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded-md border border-gray-200 bg-white p-5">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Summary</h2>
+        <section className="rounded-lg border border-white bg-white/90 p-5 shadow-[var(--shadow-soft)]">
+          <h2 className="text-sm font-bold uppercase text-slate-400">Summary</h2>
           <dl className="mt-4 space-y-3 text-sm">
             {quote.jobberQuoteId ? (
               <div className="flex justify-between gap-4">
-                <dt className="text-gray-500">Jobber ID</dt>
-                <dd className="min-w-0 truncate font-mono text-gray-900">{quote.jobberQuoteId}</dd>
+                <dt className="text-slate-500">Jobber ID</dt>
+                <dd className="min-w-0 truncate font-mono text-slate-950">{quote.jobberQuoteId}</dd>
               </div>
             ) : null}
             {quote.workType ? (
-              <div className="flex justify-between"><dt className="text-gray-500">Work Type</dt><dd className="text-gray-900">{quote.workType}</dd></div>
+              <div className="flex justify-between"><dt className="text-slate-500">Work Type</dt><dd className="text-slate-950">{quote.workType}</dd></div>
             ) : null}
-            <div className="flex justify-between"><dt className="text-gray-500">Working Days</dt><dd className="font-mono text-gray-900">{quote.workingDays}</dd></div>
-            <div className="flex justify-between"><dt className="text-gray-500">Labour Per Day</dt><dd className="font-mono text-gray-900">{quote.labourPerDay}</dd></div>
-            <div className="flex justify-between border-t border-gray-200 pt-3"><dt className="font-semibold text-gray-900">Final</dt><dd className="font-mono font-bold text-gray-900">${quote.finalTotal}</dd></div>
+            <div className="flex justify-between"><dt className="text-slate-500">Working Days</dt><dd className="font-mono text-slate-950">{quote.workingDays}</dd></div>
+            <div className="flex justify-between"><dt className="text-slate-500">Labour Per Day</dt><dd className="font-mono text-slate-950">{quote.labourPerDay}</dd></div>
+            <div className="rounded-lg bg-[var(--primary-soft)] px-4 py-3"><dt className="text-xs font-bold uppercase text-[var(--primary)]">Final</dt><dd className="mt-1 font-mono text-3xl font-bold text-slate-950">${quote.finalTotal}</dd></div>
           </dl>
         </section>
 
-        <section className="rounded-md border border-gray-200 bg-white p-5">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Formula Results</h2>
+        <section className="rounded-lg border border-white bg-white/90 p-5 shadow-[var(--shadow-soft)]">
+          <h2 className="text-sm font-bold uppercase text-slate-400">Formula Results</h2>
           <dl className="mt-4 space-y-3 text-sm">
             {[
               ['F1', quote.formula1Total],
@@ -76,9 +76,9 @@ export function QuoteDetailView({ quote }: QuoteDetailViewProps) {
               const num = index + 1
               const marker = quote.selectedMin === num ? 'MIN' : quote.selectedMax === num ? 'MAX' : ''
               return (
-                <div key={label} className="flex justify-between">
-                  <dt className="text-gray-500">{label} {marker ? `- ${marker}` : ''}</dt>
-                  <dd className="font-mono text-gray-900">${total}</dd>
+                <div key={label} className={`flex justify-between rounded-lg px-3 py-2 ${marker === 'MIN' ? 'bg-emerald-50' : marker === 'MAX' ? 'bg-rose-50' : 'bg-slate-50'}`}>
+                  <dt className="font-semibold text-slate-600">{label} {marker ? `- ${marker}` : ''}</dt>
+                  <dd className="font-mono font-semibold text-slate-950">${total}</dd>
                 </div>
               )
             })}
@@ -86,32 +86,32 @@ export function QuoteDetailView({ quote }: QuoteDetailViewProps) {
         </section>
 
         {quote.jobberSnapshot ? (
-          <section className="rounded-md border border-gray-200 bg-white p-5 lg:col-span-2">
-            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">Jobber Data</h2>
+          <section className="rounded-lg border border-white bg-white/90 p-5 shadow-[var(--shadow-soft)] lg:col-span-2">
+            <h2 className="mb-4 text-sm font-bold uppercase text-slate-400">Jobber Data</h2>
             <JobberQuoteSummary quote={quote.jobberSnapshot} />
           </section>
         ) : null}
 
-        <section className="rounded-md border border-gray-200 bg-white p-5 lg:col-span-2">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Materials</h2>
-          <div className="mt-4 divide-y divide-gray-100">
-            {quote.items.length === 0 ? <p className="text-sm text-gray-500">No materials saved.</p> : null}
+        <section className="rounded-lg border border-white bg-white/90 p-5 shadow-[var(--shadow-soft)] lg:col-span-2">
+          <h2 className="text-sm font-bold uppercase text-slate-400">Materials</h2>
+          <div className="mt-4 divide-y divide-slate-100">
+            {quote.items.length === 0 ? <p className="text-sm text-slate-500">No materials saved.</p> : null}
             {quote.items.map((item) => (
               <div key={item.id} className="flex justify-between py-3 text-sm">
-                <span className="text-gray-900">
+                <span className="text-slate-950">
                   {item.productNameSnapshot}
-                  {item.areaNameSnapshot ? <span className="ml-2 text-xs text-gray-500">{item.areaNameSnapshot}</span> : null}
+                  {item.areaNameSnapshot ? <span className="ml-2 text-xs text-slate-500">{item.areaNameSnapshot}</span> : null}
                   {item.workingDays && item.labourPerDay ? (
-                    <span className="ml-2 text-xs text-gray-500">{item.workingDays} days x {item.labourPerDay} labour</span>
+                    <span className="ml-2 text-xs text-slate-500">{item.workingDays} days x {item.labourPerDay} labour</span>
                   ) : null}
                 </span>
-                <span className="font-mono text-gray-500">{item.quantity} x ${item.marketPriceSnapshot}</span>
+                <span className="font-mono text-slate-500">{item.quantity} x ${item.marketPriceSnapshot}</span>
               </div>
             ))}
           </div>
         </section>
 
-        <section className="rounded-md border border-gray-200 bg-white p-5 lg:col-span-2">
+        <section className="rounded-lg border border-white bg-white/90 p-5 shadow-[var(--shadow-soft)] lg:col-span-2">
           <FinalSummary
             labourTotal={labourTotal}
             materialTotal={materialTotal}

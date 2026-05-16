@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { CustomerPanel } from '@/components/quote-form/customer-panel'
 import { FinalSummary } from '@/components/quote-form/final-summary'
 import { MaterialRow } from '@/components/quote-form/material-row'
+import { MaterialsPanel } from '@/components/quote-form/materials-panel'
 import { OptionTotalsSummary } from '@/components/quote-form/option-totals-summary'
 import { QuoteDetailView } from '@/components/quote-detail/quote-detail-view'
 import { QuoteCard } from '@/components/quote-list/quote-card'
@@ -157,6 +158,37 @@ describe('quote form pricing UI', () => {
     expect(markup).toContain('Fascia')
     expect(markup).not.toContain('Market')
     expect(markup).not.toContain('Actual')
+  })
+
+  it('filters quote area dropdowns by the selected interior or exterior scope', () => {
+    const markup = renderToStaticMarkup(
+      createElement(MaterialsPanel, {
+        materials: [
+          {
+            id: 'item-1',
+            name: 'Dulux Wash&Wear Low Sheen Vivid White 4L',
+            marketPrice: '82',
+            actualPrice: '82',
+            quantity: '1',
+            workingDays: '1',
+            labourPerDay: '1',
+            isCustom: false,
+          },
+        ],
+        areas: [
+          { id: 'area-bedroom', scope: 'interior', name: 'Bedroom', active: true, position: 0 },
+          { id: 'area-eaves', scope: 'exterior', name: 'Eaves', active: true, position: 0 },
+        ],
+        onAdd: () => undefined,
+        onChange: () => undefined,
+        onRemove: () => undefined,
+      })
+    )
+
+    expect(markup).toContain('Interior')
+    expect(markup).toContain('Exterior')
+    expect(markup).toContain('Bedroom')
+    expect(markup).not.toContain('Eaves')
   })
 
   it('shows Jobber customer type without the area sqft field', () => {
