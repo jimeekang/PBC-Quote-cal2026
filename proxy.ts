@@ -23,10 +23,6 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  if (hasSession && isAuthPage) {
-    return NextResponse.redirect(new URL('/quotes', request.url))
-  }
-
   return NextResponse.next()
 }
 
