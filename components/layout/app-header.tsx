@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from '@/lib/actions/auth'
+import type { UserProfile } from '@/lib/user-profiles'
 
 type NavItem = {
   href: string
@@ -43,7 +44,7 @@ function NavIcon({ icon }: { icon: NavItem['icon'] }) {
   )
 }
 
-export function AppHeader() {
+export function AppHeader({ userProfile }: { userProfile: UserProfile }) {
   const pathname = usePathname()
 
   return (
@@ -81,8 +82,9 @@ export function AppHeader() {
         </nav>
 
         <div className="mt-10 rounded-lg border border-[var(--border)] bg-white/80 p-3">
-          <p className="text-xs font-semibold text-slate-500">Quote workspace</p>
-          <p className="mt-1 text-[11px] leading-4 text-slate-400">Live pricing, material costs, Jobber lookup, and PBC labour settings.</p>
+          <p className="text-xs font-semibold text-slate-500">Signed in as</p>
+          <p className="mt-1 truncate text-sm font-bold text-slate-900">{userProfile.displayName}</p>
+          {userProfile.email ? <p className="mt-1 truncate text-[11px] leading-4 text-slate-400">{userProfile.email}</p> : null}
         </div>
 
         <form action={signOut} className="absolute bottom-5 left-5 right-5">
@@ -117,8 +119,8 @@ export function AppHeader() {
 
           <div className="hidden items-center gap-3 lg:flex">
             <div className="text-right">
-              <p className="text-xs text-slate-400">Workspace</p>
-              <p className="text-sm font-semibold text-slate-800">PBC Admin</p>
+              <p className="text-xs text-slate-400">Signed in as</p>
+              <p className="text-sm font-semibold text-slate-800">{userProfile.displayName}</p>
             </div>
             <div className="h-9 w-9 rounded-full bg-[var(--primary-soft)] ring-4 ring-white" />
           </div>

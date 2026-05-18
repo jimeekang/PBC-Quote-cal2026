@@ -23,6 +23,26 @@ function getInitialAreaScope(materials: MaterialItem[], areas: AreaRecord[]): Ar
   return areas.some((area) => area.scope === 'interior') ? 'interior' : 'exterior'
 }
 
+function getAreasForMaterial(item: MaterialItem, visibleAreas: AreaRecord[], allAreas: AreaRecord[]): AreaRecord[] {
+  if (!item.areaId) return visibleAreas
+  if (visibleAreas.some((area) => area.id === item.areaId)) return visibleAreas
+
+  const selectedArea = allAreas.find((area) => area.id === item.areaId)
+  if (selectedArea) return [selectedArea, ...visibleAreas]
+
+  if (!item.areaName || !item.areaScope) return visibleAreas
+  return [
+    {
+      id: item.areaId,
+      name: item.areaName,
+      scope: item.areaScope,
+      active: true,
+      position: -1,
+    },
+    ...visibleAreas,
+  ]
+}
+
 export function MaterialsPanel({ materials, areas, onAdd, onChange, onRemove }: MaterialsPanelProps) {
   const [areaScope, setAreaScope] = useState<AreaScope>(() => getInitialAreaScope(materials, areas))
   const materialTotal = materials.reduce((total, item) => total.add(lineTotal(item.marketPrice, item.quantity)), new Decimal(0))
@@ -30,16 +50,6 @@ export function MaterialsPanel({ materials, areas, onAdd, onChange, onRemove }: 
 
   function changeAreaScope(nextScope: AreaScope) {
     setAreaScope(nextScope)
-    for (const item of materials) {
-      if (item.areaScope && item.areaScope !== nextScope) {
-        onChange({
-          ...item,
-          areaId: undefined,
-          areaName: undefined,
-          areaScope: undefined,
-        })
-      }
-    }
   }
 
   return (
@@ -73,7 +83,7 @@ export function MaterialsPanel({ materials, areas, onAdd, onChange, onRemove }: 
       ) : (
         <div className="space-y-2">
           {materials.map((item) => (
-            <MaterialRow key={item.id} item={item} areas={filteredAreas} onChange={onChange} onRemove={() => onRemove(item.id)} />
+            <MaterialRow key={item.id} item={item} areas={getAreasForMaterial(item, filteredAreas, areas)} onChange={onChange} onRemove={() => onRemove(item.id)} />
           ))}
         </div>
       )}

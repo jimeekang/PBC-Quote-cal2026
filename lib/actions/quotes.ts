@@ -17,6 +17,7 @@ import type { Database, Json } from '@/lib/supabase/types'
 import { jobberQuoteSnapshotSchema, pricingSettingsSchema, quoteSchema, type QuoteInput } from '@/lib/validators'
 import type { JobberQuoteDraft } from '@/lib/jobber/mapper'
 import { QUOTE_DETAIL_SELECT, QUOTES_LIST_SELECT } from '@/lib/quote-query-shape'
+import { getAuthUserProfilesById, type UserProfile } from '@/lib/user-profiles'
 import { getPricingSettings } from './settings'
 import type { ActionResult } from './types'
 import { isDevNoAuthMode } from './types'
@@ -59,7 +60,7 @@ function isMissingOptionsRelationError(error: { message?: string } | null): bool
     message.includes("relation \"quote_option_items\" does not exist")
 }
 
-function toQuoteRecord(row: QuoteWithItemsRow): QuoteRecord {
+function toQuoteRecord(row: QuoteWithItemsRow, creatorProfile?: UserProfile): QuoteRecord {
   const quoteItems = [...(row.quote_items ?? [])].sort((a, b) => a.position - b.position)
   const quoteOptions = [...(row.quote_options ?? [])].sort((a, b) => a.position - b.position)
 
@@ -84,6 +85,9 @@ function toQuoteRecord(row: QuoteWithItemsRow): QuoteRecord {
     finalTotal: row.final_total,
     pricingSettingsSnapshot: row.pricing_settings_snapshot as never,
     createdAt: row.created_at,
+    createdBy: row.created_by,
+    createdByName: creatorProfile?.displayName ?? null,
+    createdByEmail: creatorProfile?.email ?? null,
     items: quoteItems.map((item) => ({
       id: item.id,
       quoteId: item.quote_id,
@@ -472,10 +476,12 @@ export async function searchQuotes(query = ''): Promise<ActionResult<QuoteRecord
   const { data, error } = await request
   if (error) return { ok: false, error: error.message }
   const rows = data as unknown as QuoteWithItemsRow[] | null
+  const quoteRows = rows ?? []
+  const creatorProfiles = await getAuthUserProfilesById(quoteRows.map((row) => row.created_by))
 
   return {
     ok: true,
-    data: (rows ?? []).map(toQuoteRecord),
+    data: quoteRows.map((row) => toQuoteRecord(row, creatorProfiles.get(row.created_by))),
   }
 }
 
@@ -508,6 +514,6 @@ export async function getQuote(id: string): Promise<ActionResult<QuoteRecord | n
 
   return {
     ok: true,
-    data: row ? toQuoteRecord(row) : null,
+    data: row ? toQuoteRecord(row, (await getAuthUserProfilesById([row.created_by])).get(row.created_by)) : null,
   }
 }

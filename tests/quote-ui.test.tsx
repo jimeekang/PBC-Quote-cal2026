@@ -42,6 +42,9 @@ describe('quote form pricing UI', () => {
       f5Margin: 0.3,
     },
     createdAt: '2026-05-14T00:00:00Z',
+    createdBy: 'user-1',
+    createdByName: 'Mia Kang',
+    createdByEmail: 'mia@example.com',
     items: [],
     options: [],
     jobberSnapshot: null,
@@ -189,6 +192,74 @@ describe('quote form pricing UI', () => {
     expect(markup).toContain('Exterior')
     expect(markup).toContain('Bedroom')
     expect(markup).not.toContain('Eaves')
+  })
+
+  it('keeps already selected material areas visible when materials span interior and exterior scopes', () => {
+    const markup = renderToStaticMarkup(
+      createElement(MaterialsPanel, {
+        materials: [
+          {
+            id: 'item-1',
+            name: 'Interior paint',
+            marketPrice: '82',
+            actualPrice: '82',
+            quantity: '1',
+            workingDays: '1',
+            labourPerDay: '1',
+            areaId: 'area-bedroom',
+            areaName: 'Bedroom',
+            areaScope: 'interior',
+            isCustom: false,
+          },
+          {
+            id: 'item-2',
+            name: 'Exterior paint',
+            marketPrice: '95',
+            actualPrice: '95',
+            quantity: '1',
+            workingDays: '1',
+            labourPerDay: '1',
+            areaId: 'area-eaves',
+            areaName: 'Eaves',
+            areaScope: 'exterior',
+            isCustom: false,
+          },
+        ],
+        areas: [
+          { id: 'area-bedroom', scope: 'interior', name: 'Bedroom', active: true, position: 0 },
+          { id: 'area-eaves', scope: 'exterior', name: 'Eaves', active: true, position: 0 },
+        ],
+        onAdd: () => undefined,
+        onChange: () => undefined,
+        onRemove: () => undefined,
+      })
+    )
+
+    expect(markup).toContain('Interior - Bedroom')
+    expect(markup).toContain('Exterior - Eaves')
+  })
+
+  it('renders material names as editable fields', () => {
+    const markup = renderToStaticMarkup(
+      createElement(MaterialRow, {
+        item: {
+          id: 'item-1',
+          name: 'Custom material',
+          marketPrice: '10',
+          actualPrice: '10',
+          quantity: '1',
+          workingDays: '1',
+          labourPerDay: '1',
+          isCustom: true,
+        },
+        areas: [],
+        onChange: () => undefined,
+        onRemove: () => undefined,
+      })
+    )
+
+    expect(markup).toContain('aria-label="Material name"')
+    expect(markup).toContain('value="Custom material"')
   })
 
   it('shows Jobber customer type without the area sqft field', () => {
@@ -523,5 +594,14 @@ describe('quote form pricing UI', () => {
     expect(markup).toContain('Edit')
     expect(markup).toContain(`/quotes/${quoteRecord.id}/edit`)
     expect(markup).toContain('Delete')
+  })
+
+  it('shows who created each quote on quote cards and detail pages', () => {
+    const cardMarkup = renderToStaticMarkup(createElement(QuoteCard, { quote: quoteRecord }))
+    const detailMarkup = renderToStaticMarkup(createElement(QuoteDetailView, { quote: quoteRecord }))
+
+    expect(cardMarkup).toContain('Created by Mia Kang')
+    expect(detailMarkup).toContain('Created by')
+    expect(detailMarkup).toContain('Mia Kang')
   })
 })

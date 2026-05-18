@@ -22,6 +22,7 @@ export function QuoteDetailView({ quote }: QuoteDetailViewProps) {
   const subtotal = new Decimal(quote.subtotal)
   const finalTotal = new Decimal(quote.finalTotal)
   const labourTotal = Decimal.max(subtotal.sub(materialTotal), 0)
+  const creatorName = quote.createdByName ?? quote.createdByEmail ?? 'Unknown user'
   const optionSummaries = quote.options.map((option) => ({
     id: option.id,
     title: option.title,
@@ -57,6 +58,7 @@ export function QuoteDetailView({ quote }: QuoteDetailViewProps) {
             {quote.workType ? (
               <div className="flex justify-between"><dt className="text-slate-500">Work Type</dt><dd className="text-slate-950">{quote.workType}</dd></div>
             ) : null}
+            <div className="flex justify-between gap-4"><dt className="text-slate-500">Created by</dt><dd className="min-w-0 truncate text-slate-950">{creatorName}</dd></div>
             <div className="flex justify-between"><dt className="text-slate-500">Working Days</dt><dd className="font-mono text-slate-950">{quote.workingDays}</dd></div>
             <div className="flex justify-between"><dt className="text-slate-500">Labour Per Day</dt><dd className="font-mono text-slate-950">{quote.labourPerDay}</dd></div>
             <div className="rounded-lg bg-[var(--primary-soft)] px-4 py-3"><dt className="text-xs font-bold uppercase text-[var(--primary)]">Final</dt><dd className="mt-1 font-mono text-3xl font-bold text-slate-950">${quote.finalTotal}</dd></div>

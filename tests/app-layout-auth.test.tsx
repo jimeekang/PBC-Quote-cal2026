@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   getUser: vi.fn(),
+  appHeader: vi.fn(() => <header>App header</header>),
   redirect: vi.fn((path: string) => {
     throw new Error(`redirect:${path}`)
   }),
@@ -20,7 +21,7 @@ vi.mock('next/navigation', () => ({
 }))
 
 vi.mock('@/components/layout/app-header', () => ({
-  AppHeader: () => <header>App header</header>,
+  AppHeader: mocks.appHeader,
 }))
 
 import AppLayout from '@/app/(app)/layout'
@@ -46,7 +47,7 @@ describe('app layout auth guard', () => {
 
   it('renders protected content when Supabase verifies the current user', async () => {
     mocks.getUser.mockResolvedValueOnce({
-      data: { user: { id: 'user-1', email: 'user@example.com' } },
+      data: { user: { id: 'user-1', email: 'user@example.com', user_metadata: { full_name: 'Mia Kang' } } },
       error: null,
     })
 
@@ -55,6 +56,13 @@ describe('app layout auth guard', () => {
     )
 
     expect(result.props.children[1].props.children).toBe('Protected content')
+    expect(result.props.children[0].props).toEqual({
+      userProfile: {
+        id: 'user-1',
+        email: 'user@example.com',
+        displayName: 'Mia Kang',
+      },
+    })
     expect(mocks.redirect).not.toHaveBeenCalled()
   })
 

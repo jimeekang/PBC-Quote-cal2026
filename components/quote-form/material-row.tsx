@@ -23,7 +23,13 @@ export function MaterialRow({ item, areas, onChange, onRemove }: MaterialRowProp
   return (
     <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 truncate text-sm font-bold text-slate-950">{item.name}</div>
+        <input
+          type="text"
+          value={item.name}
+          onChange={(event) => onChange({ ...item, name: event.target.value })}
+          aria-label="Material name"
+          className="min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-2 py-1 text-sm font-bold text-slate-950 hover:border-slate-200 hover:bg-white focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100"
+        />
         <button
           type="button"
           onClick={onRemove}

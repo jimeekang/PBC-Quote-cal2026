@@ -22,21 +22,26 @@ export function normalizeLoginEmail(email: string): string {
 
 export function isLoginEmailAllowed(
   email: string,
-  allowedEmails = process.env.ALLOWED_LOGIN_EMAILS
+  allowedEmails = process.env.ALLOWED_LOGIN_EMAILS,
+  nodeEnv = process.env.NODE_ENV
 ): boolean {
   const configuredEmails = (allowedEmails ?? '')
     .split(/[,\s]+/)
     .map(normalizeLoginEmail)
     .filter(Boolean)
 
-  if (configuredEmails.length === 0) return true
+  if (configuredEmails.length === 0) return nodeEnv !== 'production'
 
   return configuredEmails.includes(normalizeLoginEmail(email))
 }
 
-export function isAuthenticatedUserAllowed(user: { email?: string | null }): boolean {
-  if (!(process.env.ALLOWED_LOGIN_EMAILS ?? '').trim()) return true
-  return typeof user.email === 'string' && isLoginEmailAllowed(user.email)
+export function isAuthenticatedUserAllowed(
+  user: { email?: string | null },
+  allowedEmails = process.env.ALLOWED_LOGIN_EMAILS,
+  nodeEnv = process.env.NODE_ENV
+): boolean {
+  if (!(allowedEmails ?? '').trim()) return nodeEnv !== 'production'
+  return typeof user.email === 'string' && isLoginEmailAllowed(user.email, allowedEmails, nodeEnv)
 }
 
 export function createLoginRateLimitKey(email: string, requestFingerprint: string): string {

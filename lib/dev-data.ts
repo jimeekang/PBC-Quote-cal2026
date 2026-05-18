@@ -42,6 +42,9 @@ export interface QuoteRecord {
   finalTotal: string
   pricingSettingsSnapshot: PricingSettings
   createdAt: string
+  createdBy: string
+  createdByName: string | null
+  createdByEmail: string | null
   items: QuoteItemRecord[]
   options: QuoteOptionRecord[]
 }
@@ -363,6 +366,9 @@ function buildDevQuoteRecord(id: string, createdAt: string, input: DevQuoteInput
     finalTotal: money(finalTotal),
     pricingSettingsSnapshot: settings,
     createdAt,
+    createdBy: 'dev-user',
+    createdByName: 'Dev User',
+    createdByEmail: 'dev@example.com',
     items: input.items.map((item, index) => ({
       id: nextId('item'),
       quoteId: id,

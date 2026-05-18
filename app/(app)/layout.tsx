@@ -1,6 +1,7 @@
 import { AppHeader } from '@/components/layout/app-header'
 import { isAuthenticatedUserAllowed } from '@/lib/security/auth-policy'
 import { createClient } from '@/lib/supabase/server'
+import { getAuthUserProfile } from '@/lib/user-profiles'
 import { redirect } from 'next/navigation'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -17,7 +18,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-slate-900 lg:pl-64">
-      <AppHeader />
+      <AppHeader userProfile={getAuthUserProfile(user)} />
       {children}
     </div>
   )

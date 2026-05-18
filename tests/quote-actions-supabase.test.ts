@@ -3,6 +3,7 @@ import { DEFAULT_PRICING_SETTINGS } from '@/lib/calculator'
 
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
+  createServiceClient: vi.fn(),
   getPricingSettings: vi.fn(),
   isDevNoAuthMode: vi.fn(),
   revalidatePath: vi.fn(),
@@ -10,6 +11,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: mocks.createClient,
+  createServiceClient: mocks.createServiceClient,
 }))
 
 vi.mock('@/lib/actions/settings', () => ({
@@ -147,6 +149,23 @@ describe('quote actions against Supabase', () => {
     vi.clearAllMocks()
     mocks.isDevNoAuthMode.mockReturnValue(false)
     mocks.getPricingSettings.mockResolvedValue({ ok: true, data: DEFAULT_PRICING_SETTINGS })
+    mocks.createServiceClient.mockResolvedValue({
+      auth: {
+        admin: {
+          getUserById: vi.fn(async () => ({
+            data: {
+              user: {
+                id: 'user-1',
+                email: 'owner@example.com',
+                user_metadata: { full_name: 'Mia Kang' },
+                app_metadata: {},
+              },
+            },
+            error: null,
+          })),
+        },
+      },
+    })
   })
 
   it('creates a quote and item rows through Supabase', async () => {
@@ -255,6 +274,8 @@ describe('quote actions against Supabase', () => {
     expect(result.ok).toBe(true)
     if (result.ok) {
       expect(result.data[0].items[0].productNameSnapshot).toBe('Brush')
+      expect(result.data[0].createdByName).toBe('Mia Kang')
+      expect(result.data[0].createdByEmail).toBe('owner@example.com')
     }
     expect(searchBuilder.ilike).toHaveBeenCalledWith('customer_name', '%Supabase%')
   })
@@ -286,6 +307,7 @@ describe('quote actions against Supabase', () => {
     if (result.ok) {
       expect(result.data?.id).toBe(quoteId)
       expect(result.data?.items).toHaveLength(1)
+      expect(result.data?.createdByName).toBe('Mia Kang')
     }
   })
 

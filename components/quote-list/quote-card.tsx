@@ -5,6 +5,7 @@ import { QuoteDeleteButton } from './quote-delete-button'
 export function QuoteCard({ quote }: { quote: QuoteRecord }) {
   const title = quote.customerName || 'Untitled Quote'
   const savedDate = new Intl.DateTimeFormat('en-AU', { dateStyle: 'medium' }).format(new Date(quote.createdAt))
+  const creatorName = quote.createdByName ?? quote.createdByEmail ?? 'Unknown user'
 
   return (
     <article className="rounded-lg border border-white bg-white/90 p-4 shadow-sm hover:-translate-y-0.5 hover:shadow-[var(--shadow-soft)]">
@@ -18,6 +19,7 @@ export function QuoteCard({ quote }: { quote: QuoteRecord }) {
             <span className="rounded-full bg-slate-50 px-2.5 py-1">{quote.workingDays} days</span>
             <span className="rounded-full bg-slate-50 px-2.5 py-1">{quote.labourPerDay} labour</span>
             <span className="rounded-full bg-slate-50 px-2.5 py-1">{savedDate}</span>
+            <span className="rounded-full bg-slate-50 px-2.5 py-1">Created by {creatorName}</span>
           </div>
         </div>
         <div className="shrink-0 text-right">
