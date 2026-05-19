@@ -76,6 +76,9 @@
 │  - quote_options
 │  - quote_option_items
 │  - jobber_quote_lines (planned v1.1)
+│  - product_services
+│  - quote_line_templates
+│  - quote_line_template_items
 │  - pricing_settings (singleton)
 │  - jobber_tokens (user-scoped, encrypted)
 └────────────────┘
@@ -86,6 +89,7 @@
 2. Jobber Product / Service editor 작성
    - Add Line Item: 개별 가격 line item
    - Add Text: 일반 설명용 line item
+   - Template 선택: Settings에 저장한 공개 line/text 묶음을 현재 quote rows에 복사
    - Build Option Set, 사진, notes 제외
 3. 페인트 검색 → 내부 material 추가, 영역(area) 선택, 라인별 인부수·작업일수 입력
 4. → 5가지 공식 **클라이언트 사이드 실시간 계산** (서버 왕복 없음)

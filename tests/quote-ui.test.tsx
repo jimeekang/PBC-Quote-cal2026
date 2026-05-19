@@ -1,15 +1,29 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import Decimal from 'decimal.js'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { CustomerPanel } from '@/components/quote-form/customer-panel'
 import { FinalSummary } from '@/components/quote-form/final-summary'
 import { MaterialRow } from '@/components/quote-form/material-row'
 import { MaterialsPanel } from '@/components/quote-form/materials-panel'
 import { OptionTotalsSummary } from '@/components/quote-form/option-totals-summary'
+import { QuoteForm } from '@/components/quote-form/quote-form'
 import { QuoteDetailView } from '@/components/quote-detail/quote-detail-view'
 import { QuoteCard } from '@/components/quote-list/quote-card'
 import type { QuoteRecord } from '@/lib/dev-data'
+
+const routerPushMock = vi.hoisted(() => vi.fn())
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: routerPushMock,
+  }),
+}))
+
+vi.mock('@/lib/actions/quotes', () => ({
+  createQuote: vi.fn(),
+  updateQuote: vi.fn(),
+}))
 
 describe('quote form pricing UI', () => {
   const quoteRecord: QuoteRecord = {
@@ -62,6 +76,44 @@ describe('quote form pricing UI', () => {
     expect(markup).toContain('Edit')
     expect(markup).toContain(`/quotes/${quoteRecord.id}/edit`)
     expect(markup).toContain('Delete')
+  })
+
+  it('keeps the quote save action sticky while editing long forms', () => {
+    const markup = renderToStaticMarkup(
+      createElement(QuoteForm, {
+        settings: quoteRecord.pricingSettingsSnapshot,
+        areas: [],
+        productServices: [],
+        quoteLineTemplates: [],
+        initialQuote: quoteRecord,
+      })
+    )
+
+    expect(markup).toContain('Update Quote')
+    expect(markup).toContain('sticky top-16')
+  })
+
+  it('passes saved templates into the Product / Service editor', () => {
+    const markup = renderToStaticMarkup(
+      createElement(QuoteForm, {
+        settings: quoteRecord.pricingSettingsSnapshot,
+        areas: [],
+        productServices: [],
+        quoteLineTemplates: [
+          {
+            id: 'template-1',
+            name: 'Standard terms',
+            active: true,
+            createdAt: '2026-05-19T00:00:00.000Z',
+            updatedAt: '2026-05-19T00:00:00.000Z',
+            items: [],
+          },
+        ],
+      })
+    )
+
+    expect(markup).toContain('Template')
+    expect(markup).toContain('Standard terms')
   })
 
   it('shows subtotal details for labour and material totals', () => {

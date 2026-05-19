@@ -258,6 +258,7 @@ describe('jobber client', () => {
     expect(calls[0][1].body).toEqual(expect.stringContaining('valueNumeric'))
     expect(calls[0][1].body).toEqual(expect.stringContaining('valueDropdown'))
     expect(calls[0][1].body).toEqual(expect.stringContaining('tags(first: 20)'))
+    expect(calls[0][1].body).toEqual(expect.stringContaining('lineItems(first: 100)'))
     expect(calls[0][1].body).not.toEqual(expect.stringContaining('jobs(first: 5)'))
     expect(calls[0][1].body).not.toEqual(expect.stringContaining('expenses(first: 25)'))
   })
@@ -314,7 +315,7 @@ describe('jobber client', () => {
     const calls = fetcher.mock.calls as unknown as Array<[string, RequestInit]>
     expect(calls[0][1].body).toEqual(expect.stringContaining('"term":"2345"'))
     expect(calls[0][1].body).toEqual(expect.stringContaining('quotes(searchTerm: $term, first: 10)'))
-    expect(calls[0][1].body).toEqual(expect.stringContaining('lineItems(first: 25)'))
+    expect(calls[0][1].body).toEqual(expect.stringContaining('lineItems(first: 100)'))
     expect(calls[0][1].body).not.toEqual(expect.stringContaining('jobs(first: 5)'))
   })
 

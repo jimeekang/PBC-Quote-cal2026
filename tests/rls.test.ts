@@ -10,6 +10,8 @@ const migrations = [
   '0007_add_jobber_tokens.sql',
   '0009_add_quote_options.sql',
   '0010_add_jobber_quote_lines.sql',
+  '0011_add_product_services.sql',
+  '0012_add_quote_line_templates.sql',
 ].map((file) => {
   const path = join(migrationsDir, file)
 
@@ -30,6 +32,9 @@ const authenticatedCrudTables = [
   'quote_options',
   'quote_option_items',
   'jobber_quote_lines',
+  'product_services',
+  'quote_line_templates',
+  'quote_line_template_items',
 ]
 
 function escapeRegExp(value: string): string {

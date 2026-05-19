@@ -43,6 +43,72 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['products']['Insert']>
         Relationships: []
       }
+      product_services: {
+        Row: {
+          id: string
+          name: string
+          description: string | null
+          category: string | null
+          unit_price: string
+          unit_cost: string | null
+          bookable: boolean
+          duration_minutes: number | null
+          quantity_enabled: boolean
+          minimum_quantity: string | null
+          maximum_quantity: string | null
+          taxable: boolean
+          active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: Omit<Database['public']['Tables']['product_services']['Row'], 'id' | 'created_at' | 'updated_at'> & {
+          id?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['product_services']['Insert']>
+        Relationships: []
+      }
+      quote_line_templates: {
+        Row: {
+          id: string
+          name: string
+          active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: Omit<Database['public']['Tables']['quote_line_templates']['Row'], 'id' | 'created_at' | 'updated_at'> & {
+          id?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['quote_line_templates']['Insert']>
+        Relationships: []
+      }
+      quote_line_template_items: {
+        Row: {
+          id: string
+          template_id: string
+          kind: 'line_item' | 'text'
+          name: string
+          description: string | null
+          quantity: string | null
+          unit_price: string | null
+          taxable: boolean
+          client_visible: boolean
+          linked_product_or_service_id: string | null
+          position: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: Omit<Database['public']['Tables']['quote_line_template_items']['Row'], 'id' | 'created_at' | 'updated_at'> & {
+          id?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['quote_line_template_items']['Insert']>
+        Relationships: []
+      }
       pricing_settings: {
         Row: {
           id: number

@@ -2,10 +2,14 @@
 
 import { useState, type ChangeEvent, type DragEvent } from 'react'
 import type { JobberQuoteLineItemDraft, JobberSaveMode } from './types'
+import type { ProductServiceRecord } from '@/lib/product-services/types'
+import type { QuoteLineTemplateRecord } from '@/lib/quote-line-templates/types'
 
 interface JobberProductServiceEditorProps {
   value: JobberQuoteLineItemDraft[]
   saveMode: JobberSaveMode
+  productServices?: ProductServiceRecord[]
+  templates?: QuoteLineTemplateRecord[]
   onChange: (lines: JobberQuoteLineItemDraft[]) => void
   onSaveModeChange: (mode: JobberSaveMode) => void
 }
@@ -42,6 +46,49 @@ function createTextLine(): JobberQuoteLineItemDraft {
 
 type DropPlacement = 'before' | 'after'
 
+export function applyProductServiceToLine(
+  line: JobberQuoteLineItemDraft,
+  productService: ProductServiceRecord
+): JobberQuoteLineItemDraft {
+  if (line.kind === 'text') {
+    return {
+      ...line,
+      name: productService.name,
+      description: productService.description ?? '',
+      quantity: '1',
+      unitPrice: '0',
+      taxable: false,
+    }
+  }
+
+  return {
+    ...line,
+    name: productService.name,
+    description: productService.description ?? '',
+    quantity: productService.minimumQuantity ?? (line.quantity || '1'),
+    unitPrice: productService.unitPrice,
+    taxable: productService.taxable,
+  }
+}
+
+export function getProductServiceMatches(
+  query: string,
+  productServices: ProductServiceRecord[]
+): ProductServiceRecord[] {
+  const nameQuery = query.trim()
+  const lookupTokens = nameQuery.toLowerCase().split(/\s+/).filter(Boolean)
+  const hasExactNameMatch = productServices.some((productService) => productService.name.toLowerCase() === nameQuery.toLowerCase())
+
+  if (lookupTokens.length === 0 || hasExactNameMatch) return []
+
+  return productServices
+    .filter((productService) => {
+      const haystack = productService.name.toLowerCase()
+      return lookupTokens.every((token) => haystack.includes(token))
+    })
+    .slice(0, 6)
+}
+
 export function reorderJobberQuoteLines(
   lines: JobberQuoteLineItemDraft[],
   draggedId: string,
@@ -62,14 +109,36 @@ export function reorderJobberQuoteLines(
   return nextLines
 }
 
+function templateItemToDraft(line: QuoteLineTemplateRecord['items'][number]): JobberQuoteLineItemDraft {
+  return {
+    id: createLineId(`template-${line.kind}`),
+    kind: line.kind,
+    name: line.name,
+    description: line.description ?? '',
+    quantity: line.quantity ?? '1',
+    unitPrice: line.unitPrice ?? '0',
+    taxable: line.kind === 'line_item' ? line.taxable : false,
+    clientVisible: line.clientVisible,
+    linkedProductOrServiceId: line.linkedProductOrServiceId ?? undefined,
+  }
+}
+
+export function applyQuoteLineTemplateToDrafts(
+  lines: JobberQuoteLineItemDraft[],
+  template: QuoteLineTemplateRecord
+): JobberQuoteLineItemDraft[] {
+  return [...lines, ...template.items.map(templateItemToDraft)]
+}
+
 export function JobberProductServiceEditor({
   value,
-  saveMode,
+  productServices = [],
+  templates = [],
   onChange,
-  onSaveModeChange,
 }: JobberProductServiceEditorProps) {
   const [draggedLineId, setDraggedLineId] = useState<string | null>(null)
   const [dropTarget, setDropTarget] = useState<{ id: string; placement: DropPlacement } | null>(null)
+  const [selectedTemplateId, setSelectedTemplateId] = useState('')
 
   function updateLine(updatedLine: JobberQuoteLineItemDraft) {
     onChange(value.map((line) => line.id === updatedLine.id ? updatedLine : line))
@@ -77,6 +146,10 @@ export function JobberProductServiceEditor({
 
   function removeLine(id: string) {
     onChange(value.filter((line) => line.id !== id))
+  }
+
+  function applyProductService(line: JobberQuoteLineItemDraft, productService: ProductServiceRecord) {
+    updateLine(applyProductServiceToLine(line, productService))
   }
 
   function getDropPlacement(event: DragEvent<HTMLDivElement>): DropPlacement {
@@ -93,7 +166,12 @@ export function JobberProductServiceEditor({
   function handleDragOver(lineId: string, event: DragEvent<HTMLDivElement>) {
     if (!draggedLineId || draggedLineId === lineId) return
     event.preventDefault()
-    setDropTarget({ id: lineId, placement: getDropPlacement(event) })
+    const placement = getDropPlacement(event)
+    setDropTarget({ id: lineId, placement })
+    const reordered = reorderJobberQuoteLines(value, draggedLineId, lineId, placement)
+    if (reordered !== value && reordered.map((line) => line.id).join('|') !== value.map((line) => line.id).join('|')) {
+      onChange(reordered)
+    }
   }
 
   function handleDrop(lineId: string, event: DragEvent<HTMLDivElement>) {
@@ -112,6 +190,14 @@ export function JobberProductServiceEditor({
     setDropTarget(null)
   }
 
+  function applyTemplate(templateId: string) {
+    setSelectedTemplateId(templateId)
+    const template = templates.find((item) => item.id === templateId)
+    if (!template) return
+    onChange(applyQuoteLineTemplateToDrafts(value, template))
+    setSelectedTemplateId('')
+  }
+
   return (
     <section className="space-y-4 border-t border-slate-100 pt-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -119,34 +205,21 @@ export function JobberProductServiceEditor({
           <h2 className="text-sm font-bold uppercase text-slate-400">Product / Service</h2>
           <p className="mt-1 text-xs text-slate-500">Add the public Jobber-facing product and service lines for this quote.</p>
         </div>
-        <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1" aria-label="Jobber save mode">
-          <button
-            type="button"
-            onClick={() => onSaveModeChange('priced_line_items')}
-            aria-pressed={saveMode === 'priced_line_items'}
-            className={[
-              'rounded-md px-3 py-1.5 text-xs font-bold transition-colors',
-              saveMode === 'priced_line_items'
-                ? 'bg-slate-800 text-white'
-                : 'text-slate-600 hover:bg-slate-50',
-            ].join(' ')}
-          >
-            Priced Line Items
-          </button>
-          <button
-            type="button"
-            onClick={() => onSaveModeChange('description_total')}
-            aria-pressed={saveMode === 'description_total'}
-            className={[
-              'rounded-md px-3 py-1.5 text-xs font-bold transition-colors',
-              saveMode === 'description_total'
-                ? 'bg-slate-800 text-white'
-                : 'text-slate-600 hover:bg-slate-50',
-            ].join(' ')}
-          >
-            Description + Total
-          </button>
-        </div>
+        {templates.length > 0 ? (
+          <label className="flex min-w-48 flex-col gap-1 text-xs font-bold text-slate-500">
+            Template
+            <select
+              value={selectedTemplateId}
+              onChange={(event) => applyTemplate(event.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700"
+            >
+              <option value="">Choose template...</option>
+              {templates.map((template) => (
+                <option key={template.id} value={template.id}>{template.name}</option>
+              ))}
+            </select>
+          </label>
+        ) : null}
       </div>
 
       {value.length === 0 ? (
@@ -169,6 +242,8 @@ export function JobberProductServiceEditor({
                 onDragOver={(event) => handleDragOver(line.id, event)}
                 onDrop={(event) => handleDrop(line.id, event)}
                 onDragEnd={handleDragEnd}
+                productServices={productServices}
+                onApplyProductService={(productService) => applyProductService(line, productService)}
                 onChange={updateLine}
                 onRemove={() => removeLine(line.id)}
               />
@@ -185,6 +260,8 @@ export function JobberProductServiceEditor({
               onDragOver={(event) => handleDragOver(line.id, event)}
               onDrop={(event) => handleDrop(line.id, event)}
               onDragEnd={handleDragEnd}
+              productServices={productServices}
+              onApplyProductService={(productService) => applyProductService(line, productService)}
               onChange={updateLine}
               onRemove={() => removeLine(line.id)}
             />
@@ -220,6 +297,8 @@ interface PricedLineRowProps {
   onDragOver: (event: DragEvent<HTMLDivElement>) => void
   onDrop: (event: DragEvent<HTMLDivElement>) => void
   onDragEnd: () => void
+  productServices: ProductServiceRecord[]
+  onApplyProductService: (productService: ProductServiceRecord) => void
   onChange: (line: JobberQuoteLineItemDraft) => void
   onRemove: () => void
 }
@@ -238,9 +317,13 @@ function PricedLineRow({
   onDragOver,
   onDrop,
   onDragEnd,
+  productServices,
+  onApplyProductService,
   onChange,
   onRemove,
 }: PricedLineRowProps) {
+  const filteredProductServices = getProductServiceMatches(line.name, productServices)
+
   return (
     <div
       onDragOver={onDragOver}
@@ -259,12 +342,12 @@ function PricedLineRow({
           onDragEnd={onDragEnd}
           aria-label={`Drag ${line.name || 'line item'}`}
           title="Drag to reorder"
-          className="mt-1 flex h-9 w-8 cursor-grab items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-sm font-bold text-slate-400 active:cursor-grabbing"
+          className="mt-1 flex h-10 w-10 touch-none select-none items-center justify-center rounded-lg border border-slate-200 bg-slate-100 text-base font-bold text-slate-500 cursor-grab hover:bg-slate-200 active:cursor-grabbing"
         >
           ::
         </button>
         <div className="min-w-0 flex-1 space-y-3">
-          <div>
+          <div className="relative">
             <label className="sr-only" htmlFor={`${line.id}-name`}>Line item name</label>
             <input
               id={`${line.id}-name`}
@@ -274,6 +357,23 @@ function PricedLineRow({
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-950"
               placeholder="Line item name"
             />
+            {filteredProductServices.length > 0 ? (
+              <div className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg" aria-label="Product / Service dropdown">
+                {filteredProductServices.map((productService) => (
+                  <button
+                    key={productService.id}
+                    type="button"
+                    onClick={() => onApplyProductService(productService)}
+                    className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50"
+                  >
+                    <span className="block font-semibold text-slate-950">{productService.name}</span>
+                    <span className="block truncate text-xs text-slate-500">
+                      {productService.category ?? 'Service'} · ${productService.unitPrice}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
           <div>
             <label className="sr-only" htmlFor={`${line.id}-description`}>Line item description</label>
@@ -347,6 +447,8 @@ interface TextLineRowProps {
   onDragOver: (event: DragEvent<HTMLDivElement>) => void
   onDrop: (event: DragEvent<HTMLDivElement>) => void
   onDragEnd: () => void
+  productServices: ProductServiceRecord[]
+  onApplyProductService: (productService: ProductServiceRecord) => void
   onChange: (line: JobberQuoteLineItemDraft) => void
   onRemove: () => void
 }
@@ -359,9 +461,13 @@ function TextLineRow({
   onDragOver,
   onDrop,
   onDragEnd,
+  productServices,
+  onApplyProductService,
   onChange,
   onRemove,
 }: TextLineRowProps) {
+  const filteredProductServices = getProductServiceMatches(line.name, productServices)
+
   return (
     <div
       onDragOver={onDragOver}
@@ -380,12 +486,12 @@ function TextLineRow({
           onDragEnd={onDragEnd}
           aria-label={`Drag ${line.name || 'text line'}`}
           title="Drag to reorder"
-          className="mt-1 flex h-9 w-8 cursor-grab items-center justify-center rounded-lg border border-slate-200 bg-white text-sm font-bold text-slate-400 active:cursor-grabbing"
+          className="mt-1 flex h-10 w-10 touch-none select-none items-center justify-center rounded-lg border border-slate-200 bg-white text-base font-bold text-slate-500 cursor-grab hover:bg-slate-100 active:cursor-grabbing"
         >
           ::
         </button>
         <div className="min-w-0 flex-1 space-y-3">
-          <div>
+          <div className="relative">
             <label className="sr-only" htmlFor={`${line.id}-title`}>Text title</label>
             <input
               id={`${line.id}-title`}
@@ -395,6 +501,23 @@ function TextLineRow({
               className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-950"
               placeholder="Text title"
             />
+            {filteredProductServices.length > 0 ? (
+              <div className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg" aria-label="Product / Service dropdown">
+                {filteredProductServices.map((productService) => (
+                  <button
+                    key={productService.id}
+                    type="button"
+                    onClick={() => onApplyProductService(productService)}
+                    className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50"
+                  >
+                    <span className="block font-semibold text-slate-950">{productService.name}</span>
+                    <span className="block truncate text-xs text-slate-500">
+                      {productService.category ?? 'Service'}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
           <div>
             <label className="sr-only" htmlFor={`${line.id}-body`}>Text body</label>

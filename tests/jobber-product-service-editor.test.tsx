@@ -2,10 +2,14 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import {
+  applyQuoteLineTemplateToDrafts,
+  applyProductServiceToLine,
+  getProductServiceMatches,
   JobberProductServiceEditor,
   reorderJobberQuoteLines,
 } from '@/components/quote-form/jobber-product-service-editor'
 import type { JobberQuoteLineItemDraft } from '@/components/quote-form/types'
+import type { ProductServiceRecord } from '@/lib/product-services/types'
 
 describe('JobberProductServiceEditor', () => {
   const lines: JobberQuoteLineItemDraft[] = [
@@ -31,7 +35,7 @@ describe('JobberProductServiceEditor', () => {
     },
   ]
 
-  it('renders priced line item and description total save modes without Build Option Set', () => {
+  it('renders priced line item editor without Description + Total or Build Option Set modes', () => {
     const markup = renderToStaticMarkup(createElement(JobberProductServiceEditor, {
       value: lines,
       saveMode: 'priced_line_items',
@@ -40,8 +44,8 @@ describe('JobberProductServiceEditor', () => {
     }))
 
     expect(markup).toContain('Product / Service')
-    expect(markup).toContain('Priced Line Items')
-    expect(markup).toContain('Description + Total')
+    expect(markup).not.toContain('Priced Line Items')
+    expect(markup).not.toContain('Description + Total')
     expect(markup).not.toContain('Build Option Set')
   })
 
@@ -70,10 +74,38 @@ describe('JobberProductServiceEditor', () => {
     const markup = renderToStaticMarkup(createElement(JobberProductServiceEditor, {
       value: [],
       saveMode: 'description_total',
+      templates: [
+        {
+          id: 'template-1',
+          name: 'Standard terms',
+          active: true,
+          createdAt: '2026-05-19T00:00:00.000Z',
+          updatedAt: '2026-05-19T00:00:00.000Z',
+          items: [
+            {
+              id: 'template-item-1',
+              templateId: 'template-1',
+              kind: 'text',
+              name: 'Dulux Accredited Painting Company',
+              description: 'Accreditation paragraph',
+              quantity: null,
+              unitPrice: null,
+              taxable: false,
+              clientVisible: true,
+              linkedProductOrServiceId: null,
+              position: 0,
+              createdAt: '2026-05-19T00:00:00.000Z',
+              updatedAt: '2026-05-19T00:00:00.000Z',
+            },
+          ],
+        },
+      ],
       onChange: () => undefined,
       onSaveModeChange: () => undefined,
     }))
 
+    expect(markup).toContain('Template')
+    expect(markup).toContain('Standard terms')
     expect(markup).toContain('Add Line Item')
     expect(markup).toContain('Add Text')
     expect(markup).toContain('Add the public Jobber-facing product and service lines for this quote.')
@@ -90,6 +122,210 @@ describe('JobberProductServiceEditor', () => {
     expect(markup).toContain('draggable="true"')
     expect(markup).toContain('aria-label="Drag Exterior repaint"')
     expect(markup).toContain('aria-label="Drag Access notes"')
+    expect(markup).toContain('touch-none')
+    expect(markup).toContain('cursor-grab')
+  })
+
+  it('shows product service matches from the line item name field only', () => {
+    const productServices: ProductServiceRecord[] = [
+      {
+        id: 'service-1',
+        name: 'Ceiling',
+        description: 'All interior ceilings',
+        category: 'Service',
+        unitPrice: '14.50',
+        unitCost: '0.00',
+        bookable: false,
+        durationMinutes: null,
+        quantityEnabled: true,
+        minimumQuantity: null,
+        maximumQuantity: null,
+        taxable: true,
+        active: true,
+        createdAt: '2026-05-19T00:00:00.000Z',
+        updatedAt: '2026-05-19T00:00:00.000Z',
+      },
+      {
+        id: 'service-2',
+        name: 'Walls',
+        description: 'All interior ceilings',
+        category: 'Service',
+        unitPrice: '13.00',
+        unitCost: '0.00',
+        bookable: false,
+        durationMinutes: null,
+        quantityEnabled: true,
+        minimumQuantity: null,
+        maximumQuantity: null,
+        taxable: true,
+        active: true,
+        createdAt: '2026-05-19T00:00:00.000Z',
+        updatedAt: '2026-05-19T00:00:00.000Z',
+      },
+    ]
+    const markup = renderToStaticMarkup(createElement(JobberProductServiceEditor, {
+      value: [{ ...lines[0], name: 'ceil' }],
+      saveMode: 'priced_line_items',
+      productServices,
+      onChange: () => undefined,
+      onSaveModeChange: () => undefined,
+    }))
+
+    expect(markup).toContain('Product / Service dropdown')
+    expect(markup).toContain('Ceiling')
+    expect(markup).not.toContain('Walls')
+    expect(markup).not.toContain('Search Product &amp; Service')
+    expect(markup).not.toContain('aria-label="Search product or service catalog"')
+  })
+
+  it('shows product service matches from the text title field without price controls', () => {
+    const productServices: ProductServiceRecord[] = [
+      {
+        id: 'service-1',
+        name: 'Dulux Accredited Painting Company',
+        description: 'Accreditation paragraph',
+        category: 'Service',
+        unitPrice: '0.00',
+        unitCost: '0.00',
+        bookable: false,
+        durationMinutes: null,
+        quantityEnabled: false,
+        minimumQuantity: null,
+        maximumQuantity: null,
+        taxable: false,
+        active: true,
+        createdAt: '2026-05-19T00:00:00.000Z',
+        updatedAt: '2026-05-19T00:00:00.000Z',
+      },
+      {
+        id: 'service-2',
+        name: 'Touch up',
+        description: 'Dulux Accredited Painting Company',
+        category: 'Service',
+        unitPrice: '0.00',
+        unitCost: '0.00',
+        bookable: false,
+        durationMinutes: null,
+        quantityEnabled: false,
+        minimumQuantity: null,
+        maximumQuantity: null,
+        taxable: false,
+        active: true,
+        createdAt: '2026-05-19T00:00:00.000Z',
+        updatedAt: '2026-05-19T00:00:00.000Z',
+      },
+    ]
+    const markup = renderToStaticMarkup(createElement(JobberProductServiceEditor, {
+      value: [{ ...lines[1], name: 'accredited' }],
+      saveMode: 'priced_line_items',
+      productServices,
+      onChange: () => undefined,
+      onSaveModeChange: () => undefined,
+    }))
+
+    expect(markup).toContain('Product / Service dropdown')
+    expect(markup).toContain('Dulux Accredited Painting Company')
+    expect(markup).not.toContain('Touch up')
+    expect(markup).not.toContain('Unit price')
+  })
+
+  it('filters product services by title tokens only', () => {
+    const matches = getProductServiceMatches('ceil', [
+      {
+        id: 'service-1',
+        name: 'Ceiling',
+        description: 'All interior ceilings',
+        category: 'Service',
+        unitPrice: '14.50',
+        unitCost: '0.00',
+        bookable: false,
+        durationMinutes: null,
+        quantityEnabled: true,
+        minimumQuantity: null,
+        maximumQuantity: null,
+        taxable: true,
+        active: true,
+        createdAt: '2026-05-19T00:00:00.000Z',
+        updatedAt: '2026-05-19T00:00:00.000Z',
+      },
+      {
+        id: 'service-2',
+        name: 'Walls',
+        description: 'All interior ceilings',
+        category: 'Service',
+        unitPrice: '13.00',
+        unitCost: '0.00',
+        bookable: false,
+        durationMinutes: null,
+        quantityEnabled: true,
+        minimumQuantity: null,
+        maximumQuantity: null,
+        taxable: true,
+        active: true,
+        createdAt: '2026-05-19T00:00:00.000Z',
+        updatedAt: '2026-05-19T00:00:00.000Z',
+      },
+    ])
+
+    expect(matches.map((match) => match.name)).toEqual(['Ceiling'])
+  })
+
+  it('fills a priced line from a product service without linking an internal id to Jobber', () => {
+    const filled = applyProductServiceToLine(lines[0], {
+      id: 'service-1',
+      name: 'Ceiling',
+      description: 'All interior ceilings',
+      category: 'Service',
+      unitPrice: '14.50',
+      unitCost: '0.00',
+      bookable: false,
+      durationMinutes: null,
+      quantityEnabled: true,
+      minimumQuantity: '1.00',
+      maximumQuantity: null,
+      taxable: true,
+      active: true,
+      createdAt: '2026-05-19T00:00:00.000Z',
+      updatedAt: '2026-05-19T00:00:00.000Z',
+    })
+
+    expect(filled).toMatchObject({
+      name: 'Ceiling',
+      description: 'All interior ceilings',
+      quantity: '1.00',
+      unitPrice: '14.50',
+      taxable: true,
+    })
+    expect(filled.linkedProductOrServiceId).toBeUndefined()
+  })
+
+  it('fills a text line from a product service without carrying price or tax into the text item', () => {
+    const filled = applyProductServiceToLine(lines[1], {
+      id: 'service-1',
+      name: 'Dulux Accredited Painting Company',
+      description: 'Accreditation paragraph',
+      category: 'Service',
+      unitPrice: '14.50',
+      unitCost: '0.00',
+      bookable: false,
+      durationMinutes: null,
+      quantityEnabled: true,
+      minimumQuantity: '2.00',
+      maximumQuantity: null,
+      taxable: true,
+      active: true,
+      createdAt: '2026-05-19T00:00:00.000Z',
+      updatedAt: '2026-05-19T00:00:00.000Z',
+    })
+
+    expect(filled).toMatchObject({
+      kind: 'text',
+      name: 'Dulux Accredited Painting Company',
+      description: 'Accreditation paragraph',
+      quantity: '1',
+      unitPrice: '0',
+      taxable: false,
+    })
   })
 
   it('reorders line items by dragged and dropped ids', () => {
@@ -97,5 +333,58 @@ describe('JobberProductServiceEditor', () => {
 
     expect(reordered.map((line) => line.id)).toEqual(['text-1', 'line-1'])
     expect(lines.map((line) => line.id)).toEqual(['line-1', 'text-1'])
+  })
+
+  it('appends template items to existing quote lines without removing saved lines', () => {
+    const nextLines = applyQuoteLineTemplateToDrafts(lines, {
+      id: 'template-1',
+      name: 'Common inclusions',
+      active: true,
+      createdAt: '2026-05-19T00:00:00.000Z',
+      updatedAt: '2026-05-19T00:00:00.000Z',
+      items: [
+        {
+          id: 'template-item-1',
+          templateId: 'template-1',
+          kind: 'line_item',
+          name: 'Total',
+          description: 'All labour and materials',
+          quantity: '1',
+          unitPrice: '3459.83',
+          taxable: true,
+          clientVisible: true,
+          linkedProductOrServiceId: null,
+          position: 0,
+          createdAt: '2026-05-19T00:00:00.000Z',
+          updatedAt: '2026-05-19T00:00:00.000Z',
+        },
+        {
+          id: 'template-item-2',
+          templateId: 'template-1',
+          kind: 'text',
+          name: 'Contract / Disclaimer',
+          description: 'Quote terms',
+          quantity: null,
+          unitPrice: null,
+          taxable: false,
+          clientVisible: true,
+          linkedProductOrServiceId: null,
+          position: 1,
+          createdAt: '2026-05-19T00:00:00.000Z',
+          updatedAt: '2026-05-19T00:00:00.000Z',
+        },
+      ],
+    })
+
+    expect(nextLines).toHaveLength(4)
+    expect(nextLines[0]).toEqual(lines[0])
+    expect(nextLines[1]).toEqual(lines[1])
+    expect(nextLines.map((line) => line.name)).toEqual([
+      'Exterior repaint',
+      'Access notes',
+      'Total',
+      'Contract / Disclaimer',
+    ])
+    expect(nextLines.slice(2).every((line) => line.jobberLineItemId === undefined)).toBe(true)
   })
 })

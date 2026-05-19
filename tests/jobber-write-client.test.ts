@@ -97,6 +97,7 @@ describe('jobber quote write client', () => {
         quantity: 2,
         unitPrice: 50,
         totalPrice: 100,
+        sortOrder: 0,
       },
     ])
     expect(bodies[2].query).toContain('quoteCreateLineItems')
@@ -298,6 +299,356 @@ describe('jobber quote write client', () => {
     expect(bodies[1].variables.lineItems).toEqual([
       expect.objectContaining({ lineItemId: 'current-b', sortOrder: 0 }),
       expect.objectContaining({ lineItemId: 'current-a', sortOrder: 1 }),
+    ])
+  })
+
+  it('relinks stale text and priced ids from a refreshed Jobber session before updating mixed lines', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: {
+          quote: {
+            id: 'quote-id',
+            quoteNumber: '3535',
+            title: null,
+            createdAt: '2026-05-19T00:00:00Z',
+            message: null,
+            jobberWebUri: 'https://secure.getjobber.com/quotes/59439251',
+            client: null,
+            property: null,
+            lineItems: {
+              nodes: [
+                {
+                  id: 'fresh-text',
+                  name: 'Dulux Accredited Painting Company',
+                  category: 'SERVICE',
+                  description: 'Old accreditation paragraph',
+                  quantity: 1,
+                  unitPrice: 0,
+                  totalPrice: 0,
+                  textOnly: true,
+                  linkedProductOrService: null,
+                },
+                {
+                  id: 'fresh-priced',
+                  name: 'Ceiling',
+                  category: 'SERVICE',
+                  description: 'Ceiling scope',
+                  quantity: 1,
+                  unitPrice: 14.5,
+                  totalPrice: 14.5,
+                  linkedProductOrService: null,
+                },
+              ],
+            },
+          },
+        },
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: { quoteEditLineItems: { modifiedLineItems: [{ id: 'fresh-priced' }, { id: 'fresh-text' }], userErrors: [] } },
+      }), { status: 200 }))
+
+    const result = await syncJobberQuoteLineItems('quote-id', {
+      saveMode: 'priced_line_items',
+      lines: [
+        {
+          kind: 'line_item',
+          name: 'Ceiling',
+          description: 'Ceiling scope',
+          quantity: 1,
+          unitPrice: 14.5,
+          taxable: true,
+          clientVisible: true,
+          jobberLineItemId: 'stale-priced',
+          position: 0,
+        },
+        {
+          kind: 'text',
+          name: 'Dulux Accredited Painting Company',
+          description: 'Updated accreditation paragraph',
+          quantity: 1,
+          unitPrice: 0,
+          taxable: false,
+          clientVisible: true,
+          jobberLineItemId: 'stale-text',
+          position: 1,
+        },
+      ],
+      finalTotal: '0',
+      finalTotalIncludesGst: true,
+    }, {
+      accessToken: 'access-token',
+      graphqlVersion: '2025-04-16',
+      fetcher,
+    })
+
+    expect(result.createdLineItemIds).toEqual([])
+    expect(result.editedLineItemIds).toEqual(['fresh-priced', 'fresh-text'])
+    expect(result.syncedLineItems).toEqual([
+      { sourcePosition: 0, jobberLineItemId: 'fresh-priced' },
+      { sourcePosition: 1, jobberLineItemId: 'fresh-text' },
+    ])
+
+    const bodies = fetcher.mock.calls.map(([, init]) => JSON.parse(String(init.body)))
+    expect(bodies.some((body) => String(body.query).includes('quoteCreateLineItems'))).toBe(false)
+    expect(bodies.some((body) => String(body.query).includes('quoteCreateTextLineItems'))).toBe(false)
+    expect(bodies[1].variables.lineItems).toEqual([
+      expect.objectContaining({ lineItemId: 'fresh-priced', name: 'Ceiling', sortOrder: 0 }),
+      expect.objectContaining({ lineItemId: 'fresh-text', name: 'Dulux Accredited Painting Company', sortOrder: 1 }),
+    ])
+  })
+
+  it('creates text line items without sort order because Jobber rejects sortOrder on text create attributes', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: {
+          quote: {
+            id: 'quote-id',
+            quoteNumber: '3535',
+            title: null,
+            createdAt: '2026-05-19T00:00:00Z',
+            message: null,
+            jobberWebUri: 'https://secure.getjobber.com/quotes/59439251',
+            client: null,
+            property: null,
+            lineItems: { nodes: [] },
+          },
+        },
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: { quoteCreateTextLineItems: { createdLineItems: [{ id: 'created-text-line' }], userErrors: [] } },
+      }), { status: 200 }))
+
+    const result = await syncJobberQuoteLineItems('quote-id', {
+      saveMode: 'priced_line_items',
+      lines: [
+        {
+          kind: 'text',
+          name: 'Door & Window Trim',
+          description: 'All exterior door & window frames',
+          clientVisible: true,
+          position: 2,
+        },
+      ],
+      finalTotal: '0',
+      finalTotalIncludesGst: true,
+    }, {
+      accessToken: 'access-token',
+      graphqlVersion: '2025-04-16',
+      fetcher,
+    })
+
+    expect(result.createdLineItemIds).toEqual(['created-text-line'])
+    expect(result.syncedLineItems).toEqual([
+      { sourcePosition: 2, jobberLineItemId: 'created-text-line' },
+    ])
+
+    const bodies = fetcher.mock.calls.map(([, init]) => JSON.parse(String(init.body)))
+    expect(bodies[1].query).toContain('quoteCreateTextLineItems')
+    expect(bodies[1].variables.lineItems).toEqual([
+      {
+        name: 'Door & Window Trim',
+        description: 'All exterior door & window frames',
+        category: 'SERVICE',
+      },
+    ])
+  })
+
+  it('applies final Jobber sort order after creating a text line item', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: {
+          quote: {
+            id: 'quote-id',
+            quoteNumber: '3535',
+            title: null,
+            createdAt: '2026-05-19T00:00:00Z',
+            message: null,
+            jobberWebUri: 'https://secure.getjobber.com/quotes/59439251',
+            client: null,
+            property: null,
+            lineItems: {
+              nodes: [
+                {
+                  id: 'existing-line',
+                  name: 'Walls',
+                  category: 'SERVICE',
+                  description: 'Existing wall scope',
+                  quantity: 1,
+                  unitPrice: 25,
+                  totalPrice: 25,
+                  linkedProductOrService: null,
+                },
+              ],
+            },
+          },
+        },
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: { quoteEditLineItems: { modifiedLineItems: [{ id: 'existing-line' }], userErrors: [] } },
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: { quoteCreateTextLineItems: { createdLineItems: [{ id: 'created-text-line' }], userErrors: [] } },
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: {
+          quoteEditLineItems: {
+            modifiedLineItems: [{ id: 'created-text-line' }, { id: 'existing-line' }],
+            userErrors: [],
+          },
+        },
+      }), { status: 200 }))
+
+    const result = await syncJobberQuoteLineItems('quote-id', {
+      saveMode: 'priced_line_items',
+      lines: [
+        {
+          kind: 'text',
+          name: 'Door & Window Trim',
+          description: 'All exterior door & window frames',
+          clientVisible: true,
+          position: 0,
+        },
+        {
+          kind: 'line_item',
+          name: 'Walls',
+          description: 'Existing wall scope',
+          quantity: 1,
+          unitPrice: 25,
+          taxable: true,
+          clientVisible: true,
+          jobberLineItemId: 'existing-line',
+          position: 1,
+        },
+      ],
+      finalTotal: '0',
+      finalTotalIncludesGst: true,
+    }, {
+      accessToken: 'access-token',
+      graphqlVersion: '2025-04-16',
+      fetcher,
+    })
+
+    expect(result.syncedLineItems).toEqual([
+      { sourcePosition: 1, jobberLineItemId: 'existing-line' },
+      { sourcePosition: 0, jobberLineItemId: 'created-text-line' },
+    ])
+
+    const bodies = fetcher.mock.calls.map(([, init]) => JSON.parse(String(init.body)))
+    expect(bodies[2].query).toContain('quoteCreateTextLineItems')
+    expect(bodies[2].variables.lineItems).toEqual([
+      {
+        name: 'Door & Window Trim',
+        description: 'All exterior door & window frames',
+        category: 'SERVICE',
+      },
+    ])
+    expect(bodies[3].query).toContain('quoteEditLineItems')
+    expect(bodies[3].variables.lineItems).toEqual([
+      expect.objectContaining({ lineItemId: 'created-text-line', name: 'Door & Window Trim', sortOrder: 0 }),
+      expect.objectContaining({ lineItemId: 'existing-line', name: 'Walls', sortOrder: 1 }),
+    ])
+  })
+
+  it('normalizes final Jobber sort order from submitted line order when new text items have no position', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: {
+          quote: {
+            id: 'quote-id',
+            quoteNumber: '3535',
+            title: null,
+            createdAt: '2026-05-19T00:00:00Z',
+            message: null,
+            jobberWebUri: 'https://secure.getjobber.com/quotes/59439251',
+            client: null,
+            property: null,
+            lineItems: {
+              nodes: [
+                {
+                  id: 'existing-line',
+                  name: 'Walls',
+                  category: 'SERVICE',
+                  description: 'Existing wall scope',
+                  quantity: 1,
+                  unitPrice: 25,
+                  totalPrice: 25,
+                  linkedProductOrService: null,
+                },
+              ],
+            },
+          },
+        },
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: { quoteEditLineItems: { modifiedLineItems: [{ id: 'existing-line' }], userErrors: [] } },
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: { quoteCreateTextLineItems: { createdLineItems: [{ id: 'created-top-text' }], userErrors: [] } },
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: { quoteCreateTextLineItems: { createdLineItems: [{ id: 'created-bottom-text' }], userErrors: [] } },
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: {
+          quoteEditLineItems: {
+            modifiedLineItems: [
+              { id: 'created-top-text' },
+              { id: 'existing-line' },
+              { id: 'created-bottom-text' },
+            ],
+            userErrors: [],
+          },
+        },
+      }), { status: 200 }))
+
+    await syncJobberQuoteLineItems('quote-id', {
+      saveMode: 'priced_line_items',
+      lines: [
+        {
+          kind: 'text',
+          name: 'Preparation Notes',
+          description: 'Before work starts',
+          clientVisible: true,
+        },
+        {
+          kind: 'line_item',
+          name: 'Walls',
+          description: 'Existing wall scope',
+          quantity: 1,
+          unitPrice: 25,
+          taxable: true,
+          clientVisible: true,
+          jobberLineItemId: 'existing-line',
+        },
+        {
+          kind: 'text',
+          name: 'Completion Notes',
+          description: 'After work finishes',
+          clientVisible: true,
+        },
+      ],
+      finalTotal: '0',
+      finalTotalIncludesGst: true,
+    }, {
+      accessToken: 'access-token',
+      graphqlVersion: '2025-04-16',
+      fetcher,
+    })
+
+    const bodies = fetcher.mock.calls.map(([, init]) => JSON.parse(String(init.body)))
+    expect(bodies[2].query).toContain('quoteCreateTextLineItems')
+    expect(bodies[2].variables.lineItems[0]).not.toHaveProperty('sortOrder')
+    expect(bodies[3].query).toContain('quoteCreateTextLineItems')
+    expect(bodies[3].variables.lineItems[0]).not.toHaveProperty('sortOrder')
+    expect(bodies[4].query).toContain('quoteEditLineItems')
+    expect(bodies[4].variables.lineItems).toEqual([
+      expect.objectContaining({ lineItemId: 'created-top-text', name: 'Preparation Notes', sortOrder: 0 }),
+      expect.objectContaining({ lineItemId: 'existing-line', name: 'Walls', sortOrder: 1 }),
+      expect.objectContaining({ lineItemId: 'created-bottom-text', name: 'Completion Notes', sortOrder: 2 }),
     ])
   })
 

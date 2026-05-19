@@ -6,6 +6,7 @@ import {
   MaterialAddItemForm,
   MaterialCsvTemplate,
   MaterialProductsTable,
+  QuoteLineTemplateEditor,
   SettingsForm,
 } from '@/components/settings/settings-form'
 import type { ProductRecord } from '@/lib/products/types'
@@ -73,16 +74,17 @@ describe('settings material UI', () => {
     expect(markup).toContain('Unit')
   })
 
-  it('shows a Jobber reconnect action in settings', () => {
+  it('does not show a Jobber reconnect action in settings', () => {
     const markup = renderToStaticMarkup(createElement(SettingsForm, {
       initialAreas: [],
       initialProducts: [],
+      initialQuoteLineTemplates: [],
       initialSettings: DEFAULT_PRICING_SETTINGS,
     }))
 
-    expect(markup).toContain('Jobber Connection')
-    expect(markup).toContain('Reconnect Jobber')
-    expect(markup).toContain('/api/jobber/connect')
+    expect(markup).not.toContain('Jobber Connection')
+    expect(markup).not.toContain('Reconnect Jobber')
+    expect(markup).not.toContain('/api/jobber/connect')
   })
 
   it('normalizes numeric edit form values before saving', () => {
@@ -106,5 +108,43 @@ describe('settings material UI', () => {
       unit: '15L',
       rrpPrice: 199.99,
     })
+  })
+
+  it('renders a template editor for reusable line and text items', () => {
+    const markup = renderToStaticMarkup(createElement(QuoteLineTemplateEditor, {
+      templates: [
+        {
+          id: 'template-1',
+          name: 'Standard terms',
+          active: true,
+          createdAt: '2026-05-19T00:00:00.000Z',
+          updatedAt: '2026-05-19T00:00:00.000Z',
+          items: [
+            {
+              id: 'template-item-1',
+              templateId: 'template-1',
+              kind: 'text',
+              name: 'Dulux Accredited Painting Company',
+              description: 'Accreditation paragraph',
+              quantity: null,
+              unitPrice: null,
+              taxable: false,
+              clientVisible: true,
+              linkedProductOrServiceId: null,
+              position: 0,
+              createdAt: '2026-05-19T00:00:00.000Z',
+              updatedAt: '2026-05-19T00:00:00.000Z',
+            },
+          ],
+        },
+      ],
+      productServices: [],
+    }))
+
+    expect(markup).toContain('Template')
+    expect(markup).toContain('Template name')
+    expect(markup).toContain('Save Template')
+    expect(markup).toContain('Standard terms')
+    expect(markup).toContain('Dulux Accredited Painting Company')
   })
 })

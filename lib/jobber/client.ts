@@ -292,7 +292,7 @@ const JOBBER_QUOTE_QUERY = `
           postalCode
         }
       }
-      lineItems(first: 25) {
+      lineItems(first: 100) {
         nodes {
           id
           name
@@ -394,7 +394,7 @@ const JOBBER_QUOTE_SEARCH_QUERY = `
             postalCode
           }
         }
-        lineItems(first: 25) {
+        lineItems(first: 100) {
           nodes {
             id
             name
@@ -1070,7 +1070,6 @@ function toQuoteCreateTextLineItemAttributes(item: JobberQuoteLineMutationItem) 
     name: item.name,
     description: item.description,
     category: 'SERVICE',
-    ...(typeof item.sortOrder === 'number' ? { sortOrder: item.sortOrder } : {}),
   }
 }
 
@@ -1129,6 +1128,13 @@ function currentLineMatchKey(lineItem: JobberQuoteLineItem): string {
   ].join('|')
 }
 
+function currentLineNameKey(lineItem: JobberQuoteLineItem): string {
+  return [
+    currentLineKind(lineItem),
+    normalizeLineText(lineItem.name),
+  ].join('|')
+}
+
 function mutationLineMatchKey(item: JobberQuoteLineMutationItem): string {
   const base = [
     item.kind,
@@ -1146,12 +1152,20 @@ function mutationLineMatchKey(item: JobberQuoteLineMutationItem): string {
   ].join('|')
 }
 
+function mutationLineNameKey(item: JobberQuoteLineMutationItem): string {
+  return [
+    item.kind,
+    normalizeLineText(item.name),
+  ].join('|')
+}
+
 function resolveCurrentJobberLineId(
   item: JobberQuoteLineMutationItem,
   currentLineItems: JobberQuoteLineItem[],
   currentLineItemIds: Set<string>,
   usedLineItemIds: Set<string>,
-  currentLineItemsByKey: Map<string, JobberQuoteLineItem[]>
+  currentLineItemsByKey: Map<string, JobberQuoteLineItem[]>,
+  currentLineItemsByNameKey: Map<string, JobberQuoteLineItem[]>
 ): string | undefined {
   if (item.jobberLineItemId && currentLineItemIds.has(item.jobberLineItemId)) {
     usedLineItemIds.add(item.jobberLineItemId)
@@ -1165,9 +1179,20 @@ function resolveCurrentJobberLineId(
     return matchingLine.id
   }
 
+  const matchingNameLines = currentLineItemsByNameKey.get(mutationLineNameKey(item)) ?? []
+  const matchingNameLine = matchingNameLines.find((lineItem) => !usedLineItemIds.has(lineItem.id))
+  if (matchingNameLine) {
+    usedLineItemIds.add(matchingNameLine.id)
+    return matchingNameLine.id
+  }
+
   if (typeof item.sourcePosition === 'number') {
     const lineAtPosition = currentLineItems[item.sourcePosition]
-    if (lineAtPosition && !usedLineItemIds.has(lineAtPosition.id)) {
+    if (
+      lineAtPosition &&
+      currentLineKind(lineAtPosition) === item.kind &&
+      !usedLineItemIds.has(lineAtPosition.id)
+    ) {
       usedLineItemIds.add(lineAtPosition.id)
       return lineAtPosition.id
     }
@@ -1183,10 +1208,13 @@ function relinkMutationItemsToCurrentQuote(
 ): JobberQuoteLineMutationItem[] {
   const usedLineItemIds = new Set<string>()
   const currentLineItemsByKey = new Map<string, JobberQuoteLineItem[]>()
+  const currentLineItemsByNameKey = new Map<string, JobberQuoteLineItem[]>()
 
   for (const lineItem of currentLineItems) {
     const key = currentLineMatchKey(lineItem)
     currentLineItemsByKey.set(key, [...(currentLineItemsByKey.get(key) ?? []), lineItem])
+    const nameKey = currentLineNameKey(lineItem)
+    currentLineItemsByNameKey.set(nameKey, [...(currentLineItemsByNameKey.get(nameKey) ?? []), lineItem])
   }
 
   return mutationItems.map((item) => {
@@ -1195,7 +1223,8 @@ function relinkMutationItemsToCurrentQuote(
       currentLineItems,
       currentLineItemIds,
       usedLineItemIds,
-      currentLineItemsByKey
+      currentLineItemsByKey,
+      currentLineItemsByNameKey
     )
 
     return resolvedLineItemId ? { ...item, jobberLineItemId: resolvedLineItemId } : item
@@ -1231,10 +1260,13 @@ export async function syncJobberQuoteLineItems(
   const editedLineItemIds: string[] = []
   const syncedLineItems: JobberQuoteLineSyncResult['syncedLineItems'] = []
   const mutationItems = relinkMutationItemsToCurrentQuote(
-    buildJobberQuoteLineMutationItems(input),
+    buildJobberQuoteLineMutationItems(input).map((item, index) => ({
+      ...item,
+      sortOrder: index,
+    })),
     currentLineItems,
     currentLineItemIds
-  )
+  ).map((item) => ({ ...item }))
 
   const editItems = mutationItems.filter((item) => item.jobberLineItemId && currentLineItemIds.has(item.jobberLineItemId))
   if (editItems.length > 0) {
@@ -1277,6 +1309,9 @@ export async function syncJobberQuoteLineItems(
     assertNoMutationUserErrors(payload, mutationName)
     const createdIds = getCreatedLineItemIds(payload, mutationName)
     createdLineItemIds.push(...createdIds)
+    if (createdIds[0]) {
+      item.jobberLineItemId = createdIds[0]
+    }
     if (typeof item.sourcePosition === 'number' && createdIds[0]) {
       syncedLineItems.push({
         sourcePosition: item.sourcePosition,
@@ -1299,6 +1334,22 @@ export async function syncJobberQuoteLineItems(
     }, options)
     assertNoMutationUserErrors(payload, 'quoteDeleteLineItems')
     deletedLineItemIds.push(...deleteCandidateIds)
+  }
+
+  const finalSortItems = mutationItems
+    .filter((item) => item.jobberLineItemId && typeof item.sortOrder === 'number')
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+
+  if (createItems.some((item) => item.kind === 'text') && finalSortItems.length > 1) {
+    const payload = await postApprovedJobberMutation(
+      JOBBER_QUOTE_EDIT_LINE_ITEMS_MUTATION,
+      {
+        quoteId,
+        lineItems: finalSortItems.map(toQuoteEditLineItemAttributes),
+      },
+      options
+    )
+    assertNoMutationUserErrors(payload, 'quoteEditLineItems')
   }
 
   return {

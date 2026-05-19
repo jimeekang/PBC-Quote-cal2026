@@ -70,7 +70,8 @@ QuoteNewPage (Server, /app/(app)/quotes/new/page.tsx)
     │   └── Input: customer_address
     │
     ├── JobberProductServiceEditor
-    │   ├── Save mode: Priced Line Items / Description + Total
+    │   ├── Template dropdown (copies saved line/text item sets from Settings)
+    │   ├── Line item name / text title input with Product & Service title dropdown
     │   ├── Add Line Item
     │   └── Add Text
     │
@@ -162,35 +163,39 @@ Jobber write-back용 공개 견적 line item을 작성하는 섹션. 내부 mate
 ```
 Product / Service
 ────────────────────────────────────────
-[Priced Line Items] [Description + Total]
-
-[Line item name........................]
+[Template: Choose template...]
+[Line item name........................]  -> local Product & Service title dropdown
 [Description...........................]
 Qty [1.00]   Unit price [$0.00]   Taxable [✓]
-[Link Jobber Product / Service search...]
 
 [Add Line Item]
 [Add Text]
 ```
 
+### Template
+
+- Settings > Template 섹션에서 저장한 line item/text item 묶음을 선택한다.
+- 선택한 템플릿의 항목은 현재 Product / Service rows 뒤에 복사된다.
+- 템플릿 원본은 수정되지 않으며, 복사된 rows만 quote 저장 시 `jobber_quote_lines`로 저장되고 기존 Jobber write-back 경로를 탄다.
+- 템플릿은 material, formula, option 데이터를 포함하지 않는다.
+
 ### Add Line Item
 
 - Jobber에 가격과 함께 저장할 공개 line item
-- 필드: name, description, quantity, unit price, taxable, client visible, linked Jobber Product / Service
-- `Priced Line Items` mode에서는 여러 line item 각각의 가격을 Jobber에 보낸다.
+- 필드: name, description, quantity, unit price, taxable, client visible
+- name 입력값으로 Settings Product & Service catalog의 `Name`만 검색한다. description/category는 quote editor dropdown 검색 대상이 아니다.
+- catalog item을 선택하면 name, description, quantity, unit price, taxable 값을 자동으로 채운다.
+- catalog에 없으면 사용자가 입력한 name/description/price 그대로 custom line item으로 저장한다.
+- 여러 line item 각각의 가격을 Jobber에 보낸다.
 
 ### Add Text
 
 - 일반 설명용 line item
 - 필드: title, body, client visible
 - 가격 필드는 없다.
+- title 입력값으로 Settings Product & Service catalog의 `Name`만 검색한다.
+- catalog item을 선택하면 title과 body만 채우며 unit price/tax는 text-only 상태로 유지한다.
 - Jobber API가 text block을 지원하지 않으면 구현에서 zero-price line item으로 변환한다.
-
-### Description + Total mode
-
-- 설명 line은 가격 없이 저장한다.
-- 마지막 `Total` line item 하나에 공개 총액을 넣는다.
-- 우리 앱의 `final_total`은 GST 포함이므로, Jobber가 GST 10%를 계산하는 quote에서는 `final_total / 1.10`을 unit price로 보낸다.
 
 ### 제외
 
@@ -255,3 +260,12 @@ F2  L460 + Labour 30%
 - "New Quote": 페이지 타이틀
 - 미저장 변경사항 있으면 타이틀 옆에 파란 점 (·)
 - [Save Quote]: primary action 버튼
+## Product & Service catalog import
+
+- Settings > Product & Service tab manages the Jobber `Products and Services Export` CSV format: `Name, Description, Category, Unit Price, Unit Cost, Bookable, Duration Minutes, Quantity Enabled, Minimum Quantity, Maximum Quantity, Taxable, Active`.
+- The quote Product / Service editor receives this catalog and shows a local dropdown directly from the priced line item name input and text item title input.
+- The quote editor dropdown searches catalog `Name` only, so description text does not create unrelated matches.
+- Selecting a catalog item fills `name`, `description`, `unitPrice`, `taxable`, and `minimumQuantity` into priced line items.
+- Selecting a catalog item for Add Text fills only title/body and leaves the item as price-free text.
+- The local catalog id is not sent to Jobber as `productOrServiceId`; it is a template for public quote text/pricing only.
+- Settings > Template stores reusable sets of these public line/text items, so frequently used Product & Service descriptions can be inserted into a new quote without rebuilding each row.
