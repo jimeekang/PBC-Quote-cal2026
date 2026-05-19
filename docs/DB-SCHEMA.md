@@ -91,6 +91,7 @@
 | `0007_add_jobber_tokens.sql` | `jobber_tokens`(사용자별 access/refresh 토큰, 암호화 저장) + RLS |
 | `0008_add_quote_jobber_snapshot.sql` | `quotes.jobber_snapshot JSONB` (Jobber 원본 응답 캐시) |
 | `0009_add_quote_options.sql` | `quote_options` + `quote_option_items` + RLS |
+| `0010_add_jobber_quote_lines.sql` (planned) | Jobber write-back용 공개 Product / Service line item + quote sync 상태 |
 
 > 아래 DDL은 변경 후 최종 형태 요약. 정확한 SQL은 마이그레이션 파일 자체를 source of truth로 본다.
 
@@ -262,6 +263,42 @@ CREATE TABLE quote_option_items (
 
 > 옵션 견적은 메인 견적과 독립 계산되며 `quotes.final_total`에 합산되지 않는다.
 > 자세한 규칙: `docs/superpowers/specs/2026-05-15-quote-options-design.md`.
+
+## Planned v1.1 Jobber write-back schema
+
+정확한 SQL은 구현 시 `supabase/migrations/0010_add_jobber_quote_lines.sql`을 source of truth로 둔다.
+
+```sql
+ALTER TABLE quotes
+  ADD COLUMN jobber_save_mode TEXT CHECK (
+    jobber_save_mode IS NULL OR jobber_save_mode IN ('priced_line_items','description_total')
+  ),
+  ADD COLUMN jobber_sync_status TEXT NOT NULL DEFAULT 'not_synced' CHECK (
+    jobber_sync_status IN ('not_synced','synced','failed')
+  ),
+  ADD COLUMN jobber_last_synced_at TIMESTAMPTZ,
+  ADD COLUMN jobber_sync_error TEXT;
+
+CREATE TABLE jobber_quote_lines (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  quote_id UUID NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL CHECK (kind IN ('line_item','text')),
+  name TEXT NOT NULL CHECK (length(btrim(name)) > 0),
+  description TEXT,
+  quantity NUMERIC(10,2) CHECK (quantity IS NULL OR quantity >= 0),
+  unit_price NUMERIC(10,2) CHECK (unit_price IS NULL OR unit_price >= 0),
+  total_price NUMERIC(10,2) CHECK (total_price IS NULL OR total_price >= 0),
+  taxable BOOLEAN NOT NULL DEFAULT true,
+  client_visible BOOLEAN NOT NULL DEFAULT true,
+  jobber_line_item_id TEXT,
+  linked_product_or_service_id TEXT,
+  position INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+`jobber_quote_lines`는 Jobber에 공개 저장할 Product / Service line만 보관한다. 내부 material은 계속 `quote_items`/`quote_option_items`에만 저장한다.
 
 ---
 

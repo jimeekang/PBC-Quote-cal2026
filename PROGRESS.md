@@ -11,7 +11,7 @@
 |---|---|
 | **앱** | PBC 견적 계산기 — 페인팅 회사 PBC 사내 도구 |
 | **스택** | Next.js 16 (App Router) + React 19 + TypeScript + Tailwind CSS 4 + Supabase + Vercel |
-| **현재 버전** | v1.0 핵심 플로우 완성, v1.0+ 옵션·Jobber 읽기 전용·QA 완료, 실제 과거 견적 fixture 대기 |
+| **현재 버전** | v1.0 핵심 플로우 완성, v1.0+ 옵션·Jobber 읽기 전용·QA 완료, Jobber controlled write-back 계획 수립, 실제 과거 견적 fixture 대기 |
 | **배포 URL** | https://pbc-quote-cal2026-kjm12081-3858s-projects.vercel.app |
 | **GitHub Repo** | jimeekang/PBC-Quote-cal2026 (branch: main) |
 
@@ -20,7 +20,7 @@
 ## v1.0 전체 진행 현황
 
 ```
-[███████████████████░] 95% — 핵심 플로우/Auth/Jobber 읽기 전용/옵션/QA 완료, 실제 과거 견적 fixture 잔여
+[███████████████████░] 95% — 핵심 플로우/Auth/Jobber 읽기 전용/옵션/QA 완료, Jobber controlled write-back 계획 수립, 실제 과거 견적 fixture 잔여
 ```
 
 ---
@@ -125,6 +125,14 @@
 - [x] `lib/jobber/config.ts`, `lib/jobber/tokens.ts`, `lib/jobber/dev-tokens.ts`, `app/api/jobber/callback/route.ts` — OAuth token scope가 응답/저장값에 있으면 `:read` 또는 `.read`/`_read`/`-read`/`read` 명시 표기만 허용, write/create/update/delete/edit/manage 단어가 포함되면 위치와 무관하게 연결 거부; scope가 없는 Jobber 공식 token 응답은 GraphQL mutation 차단 가드로 read-only 보장
 - [x] 테스트: `tests/jobber.test.ts`, `tests/jobber-tokens.test.ts`, `tests/jobber-dev-tokens.test.ts`, `tests/jobber-token-encryption.test.ts`, `tests/jobber-quote-route-refresh.test.ts`, `tests/jobber-route-security.test.ts`, `tests/jobber-readonly-regression.test.ts`
 
+### Jobber controlled write-back 계획 (2026-05-19)
+
+- [x] 기존 “영구 read-only” 결정을 사용자 요청으로 변경하기로 문서화
+- [x] 설계: `docs/superpowers/specs/2026-05-19-jobber-write-back-design.md`
+- [x] 구현 계획: `docs/superpowers/plans/2026-05-19-jobber-write-back.md`
+- [x] 관련 문서 동기화: `docs/DECISIONS.md`, `docs/ARCHITECTURE.md`, `docs/SECURITY.md`, `docs/DB-SCHEMA.md`, `docs/UI-QUOTE-FORM.md`, `docs/AGENT-MAP.md`
+- [ ] 구현 전 Jobber GraphiQL에서 quote line item mutation/input shape 확정 필요
+
 ### 옵션 견적 (2026-05-15)
 
 - [x] 설계: `docs/superpowers/specs/2026-05-15-quote-options-design.md`
@@ -181,7 +189,7 @@
 
 ### 완료 감사 체크리스트
 
-- [x] Jobber 영구 read-only: OAuth write scope 거부 + GraphQL mutation 차단 + 소스 레벨 read-only 회귀 테스트 통과
+- [x] Jobber read-only 검증(2026-05-15 기준): OAuth write scope 거부 + GraphQL mutation 차단 + 소스 레벨 read-only 회귀 테스트 통과. 2026-05-19에 controlled write-back으로 결정 변경됨
 - [x] 로컬 품질 게이트: `npm.cmd run verify` 통과
 - [x] PROGRESS.md 업데이트: 완료/차단 항목과 실제 검증 증거 기록
 - [ ] 실제 PBC 과거 견적 3건 확보 후 `tests/fixtures/historical-quotes.ts` 교체
@@ -195,7 +203,7 @@
 | 원 요청 | 완료 기준 |
 |---|---|
 | `PROGRESS.md` 134번째 줄 이후 남은 v1.0 작업 계획/진행 | 완료된 항목은 체크 처리, 차단 항목은 원인과 승인/입력 조건 기록 |
-| Jobber를 영구 read-only로 유지 | token scope 검증, GraphQL mutation 차단, Jobber endpoint 중앙화 회귀 테스트, 공식 문서 근거 기록 |
+| Jobber controlled write-back으로 결정 변경 | 기존 read-only fetch는 유지하되, 같은 Jobber quote에 공개 Product / Service line item만 write-back. material 가격은 Jobber에 저장하지 않음 |
 | 모든 오류 제거 | `npm.cmd run verify` 전체 통과 및 audit 0 vulnerabilities |
 | 완료되면 파일 업데이트 | `PROGRESS.md`에 검증 결과, 남은 차단 항목, 승인 후 실행 작업 기록 |
 | 백업 방식은 진행하지 않기 | 백업 관련 항목을 제외 완료로 표시하고 실행하지 않음 |
@@ -204,7 +212,7 @@
 
 | 요구사항 | 증거 | 상태 |
 |---|---|---|
-| Jobber 영구 read-only 유지 | `lib/jobber/client.ts` GraphQL mutation 차단, OAuth/저장/dev token scope 검증, Jobber 네트워크 경로가 OAuth token endpoint와 중앙 GraphQL client뿐임을 정적 확인, `tests/jobber-readonly-regression.test.ts` 포함 Jobber 테스트 통과 | 완료 |
+| Jobber read-only 유지(2026-05-15 기준, 이후 2026-05-19 결정 변경) | `lib/jobber/client.ts` GraphQL mutation 차단, OAuth/저장/dev token scope 검증, Jobber 네트워크 경로가 OAuth token endpoint와 중앙 GraphQL client뿐임을 정적 확인, `tests/jobber-readonly-regression.test.ts` 포함 Jobber 테스트 통과 | 완료 |
 | 모든 로컬 오류 제거 | `npm.cmd run verify` 재통과(2026-05-15 18:15): whitespace, typecheck, lint, test 36 passed files / 171 passed tests + 1 skipped file / 2 skipped tests, coverage, build, audit 0 vulnerabilities | 완료 |
 | `PROGRESS.md` 최신화 | 완료/차단 항목, Supabase MCP RLS CRUD 대체 검증, 프로덕션 Supabase 0009 적용/검증, fixture 원본 부재, 백업 제외 지시 반영 | 완료 |
 | RLS 자동 회귀 테스트 | `tests/rls.test.ts`로 migration RLS/policy 정적 검증 완료 | 완료 |
@@ -214,9 +222,10 @@
 | 프로덕션 Supabase 0009 적용 | 사용자 승인 후 MCP로 `add_quote_options` migration 적용 완료. `quote_options`/`quote_option_items` 테이블 존재, RLS enabled, `authenticated_all` ALL policy, 관련 index 3개, FK 4개 확인 | 완료 |
 | 백업 방식 | 사용자 지시로 진행하지 않음 | 제외 완료 |
 
-### 사용자 입력/승인 필요 (남은 차단 1개)
+### 사용자 입력/승인 필요
 
 - 실제 PBC 과거 견적 3건의 입력값/기대 결과 제공 필요
+- Jobber write-back 구현 전 Developer Center GraphiQL에서 quote line item mutation/input shape 확인 필요
 - 백업 방식은 사용자 지시로 진행하지 않음 (2026-05-15)
 
 ### 승인 후 실행 작업
@@ -224,6 +233,7 @@
 | 승인/입력 | 바로 실행할 작업 |
 |---|---|
 | 실제 PBC 과거 견적 3건 제공 | `tests/fixtures/historical-quotes.ts`를 실제 3건으로 교체하고 `npm.cmd run test:run` 및 `npm.cmd run verify` 재실행 |
+| Jobber GraphiQL schema 확인 | `docs/superpowers/plans/2026-05-19-jobber-write-back.md` Task 1부터 TDD로 구현 시작 |
 | 백업 방식 | 사용자 지시로 진행하지 않음 |
 
 ### UX 잔여 (v1.0 완료 차단 아님, v1.1+로 이관 — `docs/DECISIONS.md` #1 기준)
@@ -238,7 +248,7 @@
 
 - 페인트 DB 관리 UI 정식판 (`/products` CRUD, 일괄 가격 인상)
 - 자동 견적가 추산(ML), 분석 대시보드 (v2)
-- Jobber 쓰기 동기화 — 영구적으로 read-only 유지
+- Jobber 전체 쓰기 동기화 — 같은 quote number의 공개 Product / Service line item write-back만 허용하고 나머지는 제외
 
 ---
 
@@ -279,3 +289,4 @@
 | 2026-05-15 | 사용자 승인 후 프로덕션 Supabase `add_quote_options` migration 적용 및 MCP로 option 테이블 RLS/policy/index/FK 검증 | Codex |
 | 2026-05-15 | `/gstack-qa` 브라우저 QA 실행 — gstack browse 런타임 복구, 임시 Supabase Auth 사용자로 로그인 후 견적 생성/상세/편집/Settings 확인, QA 데이터 정리 | Codex |
 | 2026-05-15 | `docs/UI-UX-REVIEW.md` 문서 발견성 반영, README/AGENT-MAP/PROGRESS 동기화, `next.config.ts` Turbopack root 설정 기록 | Codex |
+| 2026-05-19 | Jobber controlled write-back 결정 변경 설계 및 구현 계획 문서화. `DECISIONS`/`ARCHITECTURE`/`SECURITY`/`DB-SCHEMA`/`UI-QUOTE-FORM`/`AGENT-MAP` 동기화 | Codex |

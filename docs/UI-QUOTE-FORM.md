@@ -69,6 +69,11 @@ QuoteNewPage (Server, /app/(app)/quotes/new/page.tsx)
     │   ├── Input: customer_name
     │   └── Input: customer_address
     │
+    ├── JobberProductServiceEditor
+    │   ├── Save mode: Priced Line Items / Description + Total
+    │   ├── Add Line Item
+    │   └── Add Text
+    │
     ├── MaterialsPanel (Left bottom)
     │   ├── PaintSearch (검색 Combobox)
     │   │   ├── Input [debounce 200ms]
@@ -147,6 +152,53 @@ interface QuoteFormState {
 No results for "brush"
 + Add "brush" as custom item
 ```
+
+---
+
+## Jobber Product / Service Editor (v1.1)
+
+Jobber write-back용 공개 견적 line item을 작성하는 섹션. 내부 material 계산과 분리한다.
+
+```
+Product / Service
+────────────────────────────────────────
+[Priced Line Items] [Description + Total]
+
+[Line item name........................]
+[Description...........................]
+Qty [1.00]   Unit price [$0.00]   Taxable [✓]
+[Link Jobber Product / Service search...]
+
+[Add Line Item]
+[Add Text]
+```
+
+### Add Line Item
+
+- Jobber에 가격과 함께 저장할 공개 line item
+- 필드: name, description, quantity, unit price, taxable, client visible, linked Jobber Product / Service
+- `Priced Line Items` mode에서는 여러 line item 각각의 가격을 Jobber에 보낸다.
+
+### Add Text
+
+- 일반 설명용 line item
+- 필드: title, body, client visible
+- 가격 필드는 없다.
+- Jobber API가 text block을 지원하지 않으면 구현에서 zero-price line item으로 변환한다.
+
+### Description + Total mode
+
+- 설명 line은 가격 없이 저장한다.
+- 마지막 `Total` line item 하나에 공개 총액을 넣는다.
+- 우리 앱의 `final_total`은 GST 포함이므로, Jobber가 GST 10%를 계산하는 quote에서는 `final_total / 1.10`을 unit price로 보낸다.
+
+### 제외
+
+- Build Option Set
+- image upload
+- notes
+- attachments
+- material 원가/상세 가격의 Jobber 전송
 
 ---
 
