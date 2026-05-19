@@ -417,6 +417,118 @@ const JOBBER_QUOTE_SEARCH_QUERY = `
   }
 `
 
+const JOBBER_QUOTE_LITE_QUERY = `
+  query PbcQuoteLite($id: EncodedId!) {
+    quote(id: $id) {
+      id
+      quoteNumber
+      title
+      createdAt
+      message
+      jobberWebUri
+      client {
+        id
+        name
+        companyName
+        firstName
+        lastName
+        leadSource
+        sourceAttribution {
+          displayLeadSource
+          source
+          sourceText
+        }
+      }
+      property {
+        id
+        jobberWebUri
+        address {
+          street1
+          street2
+          city
+          province
+          postalCode
+        }
+      }
+      lineItems(first: 100) {
+        nodes {
+          id
+          name
+          category
+          description
+          quantity
+          unitPrice
+          totalPrice
+          textOnly
+          linkedProductOrService {
+            id
+            name
+            category
+            description
+          }
+        }
+      }
+    }
+  }
+`
+
+const JOBBER_QUOTE_LITE_SEARCH_QUERY = `
+  query PbcQuoteLiteSearch($term: String!) {
+    quotes(searchTerm: $term, first: 10) {
+      nodes {
+        id
+        quoteNumber
+        title
+        createdAt
+        message
+        jobberWebUri
+        client {
+          id
+          name
+          companyName
+          firstName
+          lastName
+          leadSource
+          sourceAttribution {
+            displayLeadSource
+            source
+            sourceText
+          }
+        }
+        property {
+          id
+          jobberWebUri
+          address {
+            street1
+            street2
+            city
+            province
+            postalCode
+          }
+        }
+        lineItems(first: 100) {
+          nodes {
+            id
+            name
+            category
+            description
+            quantity
+            unitPrice
+            totalPrice
+            textOnly
+            linkedProductOrService {
+              id
+              name
+              category
+              description
+            }
+          }
+        }
+      }
+    }
+  }
+`
+
 const JOBBER_QUOTE_LINE_ITEMS_QUERY = `
   query PbcQuoteLineItems($id: EncodedId!) {
     quote(id: $id) {
@@ -946,6 +1058,10 @@ function isQueryCostTooHighForRetry(payload: unknown): boolean {
   return requestedQueryCost !== null && maximumAvailable !== null && requestedQueryCost > maximumAvailable
 }
 
+function shouldUseLightweightQuoteQuery(payload: unknown): boolean {
+  return isThrottledPayload(payload) && isQueryCostTooHighForRetry(payload)
+}
+
 function getThrottleRetryDelayMs(payload: unknown, options: FetchJobberQuoteOptions, attempt: number): number {
   if (typeof options.throttleRetryDelayMs === 'number') {
     return Math.max(options.throttleRetryDelayMs, 0)
@@ -1290,6 +1406,11 @@ export async function fetchJobberQuote(
   options: FetchJobberQuoteOptions
 ): Promise<JobberQuote> {
   const payload = await postJobberGraphql(JOBBER_QUOTE_QUERY, { id: quoteId }, options)
+  if (shouldUseLightweightQuoteQuery(payload)) {
+    const lightweightPayload = await postJobberGraphql(JOBBER_QUOTE_LITE_QUERY, { id: quoteId }, options)
+    return getQuoteFromPayload(lightweightPayload)
+  }
+
   return getQuoteFromPayload(payload)
 }
 
@@ -1418,6 +1539,11 @@ export async function searchJobberQuote(
   options: FetchJobberQuoteOptions
 ): Promise<JobberQuote> {
   const payload = await postJobberGraphql(JOBBER_QUOTE_SEARCH_QUERY, { term: searchTerm }, options)
+  if (shouldUseLightweightQuoteQuery(payload)) {
+    const lightweightPayload = await postJobberGraphql(JOBBER_QUOTE_LITE_SEARCH_QUERY, { term: searchTerm }, options)
+    return getQuoteFromSearchPayload(lightweightPayload, searchTerm)
+  }
+
   return getQuoteFromSearchPayload(payload, searchTerm)
 }
 

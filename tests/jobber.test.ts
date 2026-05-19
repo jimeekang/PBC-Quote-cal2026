@@ -427,6 +427,151 @@ describe('jobber client', () => {
     expect(fetcher).toHaveBeenCalledTimes(2)
   })
 
+  it('falls back to a lightweight quote fetch when the full quote query is too expensive to retry', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        errors: [
+          {
+            message: 'Throttled',
+            extensions: { code: 'THROTTLED' },
+          },
+        ],
+        extensions: {
+          cost: {
+            requestedQueryCost: 12000,
+            actualQueryCost: 0,
+            throttleStatus: {
+              maximumAvailable: 10000,
+              currentlyAvailable: 10000,
+              restoreRate: 500,
+            },
+          },
+        },
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: {
+          quote: {
+            id: 'encoded-quote-id',
+            quoteNumber: 'Q-1001',
+            title: 'Interior repaint',
+            createdAt: '2026-05-13T01:23:45Z',
+            message: null,
+            jobberWebUri: 'https://secure.getjobber.com/quotes/1001',
+            client: { id: 'client-1', name: 'Jane Customer', companyName: null, firstName: 'Jane', lastName: 'Customer' },
+            property: null,
+            lineItems: {
+              nodes: [
+                {
+                  id: 'line-item-1',
+                  name: 'Interior walls',
+                  category: 'SERVICE',
+                  description: 'Two coats',
+                  quantity: 1,
+                  unitPrice: 1200,
+                  totalPrice: 1200,
+                  textOnly: false,
+                  linkedProductOrService: null,
+                },
+              ],
+            },
+          },
+        },
+      }), { status: 200 }))
+
+    const quote = await fetchJobberQuote('encoded-quote-id', {
+      accessToken: 'access-token',
+      graphqlVersion: '2025-04-16',
+      fetcher,
+      throttleRetryDelayMs: 0,
+    })
+
+    expect(quote.quoteNumber).toBe('Q-1001')
+    expect(quote.lineItems.nodes).toHaveLength(1)
+    expect(fetcher).toHaveBeenCalledTimes(2)
+    const calls = fetcher.mock.calls as unknown as Array<[string, RequestInit]>
+    expect(calls[0][1].body).toEqual(expect.stringContaining('query PbcQuote'))
+    expect(calls[0][1].body).toEqual(expect.stringContaining('customFields'))
+    expect(calls[0][1].body).toEqual(expect.stringContaining('tags(first: 20)'))
+    expect(calls[1][1].body).toEqual(expect.stringContaining('query PbcQuoteLite'))
+    expect(calls[1][1].body).toEqual(expect.stringContaining('lineItems(first: 100)'))
+    expect(calls[1][1].body).not.toEqual(expect.stringContaining('customFields'))
+    expect(calls[1][1].body).not.toEqual(expect.stringContaining('tags(first: 20)'))
+  })
+
+  it('falls back to a lightweight quote search when the full quote search query is too expensive to retry', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        errors: [
+          {
+            message: 'Throttled',
+            extensions: { code: 'THROTTLED' },
+          },
+        ],
+        extensions: {
+          cost: {
+            requestedQueryCost: 12500,
+            actualQueryCost: 0,
+            throttleStatus: {
+              maximumAvailable: 10000,
+              currentlyAvailable: 10000,
+              restoreRate: 500,
+            },
+          },
+        },
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: {
+          quotes: {
+            nodes: [
+              {
+                id: 'quote-id-1',
+                quoteNumber: '12345',
+                title: 'Wrong quote',
+                createdAt: '2026-05-13T01:23:45Z',
+                message: null,
+                jobberWebUri: 'https://secure.getjobber.com/quotes/12345',
+                client: null,
+                property: null,
+                lineItems: { nodes: [] },
+              },
+              {
+                id: 'quote-id-2',
+                quoteNumber: '2345',
+                title: 'Carolyn project',
+                createdAt: '2026-05-13T01:23:45Z',
+                message: null,
+                jobberWebUri: 'https://secure.getjobber.com/quotes/2345',
+                client: null,
+                property: null,
+                lineItems: { nodes: [] },
+              },
+            ],
+          },
+        },
+      }), { status: 200 }))
+
+    const quote = await searchJobberQuote('2345', {
+      accessToken: 'access-token',
+      graphqlVersion: '2025-04-16',
+      fetcher,
+      throttleRetryDelayMs: 0,
+    })
+
+    expect(quote.id).toBe('quote-id-2')
+    expect(quote.title).toBe('Carolyn project')
+    expect(fetcher).toHaveBeenCalledTimes(2)
+    const calls = fetcher.mock.calls as unknown as Array<[string, RequestInit]>
+    expect(calls[0][1].body).toEqual(expect.stringContaining('query PbcQuoteSearch'))
+    expect(calls[0][1].body).toEqual(expect.stringContaining('customFields'))
+    expect(calls[1][1].body).toEqual(expect.stringContaining('query PbcQuoteLiteSearch'))
+    expect(calls[1][1].body).toEqual(expect.stringContaining('quotes(searchTerm: $term, first: 10)'))
+    expect(calls[1][1].body).toEqual(expect.stringContaining('lineItems(first: 100)'))
+    expect(calls[1][1].body).not.toEqual(expect.stringContaining('customFields'))
+    expect(calls[1][1].body).not.toEqual(expect.stringContaining('tags(first: 20)'))
+  })
+
   it('fetches a Jobber job by encoded id with line items and expenses', async () => {
     const fetcher = vi.fn(async (_input: string, init: RequestInit) => {
       const body = String(init.body)
