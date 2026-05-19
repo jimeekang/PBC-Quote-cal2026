@@ -55,6 +55,7 @@ supabase/.branches/
 .claude/
 .codex/
 .gstack/
+.superpowers/
 
 # ===== OS / 에디터 =====
 .DS_Store
