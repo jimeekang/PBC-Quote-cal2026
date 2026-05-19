@@ -54,4 +54,29 @@ describe('Jobber line item form state', () => {
       },
     ])
   })
+
+  it('keeps zero-priced non-text Jobber line items priceable in the editor', () => {
+    const lines: JobberQuoteDraftLineItem[] = [
+      {
+        id: 'jobber-total-line',
+        name: 'Total',
+        category: 'SERVICE',
+        description: 'Final quote total',
+        quantity: 1,
+        unitPrice: 0,
+        totalPrice: 0,
+        linkedName: 'Total',
+        textOnly: false,
+      },
+    ]
+
+    expect(mapJobberDraftLineItemsToState(lines)[0]).toMatchObject({
+      kind: 'line_item',
+      name: 'Total',
+      quantity: '1',
+      unitPrice: '0.00',
+      taxable: true,
+      jobberLineItemId: 'jobber-total-line',
+    })
+  })
 })

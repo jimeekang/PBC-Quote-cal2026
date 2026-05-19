@@ -1136,7 +1136,7 @@ function lineNumberKey(value: number | null | undefined): string {
 }
 
 function currentLineKind(lineItem: JobberQuoteLineItem): JobberQuoteLineMutationItem['kind'] {
-  return lineItem.textOnly || (lineItem.unitPrice === 0 && lineItem.totalPrice === 0) ? 'text' : 'line_item'
+  return lineItem.textOnly === true ? 'text' : 'line_item'
 }
 
 function currentLineMatchKey(lineItem: JobberQuoteLineItem): string {

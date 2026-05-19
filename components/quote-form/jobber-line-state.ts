@@ -13,7 +13,7 @@ export function mapJobberDraftLineItemsToState(
   lines: JobberQuoteDraftLineItem[]
 ): JobberQuoteLineItemDraft[] {
   return lines.map((line) => {
-    const kind = line.textOnly || (line.unitPrice === 0 && line.totalPrice === 0)
+    const kind = line.textOnly === true
       ? 'text'
       : 'line_item'
 
