@@ -538,6 +538,50 @@ describe('quote actions against Supabase', () => {
     expect(syncStatusUpdate.eq).toHaveBeenCalledWith('id', quoteId)
   })
 
+  it('keeps the Jobber sync marked synced when only the post-sync snapshot refresh is throttled', async () => {
+    const existingQuote = createSelectSingleBuilder({
+      data: { pricing_settings_snapshot: DEFAULT_PRICING_SETTINGS },
+      error: null,
+    })
+    const quoteUpdate = createThenableBuilder({ error: null })
+    const syncStatusUpdate = createThenableBuilder({ error: null })
+    const itemDelete = createThenableBuilder({ error: null })
+    const optionDelete = createThenableBuilder({ error: null })
+    const jobberLineDelete = createThenableBuilder({ error: null })
+    const itemInsert = createInsertOnlyBuilder({ error: null })
+    const jobberLineInsert = createInsertOnlyBuilder({ error: null })
+    const builders: Record<string, unknown[]> = {
+      quotes: [existingQuote, quoteUpdate, syncStatusUpdate],
+      quote_items: [itemDelete, itemInsert],
+      quote_options: [optionDelete],
+      jobber_quote_lines: [jobberLineDelete, jobberLineInsert],
+    }
+    const from = vi.fn((table: string) => {
+      const builder = builders[table]?.shift()
+      if (!builder) throw new Error(`unexpected table ${table}`)
+      return builder
+    })
+    mocks.createClient.mockResolvedValueOnce({ auth: createAuthUser(), from })
+    mocks.fetchJobberQuote.mockRejectedValueOnce(new Error('Jobber returned a GraphQL error: Throttled'))
+
+    const result = await updateQuote({
+      id: quoteId,
+      ...quoteInputWithJobberLines,
+      jobberQuoteId: 'jobber-quote-id',
+    })
+
+    expect(result).toEqual({ ok: true, data: { id: quoteId } })
+    expect(mocks.syncJobberQuoteLineItems).toHaveBeenCalled()
+    expect(syncStatusUpdate.update).toHaveBeenCalledWith(expect.objectContaining({
+      jobber_sync_status: 'synced',
+      jobber_sync_error: null,
+      jobber_last_synced_at: expect.any(String),
+    }))
+    expect(syncStatusUpdate.update).not.toHaveBeenCalledWith(expect.objectContaining({
+      jobber_sync_status: 'failed',
+    }))
+  })
+
   it('rejects quote updates without an id before touching Supabase', async () => {
     const result = await updateQuote(quoteInput)
 

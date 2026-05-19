@@ -2,6 +2,65 @@ import { describe, expect, it, vi } from 'vitest'
 import { syncJobberQuoteLineItems } from '@/lib/jobber/client'
 
 describe('jobber quote write client', () => {
+  it('loads only current Jobber line items before writing to avoid heavy quote fetch throttling', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: {
+          quote: {
+            id: 'quote-id',
+            lineItems: {
+              nodes: [
+                {
+                  id: 'existing-line',
+                  name: 'Walls',
+                  category: 'SERVICE',
+                  description: 'Old wall line',
+                  quantity: 1,
+                  unitPrice: 100,
+                  totalPrice: 100,
+                  linkedProductOrService: null,
+                },
+              ],
+            },
+          },
+        },
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: { quoteEditLineItems: { modifiedLineItems: [{ id: 'existing-line' }], userErrors: [] } },
+      }), { status: 200 }))
+
+    await syncJobberQuoteLineItems('quote-id', {
+      saveMode: 'priced_line_items',
+      lines: [
+        {
+          kind: 'line_item',
+          name: 'Walls',
+          description: 'Updated wall line',
+          quantity: 1,
+          unitPrice: 125,
+          taxable: true,
+          clientVisible: true,
+          jobberLineItemId: 'existing-line',
+        },
+      ],
+      finalTotal: '125.00',
+      finalTotalIncludesGst: true,
+    }, {
+      accessToken: 'access-token',
+      graphqlVersion: '2025-04-16',
+      fetcher,
+    })
+
+    const bodies = fetcher.mock.calls.map(([, init]) => JSON.parse(String(init.body)))
+    expect(bodies[0].query).toContain('query PbcQuoteLineItems')
+    expect(bodies[0].query).toContain('lineItems(first: 100)')
+    expect(bodies[0].query).not.toContain('customFields')
+    expect(bodies[0].query).not.toContain('tags(first: 20)')
+    expect(bodies[0].query).not.toContain('client {')
+    expect(bodies[0].query).not.toContain('property {')
+  })
+
   it('edits tracked quote line items without deleting unrelated Jobber-only lines', async () => {
     const fetcher = vi
       .fn()

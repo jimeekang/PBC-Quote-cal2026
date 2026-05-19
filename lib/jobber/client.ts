@@ -417,6 +417,32 @@ const JOBBER_QUOTE_SEARCH_QUERY = `
   }
 `
 
+const JOBBER_QUOTE_LINE_ITEMS_QUERY = `
+  query PbcQuoteLineItems($id: EncodedId!) {
+    quote(id: $id) {
+      id
+      lineItems(first: 100) {
+        nodes {
+          id
+          name
+          category
+          description
+          quantity
+          unitPrice
+          totalPrice
+          textOnly
+          linkedProductOrService {
+            id
+            name
+            category
+            description
+          }
+        }
+      }
+    }
+  }
+`
+
 const JOBBER_QUOTE_JOBS_QUERY = `
   query PbcQuoteJobs($id: EncodedId!) {
     quote(id: $id) {
@@ -753,6 +779,26 @@ function getQuoteFromSearchPayload(payload: unknown, searchTerm: string): Jobber
   ))
 
   return (exactQuote ?? nodes[0]) as unknown as JobberQuote
+}
+
+function getQuoteLineItemsFromPayload(payload: unknown): JobberQuoteLineItem[] {
+  if (!isRecord(payload)) throw new Error('Invalid Jobber response')
+  const errors = payload.errors
+  if (Array.isArray(errors) && errors.length > 0) {
+    throw new JobberGraphqlError(formatGraphqlErrors(errors))
+  }
+
+  const data = payload.data
+  if (!isRecord(data) || !isRecord(data.quote)) {
+    throw new Error('Jobber quote not found')
+  }
+
+  const lineItems = data.quote.lineItems
+  if (!isRecord(lineItems) || !Array.isArray(lineItems.nodes)) {
+    return []
+  }
+
+  return lineItems.nodes.filter(isRecord) as unknown as JobberQuoteLineItem[]
 }
 
 function getQuoteJobsFromPayload(payload: unknown): JobberJob[] {
@@ -1247,13 +1293,20 @@ export async function fetchJobberQuote(
   return getQuoteFromPayload(payload)
 }
 
+async function fetchJobberQuoteLineItems(
+  quoteId: string,
+  options: FetchJobberQuoteOptions
+): Promise<JobberQuoteLineItem[]> {
+  const payload = await postJobberGraphql(JOBBER_QUOTE_LINE_ITEMS_QUERY, { id: quoteId }, options)
+  return getQuoteLineItemsFromPayload(payload)
+}
+
 export async function syncJobberQuoteLineItems(
   quoteId: string,
   input: BuildJobberQuoteLinePayloadInput,
   options: FetchJobberQuoteOptions
 ): Promise<JobberQuoteLineSyncResult> {
-  const quote = await fetchJobberQuote(quoteId, options)
-  const currentLineItems = quote.lineItems.nodes
+  const currentLineItems = await fetchJobberQuoteLineItems(quoteId, options)
   const currentLineItemIds = new Set(currentLineItems.map((lineItem) => lineItem.id).filter(Boolean))
   const deletedLineItemIds: string[] = []
   const createdLineItemIds: string[] = []
