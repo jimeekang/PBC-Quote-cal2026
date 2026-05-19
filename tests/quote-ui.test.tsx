@@ -7,7 +7,7 @@ import { FinalSummary } from '@/components/quote-form/final-summary'
 import { MaterialRow } from '@/components/quote-form/material-row'
 import { MaterialsPanel } from '@/components/quote-form/materials-panel'
 import { OptionTotalsSummary } from '@/components/quote-form/option-totals-summary'
-import { QuoteForm } from '@/components/quote-form/quote-form'
+import { QuoteForm, shouldRunDraftGuard } from '@/components/quote-form/quote-form'
 import { QuoteDetailView } from '@/components/quote-detail/quote-detail-view'
 import { QuoteCard } from '@/components/quote-list/quote-card'
 import type { QuoteRecord } from '@/lib/dev-data'
@@ -91,6 +91,12 @@ describe('quote form pricing UI', () => {
 
     expect(markup).toContain('Update Quote')
     expect(markup).toContain('sticky top-16')
+  })
+
+  it('disables draft guard effects once navigation has been confirmed', () => {
+    expect(shouldRunDraftGuard(true, false)).toBe(true)
+    expect(shouldRunDraftGuard(true, true)).toBe(false)
+    expect(shouldRunDraftGuard(false, false)).toBe(false)
   })
 
   it('passes saved templates into the Product / Service editor', () => {

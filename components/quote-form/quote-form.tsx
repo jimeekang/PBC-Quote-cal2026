@@ -60,6 +60,10 @@ function getComparableDraftValue(draft: QuoteFormDraft): string {
   return JSON.stringify({ ...draft, updatedAt: '' })
 }
 
+export function shouldRunDraftGuard(isDirty: boolean, isNavigating: boolean): boolean {
+  return isDirty && !isNavigating
+}
+
 function isJobberQuoteResponse(value: unknown): value is JobberQuoteResponse {
   if (typeof value !== 'object' || value === null) return false
   const record = value as Record<string, unknown>
@@ -313,12 +317,12 @@ export function QuoteForm({ settings, areas, productServices = [], quoteLineTemp
   }, [draftStorageKey])
 
   useEffect(() => {
-    if (!isDirty) return
+    if (!shouldRunDraftGuard(isDirty, isNavigatingRef.current)) return
     writeDraftToStorage()
   }, [isDirty, writeDraftToStorage])
 
   useEffect(() => {
-    if (!isDirty) return
+    if (!shouldRunDraftGuard(isDirty, isNavigatingRef.current)) return
 
     function handleBeforeUnload(event: BeforeUnloadEvent) {
       writeDraftToStorage()
@@ -331,7 +335,7 @@ export function QuoteForm({ settings, areas, productServices = [], quoteLineTemp
   }, [isDirty, writeDraftToStorage])
 
   useEffect(() => {
-    if (!isDirty) return
+    if (!shouldRunDraftGuard(isDirty, isNavigatingRef.current)) return
 
     function handleDocumentClick(event: MouseEvent) {
       if (
@@ -362,7 +366,7 @@ export function QuoteForm({ settings, areas, productServices = [], quoteLineTemp
   }, [isDirty])
 
   useEffect(() => {
-    if (!isDirty) return
+    if (!shouldRunDraftGuard(isDirty, isNavigatingRef.current)) return
 
     window.history.pushState({ quoteDraftGuard: true }, '', window.location.href)
 
@@ -404,6 +408,7 @@ export function QuoteForm({ settings, areas, productServices = [], quoteLineTemp
 
   function navigateTo(target: string) {
     isNavigatingRef.current = true
+    setPendingNavigation(null)
     router.push(target)
   }
 
@@ -422,6 +427,7 @@ export function QuoteForm({ settings, areas, productServices = [], quoteLineTemp
   }
 
   function leaveWithoutDraft() {
+    isNavigatingRef.current = true
     clearDraft()
     navigateTo(pendingNavigation ?? '/quotes')
   }
