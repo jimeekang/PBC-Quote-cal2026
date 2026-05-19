@@ -83,12 +83,15 @@ describe('jobber config', () => {
     expect(getMissingGraphqlConfigKeys(config)).toEqual([])
   })
 
-  it('accepts only read-only Jobber OAuth scopes when scope data is present', () => {
+  it('accepts read scopes and narrow quote write scopes when scope data is present', () => {
     expect(() => assertJobberReadOnlyScopes('clients:read quotes:read jobs:read expenses:read')).not.toThrow()
     expect(() => assertJobberReadOnlyScopes('clients:read,quotes:read')).not.toThrow()
     expect(() => assertJobberReadOnlyScopes('clients.read products_read jobs-read read')).not.toThrow()
+    expect(() => assertJobberReadOnlyScopes('clients:read quotes:write')).not.toThrow()
+    expect(() => assertJobberReadOnlyScopes('clients:read quotes.update')).not.toThrow()
     expect(() => assertJobberReadOnlyScopes(null)).not.toThrow()
     expect(() => assertJobberReadOnlyScopes('quotes:read jobs:write')).toThrow('Jobber OAuth scopes must be read-only')
+    expect(() => assertJobberReadOnlyScopes('quotes:delete')).toThrow('Jobber OAuth scopes must be read-only')
     expect(() => assertJobberReadOnlyScopes('clients:read quoteCreate')).toThrow('Jobber OAuth scopes must be read-only')
     expect(() => assertJobberReadOnlyScopes('clients:read jobs:manage')).toThrow('Jobber OAuth scopes must be read-only')
     expect(() => assertJobberReadOnlyScopes('clients:read jobs:write:read')).toThrow('Jobber OAuth scopes must be read-only')
@@ -255,6 +258,7 @@ describe('jobber client', () => {
     expect(calls[0][1].body).toEqual(expect.stringContaining('valueNumeric'))
     expect(calls[0][1].body).toEqual(expect.stringContaining('valueDropdown'))
     expect(calls[0][1].body).toEqual(expect.stringContaining('tags(first: 20)'))
+    expect(calls[0][1].body).toEqual(expect.stringContaining('lineItems(first: 100)'))
     expect(calls[0][1].body).not.toEqual(expect.stringContaining('jobs(first: 5)'))
     expect(calls[0][1].body).not.toEqual(expect.stringContaining('expenses(first: 25)'))
   })
@@ -311,7 +315,7 @@ describe('jobber client', () => {
     const calls = fetcher.mock.calls as unknown as Array<[string, RequestInit]>
     expect(calls[0][1].body).toEqual(expect.stringContaining('"term":"2345"'))
     expect(calls[0][1].body).toEqual(expect.stringContaining('quotes(searchTerm: $term, first: 10)'))
-    expect(calls[0][1].body).toEqual(expect.stringContaining('lineItems(first: 25)'))
+    expect(calls[0][1].body).toEqual(expect.stringContaining('lineItems(first: 100)'))
     expect(calls[0][1].body).not.toEqual(expect.stringContaining('jobs(first: 5)'))
   })
 

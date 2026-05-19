@@ -24,9 +24,16 @@
 
 ## 2. Jobber 연동 모델 (v1.1)
 
-- **읽기 전용.** 단방향 데이터 흐름 (Jobber → 우리 앱 → 우리 DB)
-- Jobber에 절대 쓰지 않음
-- OAuth 2.0, GraphQL API 사용
+2026-05-19 사용자 요청으로 기존 **영구 read-only** 결정을 변경한다.
+
+- 기본 흐름: Jobber에서 quote를 만든 뒤 우리 앱이 같은 quote를 fetch한다.
+- 우리 앱은 내부 견적·material 계산을 저장하고, 공개용 Product / Service line item만 같은 Jobber quote에 write-back한다.
+- material 이름, material 원가, material 상세 가격은 Jobber에 저장하지 않는다.
+- Jobber write는 기존 quote update에 한정한다. 앱에서 새 Jobber quote/client/job 생성·삭제는 하지 않는다.
+- Jobber 사진, notes, attachments, Build Option Set 동기화는 제외한다.
+- OAuth 2.0, GraphQL API 사용. write scope는 quote line item 업데이트에 필요한 최소 scope만 허용한다.
+- 구현 상세: `docs/superpowers/specs/2026-05-19-jobber-write-back-design.md`
+- 구현 순서: `docs/superpowers/plans/2026-05-19-jobber-write-back.md`
 
 ---
 
@@ -116,7 +123,7 @@ formula_5 = (380 × D + material_market) × 1.30      (총액 30%)
 | 금액 계산 | decimal.js |
 | 검증 | Zod |
 | 테스트 | Vitest |
-| 외부 API | Jobber GraphQL (v1.1+) |
+| 외부 API | Jobber GraphQL (v1.1+, controlled quote write-back) |
 
 새 외부 의존성 추가는 **사용자 명시 승인 필요.**
 

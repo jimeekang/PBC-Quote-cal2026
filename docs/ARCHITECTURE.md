@@ -20,7 +20,7 @@
 | 버전 | 범위 |
 |---|---|
 | **v1.0** (현재) | Supabase Auth, 페인트 DB + CSV import, 페인트 검색, 5가지 공식 계산기(GST 10% 포함), 견적 저장·검색·수정·삭제, 작업 영역(area) 마스터, **옵션(add-on) 견적**, settings UI, **Jobber OAuth 읽기 전용 연동**, Vercel 배포. |
-| **v1.1** | 과거 견적 복제(Duplicate) 기능. Jobber 옵션 line item 매핑. |
+| **v1.1** | Jobber quote controlled write-back(Product / Service line items only), 과거 견적 복제(Duplicate) 기능. |
 | **v1.5** | 페인트 DB 관리 정식 UI. 자동 백업 강화. |
 | **v2** | 자동 견적가 추산 (ML), 분석 대시보드. |
 
@@ -33,10 +33,10 @@
 | Frontend | Next.js 16 (App Router) + TypeScript | 표준, Supabase·Vercel과 마찰 적음 |
 | Styling | Tailwind CSS 4 + shadcn/ui | 빠른 UI, 일관성 |
 | Backend | Next.js Server Actions | 폼·CRUD 표준 패턴 |
-| External API | Route Handlers (`app/api/`) | Jobber webhook·OAuth callback (v1.1) |
+| External API | Route Handlers (`app/api/`) | Jobber OAuth callback, quote fetch, Product / Service search, controlled quote write-back |
 | DB | Supabase (Postgres 16+) | RLS 내장, Auth 일체형 |
 | Auth | Supabase Auth (이메일/비밀번호) | 표준, 동료 초대 용이 |
-| 외부 연동 | Jobber GraphQL API (OAuth 2.0, **읽기 전용**) | v1.0에 포함 (수동 입력 fallback 유지) |
+| 외부 연동 | Jobber GraphQL API (OAuth 2.0, v1.1 controlled write-back) | v1.0 read-only fetch 완료, v1.1에서 같은 quote에 공개 line item write-back |
 | 금액 계산 | `decimal.js` | 부동소수점 오차 회피 |
 | 입력 검증 | `zod` | Server Actions 표준 |
 | 테스트 | Vitest (단위), Playwright (E2E, v1.1) | Next.js 표준 |
@@ -55,8 +55,9 @@
 │  /quotes/[id]    │
 └──┬───────────┬───┘
    │           │
-   │ Server    │ Jobber Quote ID 입력 시
+   │ Server    │ Jobber Quote ID 입력/저장 시
    │ Action    │ → GET /api/jobber/quote/[id]
+   │ / Route   │ → POST approved Jobber quote write-back
    ▼           ▼
 ┌────────────────────────────┐
 │   Server (Next.js)         │
@@ -68,12 +69,16 @@
    ▼                     ▼
 ┌────────────────┐   ┌──────────────────┐
 │   Supabase     │   │   Jobber API     │
-│  - products    │   │  GraphQL (read)  │
+│  - products    │   │  GraphQL read    │
 │  - quotes      │   └──────────────────┘
 │  - quote_items │
 │  - quote_areas │
 │  - quote_options
 │  - quote_option_items
+│  - jobber_quote_lines (planned v1.1)
+│  - product_services
+│  - quote_line_templates
+│  - quote_line_template_items
 │  - pricing_settings (singleton)
 │  - jobber_tokens (user-scoped, encrypted)
 └────────────────┘
@@ -81,17 +86,28 @@
 한 페이지 작업 흐름:
 1. /quotes/new 진입 → 고객/Jobber 정보 입력 (왼쪽 패널)
    - Jobber Quote ID 입력 시 GraphQL fetch → quotes.jobber_snapshot 캐시
-2. 페인트 검색 → 자재 추가, 영역(area) 선택, 라인별 인부수·작업일수 입력
-3. → 5가지 공식 **클라이언트 사이드 실시간 계산** (서버 왕복 없음)
-4. min/max 선택 → subtotal → final_total (× 1.10 GST)
-5. 옵션(add-on) 견적 추가/편집 → 자체 final_total (메인에 합산 안 함)
-6. [저장] → Server Action → DB INSERT
+2. Jobber Product / Service editor 작성
+   - Add Line Item: 개별 가격 line item
+   - Add Text: 일반 설명용 line item
+   - Template 선택: Settings에 저장한 공개 line/text 묶음을 현재 quote rows에 복사
+   - Build Option Set, 사진, notes 제외
+3. 페인트 검색 → 내부 material 추가, 영역(area) 선택, 라인별 인부수·작업일수 입력
+4. → 5가지 공식 **클라이언트 사이드 실시간 계산** (서버 왕복 없음)
+5. min/max 선택 → subtotal → final_total (× 1.10 GST)
+6. 옵션(add-on) 견적 추가/편집 → 자체 final_total (메인에 합산 안 함)
+7. [저장] → Server Action → DB 저장 → approved Jobber quote write-back
 ```
 
-> 원칙: Jobber → 우리 앱 → 우리 DB는 단방향. 우리 앱은 Jobber에 절대 쓰지 않음 (read-only scope).
+> 원칙: material 가격과 내부 계산 데이터는 우리 DB에만 저장한다. Jobber에는 사용자가 공개용으로 작성한 Product / Service line item만 저장한다.
 > 토큰은 만료 시 자동 refresh, `lib/jobber/token-encryption.ts`로 암호화 저장.
 
-**원칙:** Jobber → 우리 앱 → 우리 DB는 단방향. 우리 앱은 Jobber에 절대 쓰지 않음 (read-only scope).
+### v1.1 Jobber write-back 경계
+
+- read query와 write mutation client를 분리한다.
+- write mutation은 확정된 quote line item update mutation만 allowlist한다.
+- UI/Server Action에서 raw GraphQL 문서를 전달하지 않는다.
+- Jobber write 실패 시 local quote 저장은 유지하고 `jobber_sync_status = failed`로 표시한다.
+- 정확한 Jobber mutation/input shape는 구현 전 Jobber GraphiQL에서 확정한다.
 
 ---
 
@@ -115,6 +131,7 @@
 | Vercel | 앱 접근 불가 | 99.99% uptime, 정적 캐시 |
 | Supabase Auth | 새 로그인 불가 (기존 세션 유지) | 세션 7일 |
 | Jobber API | 견적 자동 불러오기 실패 | fallback: "수동 입력" 모드, 사용자에게 에러 표시. 캐시(`jobber_snapshot`) 보존 |
+| Jobber API | write-back 실패 | local quote 저장 유지, `jobber_sync_status = failed`, Retry 제공 |
 
 ---
 

@@ -27,7 +27,9 @@ import {
 import { QuoteOptionsPanel } from './quote-options-panel'
 import { OptionTotalsSummary } from './option-totals-summary'
 import { calculateMainQuoteTotals } from './quote-calculation-totals'
-import type { FormulaNumber, MaterialItem, QuoteOptionItem } from './types'
+import type { FormulaNumber, JobberQuoteLineItemDraft, MaterialItem, QuoteOptionItem } from './types'
+import { JobberProductServiceEditor } from './jobber-product-service-editor'
+import { mapJobberDraftLineItemsToState } from './jobber-line-state'
 import type { AreaRecord } from '@/lib/areas/types'
 import type {
   JobberQuoteDraft,
@@ -37,10 +39,14 @@ import type {
   JobberQuoteDraftLineItem,
 } from '@/lib/jobber/mapper'
 import { getVisibleJobberQuoteLookupAfterFetch } from '@/lib/jobber/quote-lookup'
+import type { ProductServiceRecord } from '@/lib/product-services/types'
+import type { QuoteLineTemplateRecord } from '@/lib/quote-line-templates/types'
 
 interface QuoteFormProps {
   settings: PricingSettings
   areas: AreaRecord[]
+  productServices?: ProductServiceRecord[]
+  quoteLineTemplates?: QuoteLineTemplateRecord[]
   initialQuote?: QuoteRecord
 }
 
@@ -91,7 +97,8 @@ function isJobberQuoteDraftLineItem(value: unknown): value is JobberQuoteDraftLi
     typeof record.quantity === 'number' &&
     typeof record.unitPrice === 'number' &&
     typeof record.totalPrice === 'number' &&
-    (record.linkedName === null || typeof record.linkedName === 'string')
+    (record.linkedName === null || typeof record.linkedName === 'string') &&
+    (record.textOnly === undefined || typeof record.textOnly === 'boolean')
   )
 }
 
@@ -176,11 +183,26 @@ function mapQuoteOptionsToState(quote: QuoteRecord): QuoteOptionItem[] {
   }))
 }
 
+function mapJobberQuoteLinesToState(quote: QuoteRecord): JobberQuoteLineItemDraft[] {
+  return quote.jobberQuoteLines.map((line) => ({
+    id: line.id,
+    kind: line.kind,
+    name: line.name,
+    description: line.description ?? '',
+    quantity: line.quantity ?? '1',
+    unitPrice: line.unitPrice ?? '0',
+    taxable: line.taxable,
+    clientVisible: line.clientVisible,
+    jobberLineItemId: line.jobberLineItemId ?? undefined,
+    linkedProductOrServiceId: line.linkedProductOrServiceId ?? undefined,
+  }))
+}
+
 function createClientId(prefix: string): string {
   return `${prefix}-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`}`
 }
 
-export function QuoteForm({ settings, areas, initialQuote }: QuoteFormProps) {
+export function QuoteForm({ settings, areas, productServices = [], quoteLineTemplates = [], initialQuote }: QuoteFormProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [customerName, setCustomerName] = useState(initialQuote?.customerName ?? '')
@@ -190,6 +212,8 @@ export function QuoteForm({ settings, areas, initialQuote }: QuoteFormProps) {
   const [jobberQuoteId, setJobberQuoteId] = useState(initialQuote?.jobberQuoteId ?? '')
   const [workType, setWorkType] = useState(initialQuote?.workType ?? '')
   const [customerType, setCustomerType] = useState(initialQuote?.jobberSnapshot?.customerType ?? '')
+  const [jobberQuoteLines, setJobberQuoteLines] = useState<JobberQuoteLineItemDraft[]>(initialQuote ? mapJobberQuoteLinesToState(initialQuote) : [])
+  const [deletedJobberLineItemIds, setDeletedJobberLineItemIds] = useState<string[]>([])
   const [materials, setMaterials] = useState<MaterialItem[]>(initialQuote ? mapQuoteItemsToMaterials(initialQuote) : [])
   const [workingDays, setWorkingDays] = useState(initialQuote?.workingDays ?? '0')
   const [labourPerDay, setLabourPerDay] = useState(initialQuote?.labourPerDay ?? '0')
@@ -217,6 +241,8 @@ export function QuoteForm({ settings, areas, initialQuote }: QuoteFormProps) {
     jobberQuoteId,
     workType,
     customerType,
+    jobberSaveMode: 'priced_line_items',
+    jobberQuoteLines,
     materials,
     options,
     workingDays,
@@ -229,6 +255,7 @@ export function QuoteForm({ settings, areas, initialQuote }: QuoteFormProps) {
     customerAddress,
     customerName,
     customerType,
+    jobberQuoteLines,
     jobberLookupType,
     jobberQuoteDraft,
     jobberQuoteId,
@@ -357,6 +384,8 @@ export function QuoteForm({ settings, areas, initialQuote }: QuoteFormProps) {
     setJobberQuoteId(draft.jobberQuoteId)
     setWorkType(draft.workType)
     setCustomerType(draft.customerType)
+    setJobberQuoteLines(draft.jobberQuoteLines)
+    setDeletedJobberLineItemIds([])
     setMaterials(draft.materials)
     setOptions(draft.options)
     setWorkingDays(draft.workingDays)
@@ -496,6 +525,29 @@ export function QuoteForm({ settings, areas, initialQuote }: QuoteFormProps) {
     setOptions((current) => current.filter((option) => option.id !== id))
   }
 
+  function changeJobberQuoteLines(nextLines: JobberQuoteLineItemDraft[]) {
+    setJobberQuoteLines((currentLines) => {
+      const nextJobberLineIds = new Set(nextLines
+        .map((line) => line.jobberLineItemId)
+        .filter((id): id is string => Boolean(id)))
+      const removedJobberLineIds = currentLines
+        .map((line) => line.jobberLineItemId)
+        .filter((id): id is string => typeof id === 'string' && !nextJobberLineIds.has(id))
+
+      if (removedJobberLineIds.length > 0 || nextJobberLineIds.size > 0) {
+        setDeletedJobberLineItemIds((currentDeletedIds) => {
+          const merged = new Set([...currentDeletedIds, ...removedJobberLineIds])
+          for (const id of nextJobberLineIds) {
+            merged.delete(id)
+          }
+          return Array.from(merged)
+        })
+      }
+
+      return nextLines
+    })
+  }
+
   async function fetchJobberQuote() {
     const lookup = jobberQuoteLookup.trim()
     setJobberFetchError(null)
@@ -527,6 +579,8 @@ export function QuoteForm({ settings, areas, initialQuote }: QuoteFormProps) {
       setWorkType(payload.data.workType)
       setCustomerType(payload.data.customerType)
       setJobberQuoteDraft(payload.data)
+      setDeletedJobberLineItemIds([])
+      setJobberQuoteLines(mapJobberDraftLineItemsToState(payload.data.productsAndServices))
     } catch {
       setJobberFetchError('Unable to fetch Jobber quote.')
     } finally {
@@ -542,6 +596,20 @@ export function QuoteForm({ settings, areas, initialQuote }: QuoteFormProps) {
         customerAddress,
         jobberQuoteId: jobberQuoteId || jobberQuoteLookup,
         jobberSnapshot: jobberQuoteDraft ?? undefined,
+        jobberSaveMode: 'priced_line_items',
+        deletedJobberLineItemIds,
+        jobberQuoteLines: jobberQuoteLines.map((line, index) => ({
+          kind: line.kind,
+          name: line.name.trim() || (line.kind === 'text' ? `Text ${index + 1}` : `Line item ${index + 1}`),
+          description: line.description,
+          quantity: Number(decimalFromInput(line.quantity).toString()),
+          unitPrice: Number(decimalFromInput(line.unitPrice).toString()),
+          taxable: line.taxable,
+          clientVisible: line.clientVisible,
+          jobberLineItemId: line.jobberLineItemId,
+          linkedProductOrServiceId: line.linkedProductOrServiceId,
+          position: index,
+        })),
         workType,
         workingDays: Number(totals.totalWorkingDays.toString()),
         labourPerDay: Number(totals.totalLabourPerDay.toString()),
@@ -600,7 +668,7 @@ export function QuoteForm({ settings, areas, initialQuote }: QuoteFormProps) {
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+      <div className="sticky top-16 z-20 mb-6 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-white/80 bg-white/95 px-4 py-3 shadow-sm backdrop-blur">
         <div>
           <button type="button" onClick={() => requestNavigation('/quotes')} className="text-sm font-semibold text-slate-400 hover:text-[var(--primary)]">Back to Quotes</button>
           <h1 className="mt-1 text-3xl font-bold text-slate-950">{initialQuote ? 'Edit Quote' : 'New Quote'}</h1>
@@ -645,6 +713,14 @@ export function QuoteForm({ settings, areas, initialQuote }: QuoteFormProps) {
             isFetchingJobberQuote={isFetchingJobberQuote}
             jobberFetchError={jobberFetchError}
             jobberQuoteDraft={jobberQuoteDraft}
+          />
+          <JobberProductServiceEditor
+            value={jobberQuoteLines}
+            saveMode="priced_line_items"
+            productServices={productServices}
+            templates={quoteLineTemplates}
+            onChange={changeJobberQuoteLines}
+            onSaveModeChange={() => undefined}
           />
           <MaterialsPanel materials={materials} areas={areas} onAdd={addMaterial} onChange={changeMaterial} onRemove={removeMaterial} />
           <QuoteOptionsPanel

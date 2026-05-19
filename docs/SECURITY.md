@@ -41,6 +41,10 @@
 - Server-side 저장만 (`jobber_tokens` 테이블 또는 user metadata)
 - 클라이언트에 절대 노출 금지
 - Refresh token 자동 갱신 구현
+- controlled write-back 구현 시 quote line item update에 필요한 최소 write scope만 허용
+- broad `manage`, `delete`, unrelated write scope는 거부
+- Jobber GraphQL mutation은 allowlist된 quote write-back 함수에서만 실행
+- material 원가(`actual_price`)와 내부 material 상세는 Jobber payload에 포함 금지
 
 ---
 
@@ -66,6 +70,7 @@
 | `git push --force` | 다른 사람의 작업 손실 |
 | `git reset --hard` | 로컬 작업 손실 |
 | Jobber OAuth 앱 설정 변경 (v1.1+) | 인증 중단 |
+| Jobber write-back을 production quote에 적용 | 외부 Jobber 견적 데이터 변경 |
 | `package.json` 메이저 버전 업그레이드 | 브레이킹 체인지 위험 |
 | 새 외부 의존성 추가 | 보안·라이선스 검토 필요 |
 

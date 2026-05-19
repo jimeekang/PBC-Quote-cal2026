@@ -43,6 +43,72 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['products']['Insert']>
         Relationships: []
       }
+      product_services: {
+        Row: {
+          id: string
+          name: string
+          description: string | null
+          category: string | null
+          unit_price: string
+          unit_cost: string | null
+          bookable: boolean
+          duration_minutes: number | null
+          quantity_enabled: boolean
+          minimum_quantity: string | null
+          maximum_quantity: string | null
+          taxable: boolean
+          active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: Omit<Database['public']['Tables']['product_services']['Row'], 'id' | 'created_at' | 'updated_at'> & {
+          id?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['product_services']['Insert']>
+        Relationships: []
+      }
+      quote_line_templates: {
+        Row: {
+          id: string
+          name: string
+          active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: Omit<Database['public']['Tables']['quote_line_templates']['Row'], 'id' | 'created_at' | 'updated_at'> & {
+          id?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['quote_line_templates']['Insert']>
+        Relationships: []
+      }
+      quote_line_template_items: {
+        Row: {
+          id: string
+          template_id: string
+          kind: 'line_item' | 'text'
+          name: string
+          description: string | null
+          quantity: string | null
+          unit_price: string | null
+          taxable: boolean
+          client_visible: boolean
+          linked_product_or_service_id: string | null
+          position: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: Omit<Database['public']['Tables']['quote_line_template_items']['Row'], 'id' | 'created_at' | 'updated_at'> & {
+          id?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['quote_line_template_items']['Insert']>
+        Relationships: []
+      }
       pricing_settings: {
         Row: {
           id: number
@@ -87,6 +153,10 @@ export interface Database {
           customer_address: string | null
           jobber_quote_id: string | null
           jobber_snapshot: Json | null
+          jobber_save_mode: 'priced_line_items' | 'description_total' | null
+          jobber_sync_status: 'not_synced' | 'synced' | 'failed'
+          jobber_last_synced_at: string | null
+          jobber_sync_error: string | null
           area_sqft: number | null
           work_type: string | null
           working_days: string
@@ -184,6 +254,32 @@ export interface Database {
           id?: string
         }
         Update: Partial<Database['public']['Tables']['quote_option_items']['Insert']>
+        Relationships: []
+      }
+      jobber_quote_lines: {
+        Row: {
+          id: string
+          quote_id: string
+          kind: 'line_item' | 'text'
+          name: string
+          description: string | null
+          quantity: string | null
+          unit_price: string | null
+          total_price: string | null
+          taxable: boolean
+          client_visible: boolean
+          jobber_line_item_id: string | null
+          linked_product_or_service_id: string | null
+          position: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: Omit<Database['public']['Tables']['jobber_quote_lines']['Row'], 'id' | 'created_at' | 'updated_at'> & {
+          id?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['jobber_quote_lines']['Insert']>
         Relationships: []
       }
       jobber_tokens: {

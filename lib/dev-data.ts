@@ -9,15 +9,18 @@ import {
 import { calculateFormulaLabourDays, calculateLabourTotals } from './quote-labour'
 import { DULUX_PAINT_PRODUCTS } from './products/dulux-paints'
 import { normalizeRrpProduct, type ProductRecord } from './products/types'
+import { normalizeProductService, type ProductServiceRecord } from './product-services/types'
+import { normalizeQuoteLineTemplate, type QuoteLineTemplateRecord } from './quote-line-templates/types'
 import type { AreaInput } from './validators'
-import type { QuoteInput } from './validators'
+import type { JobberQuoteLineInput, JobberSaveModeInput, QuoteInput, QuoteLineTemplateCreateInput } from './validators'
 import type { AreaRecord } from './areas/types'
 import type { Database } from './supabase/types'
 import type { JobberQuoteDraft } from './jobber/mapper'
 
 export type { ProductRecord }
 
-type DevQuoteInput = Omit<QuoteInput, 'options'> & {
+type DevQuoteInput = Omit<QuoteInput, 'deletedJobberLineItemIds' | 'jobberQuoteLines' | 'options'> & {
+  jobberQuoteLines?: JobberQuoteLineInput[]
   options?: QuoteInput['options']
 }
 
@@ -27,6 +30,10 @@ export interface QuoteRecord {
   customerAddress: string | null
   jobberQuoteId: string | null
   jobberSnapshot: JobberQuoteDraft | null
+  jobberSaveMode: JobberSaveModeInput | null
+  jobberSyncStatus: JobberSyncStatus
+  jobberLastSyncedAt: string | null
+  jobberSyncError: string | null
   areaSqft: number | null
   workType: string | null
   workingDays: string
@@ -46,6 +53,7 @@ export interface QuoteRecord {
   createdByName: string | null
   createdByEmail: string | null
   items: QuoteItemRecord[]
+  jobberQuoteLines: JobberQuoteLineRecord[]
   options: QuoteOptionRecord[]
 }
 
@@ -91,12 +99,34 @@ export interface QuoteOptionItemRecord extends Omit<QuoteItemRecord, 'quoteId'> 
   optionId: string
 }
 
+export type JobberSyncStatus = 'not_synced' | 'synced' | 'failed'
+
+export interface JobberQuoteLineRecord {
+  id: string
+  quoteId: string
+  kind: 'line_item' | 'text'
+  name: string
+  description: string | null
+  quantity: string | null
+  unitPrice: string | null
+  totalPrice: string | null
+  taxable: boolean
+  clientVisible: boolean
+  jobberLineItemId: string | null
+  linkedProductOrServiceId: string | null
+  position: number
+  createdAt: string
+  updatedAt: string
+}
+
 let products: ProductRecord[] = DULUX_PAINT_PRODUCTS.map(normalizeRrpProduct)
+let productServices: ProductServiceRecord[] = []
 
 interface DevDataStore {
   pricingSettings: PricingSettings
   quotes: QuoteRecord[]
   areas: AreaRecord[]
+  quoteLineTemplates: QuoteLineTemplateRecord[]
 }
 
 const storeOwner = globalThis as typeof globalThis & {
@@ -107,6 +137,7 @@ const store = storeOwner.__pbcDevDataStore ??= {
   pricingSettings: { ...DEFAULT_PRICING_SETTINGS },
   quotes: [],
   areas: [],
+  quoteLineTemplates: [],
 }
 
 function nextId(prefix: string): string {
@@ -115,6 +146,10 @@ function nextId(prefix: string): string {
 
 function money(value: Decimal | number | string): string {
   return new Decimal(value).toFixed(2)
+}
+
+function optionalPublicMoney(value: Decimal | number | string | undefined): string | null {
+  return value === undefined ? null : money(value)
 }
 
 function searchTokens(query: string): string[] {
@@ -188,6 +223,172 @@ export function searchDevProducts(query: string, limit = 8): ProductRecord[] {
 
 export function listDevProducts(query = '', limit = 200): ProductRecord[] {
   return searchDevProducts(query, limit)
+}
+
+function rowToDevProductService(
+  row: Database['public']['Tables']['product_services']['Insert'] & {
+    id?: string
+    created_at?: string
+    updated_at?: string
+  }
+): ProductServiceRecord {
+  const now = new Date().toISOString()
+  return normalizeProductService({
+    id: row.id ?? crypto.randomUUID(),
+    name: row.name,
+    description: row.description ?? null,
+    category: row.category ?? null,
+    unitPrice: row.unit_price,
+    unitCost: row.unit_cost ?? null,
+    bookable: row.bookable,
+    durationMinutes: row.duration_minutes ?? null,
+    quantityEnabled: row.quantity_enabled,
+    minimumQuantity: row.minimum_quantity ?? null,
+    maximumQuantity: row.maximum_quantity ?? null,
+    taxable: row.taxable,
+    active: row.active,
+    createdAt: row.created_at ?? now,
+    updatedAt: row.updated_at ?? now,
+  })
+}
+
+export function searchDevProductServices(query: string, limit = 100): ProductServiceRecord[] {
+  const tokens = searchTokens(query)
+  const activeServices = productServices.filter((service) => service.active)
+  if (tokens.length === 0) return activeServices.slice(0, limit)
+
+  return activeServices
+    .filter((service) => {
+      const haystack = [
+        service.name,
+        service.description,
+        service.category,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+
+      return tokens.every((token) => haystack.includes(token))
+    })
+    .slice(0, limit)
+}
+
+export function listDevProductServices(query = '', limit = 200): ProductServiceRecord[] {
+  return searchDevProductServices(query, limit)
+}
+
+function buildDevQuoteLineTemplate(
+  id: string,
+  createdAt: string,
+  input: QuoteLineTemplateCreateInput
+): QuoteLineTemplateRecord {
+  const now = new Date().toISOString()
+  return normalizeQuoteLineTemplate({
+    id,
+    name: input.name,
+    active: true,
+    createdAt,
+    updatedAt: now,
+    items: input.items.map((item, index) => ({
+      id: nextId('template-item'),
+      templateId: id,
+      kind: item.kind,
+      name: item.name,
+      description: item.description?.trim() || null,
+      quantity: item.kind === 'line_item' ? money(item.quantity ?? 0) : null,
+      unitPrice: item.kind === 'line_item' ? money(item.unitPrice ?? 0) : null,
+      taxable: item.kind === 'line_item' ? item.taxable : false,
+      clientVisible: item.clientVisible,
+      linkedProductOrServiceId: item.linkedProductOrServiceId?.trim() || null,
+      position: item.position ?? index,
+      createdAt: now,
+      updatedAt: now,
+    })),
+  })
+}
+
+export function listDevQuoteLineTemplates(): QuoteLineTemplateRecord[] {
+  return [...store.quoteLineTemplates]
+    .filter((template) => template.active)
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+}
+
+export function createDevQuoteLineTemplate(input: QuoteLineTemplateCreateInput): QuoteLineTemplateRecord {
+  const template = buildDevQuoteLineTemplate(nextId('template'), new Date().toISOString(), input)
+  store.quoteLineTemplates = [template, ...store.quoteLineTemplates]
+  return template
+}
+
+export function updateDevQuoteLineTemplate(id: string, input: QuoteLineTemplateCreateInput): QuoteLineTemplateRecord | null {
+  const index = store.quoteLineTemplates.findIndex((template) => template.id === id)
+  if (index === -1) return null
+
+  const current = store.quoteLineTemplates[index]
+  const template = buildDevQuoteLineTemplate(id, current.createdAt, input)
+  store.quoteLineTemplates = [...store.quoteLineTemplates]
+  store.quoteLineTemplates[index] = template
+  return template
+}
+
+export function deleteDevQuoteLineTemplate(id: string): QuoteLineTemplateRecord | null {
+  const index = store.quoteLineTemplates.findIndex((template) => template.id === id)
+  if (index === -1) return null
+
+  const template = { ...store.quoteLineTemplates[index], active: false, updatedAt: new Date().toISOString() }
+  store.quoteLineTemplates = [...store.quoteLineTemplates]
+  store.quoteLineTemplates[index] = template
+  return template
+}
+
+export function createDevProductService(
+  row: Database['public']['Tables']['product_services']['Insert']
+): ProductServiceRecord {
+  const productService = rowToDevProductService(row)
+  productServices = [productService, ...productServices]
+  return productService
+}
+
+export function createDevProductServicesFromImport(
+  rows: Database['public']['Tables']['product_services']['Insert'][]
+): ProductServiceRecord[] {
+  const created = rows.map((row) => rowToDevProductService(row))
+  productServices = [...created, ...productServices.filter((existing) =>
+    !created.some((item) =>
+      item.name.toLowerCase() === existing.name.toLowerCase() &&
+      (item.category ?? '').toLowerCase() === (existing.category ?? '').toLowerCase()
+    )
+  )]
+  return created
+}
+
+export function updateDevProductService(
+  id: string,
+  updates: Database['public']['Tables']['product_services']['Update']
+): ProductServiceRecord | null {
+  const index = productServices.findIndex((service) => service.id === id)
+  if (index === -1) return null
+
+  const current = productServices[index]
+  const updated = normalizeProductService({
+    ...current,
+    name: updates.name ?? current.name,
+    description: updates.description ?? current.description,
+    category: updates.category ?? current.category,
+    unitPrice: updates.unit_price ?? current.unitPrice,
+    unitCost: updates.unit_cost ?? current.unitCost,
+    bookable: updates.bookable ?? current.bookable,
+    durationMinutes: updates.duration_minutes ?? current.durationMinutes,
+    quantityEnabled: updates.quantity_enabled ?? current.quantityEnabled,
+    minimumQuantity: updates.minimum_quantity ?? current.minimumQuantity,
+    maximumQuantity: updates.maximum_quantity ?? current.maximumQuantity,
+    taxable: updates.taxable ?? current.taxable,
+    active: updates.active ?? current.active,
+    updatedAt: updates.updated_at ?? new Date().toISOString(),
+  })
+
+  productServices = [...productServices]
+  productServices[index] = updated
+  return updated
 }
 
 export function createDevProductsFromImport(
@@ -351,6 +552,10 @@ function buildDevQuoteRecord(id: string, createdAt: string, input: DevQuoteInput
     customerAddress: input.customerAddress?.trim() || null,
     jobberQuoteId: input.jobberQuoteId?.trim() || null,
     jobberSnapshot: input.jobberSnapshot ?? null,
+    jobberSaveMode: input.jobberSaveMode ?? null,
+    jobberSyncStatus: 'not_synced',
+    jobberLastSyncedAt: null,
+    jobberSyncError: null,
     areaSqft: input.areaSqft ?? null,
     workType: input.workType?.trim() || null,
     workingDays: money(input.workingDays),
@@ -385,7 +590,37 @@ function buildDevQuoteRecord(id: string, createdAt: string, input: DevQuoteInput
       isCustom: item.isCustom,
       position: item.position ?? index,
     })),
+    jobberQuoteLines: (input.jobberQuoteLines ?? []).map((line, index) => buildDevJobberQuoteLineRecord(id, line, line.position ?? index)),
     options: (input.options ?? []).map((option, optionIndex) => buildDevQuoteOptionRecord(id, option, option.position ?? optionIndex, settings)),
+  }
+}
+
+function buildDevJobberQuoteLineRecord(
+  quoteId: string,
+  line: JobberQuoteLineInput,
+  position: number
+): JobberQuoteLineRecord {
+  const now = new Date().toISOString()
+  const totalPrice = line.totalPrice === undefined && line.quantity !== undefined && line.unitPrice !== undefined
+    ? new Decimal(line.quantity).mul(line.unitPrice)
+    : line.totalPrice
+
+  return {
+    id: nextId('jobber-line'),
+    quoteId,
+    kind: line.kind,
+    name: line.name.trim(),
+    description: line.description?.trim() || null,
+    quantity: optionalPublicMoney(line.quantity),
+    unitPrice: optionalPublicMoney(line.unitPrice),
+    totalPrice: optionalPublicMoney(totalPrice),
+    taxable: line.taxable,
+    clientVisible: line.clientVisible,
+    jobberLineItemId: line.jobberLineItemId?.trim() || null,
+    linkedProductOrServiceId: line.linkedProductOrServiceId?.trim() || null,
+    position,
+    createdAt: now,
+    updatedAt: now,
   }
 }
 
@@ -485,5 +720,7 @@ export function resetDevData(): void {
   store.pricingSettings = { ...DEFAULT_PRICING_SETTINGS }
   store.quotes = []
   store.areas = []
+  store.quoteLineTemplates = []
   products = DULUX_PAINT_PRODUCTS.map(normalizeRrpProduct)
+  productServices = []
 }

@@ -172,3 +172,5 @@ F5 margin   [30] %
 ⚠ Changes affect future quotes only.
   Existing quotes preserve their snapshot.
 ```
+
+Settings also includes Material, Product & Service, Template, and Area tabs. The Template tab stores reusable Product / Service line item and text item sets. Those templates appear in `/quotes/new` and quote edit Product / Service sections and copy their saved rows into the current quote when selected.

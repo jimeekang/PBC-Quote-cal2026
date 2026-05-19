@@ -3,10 +3,25 @@
 import { useRef, useState, useTransition } from 'react'
 import { createArea } from '@/lib/actions/areas'
 import { createProduct, deleteProduct, importProductsCSV, updateProduct } from '@/lib/actions/products'
+import {
+  createProductService,
+  deleteProductService,
+  importProductServicesCSV,
+  updateProductService,
+} from '@/lib/actions/product-services'
+import {
+  createQuoteLineTemplate,
+  deleteQuoteLineTemplate,
+  updateQuoteLineTemplate,
+} from '@/lib/actions/quote-line-templates'
 import { updatePricingSettings } from '@/lib/actions/settings'
+import { JobberProductServiceEditor } from '@/components/quote-form/jobber-product-service-editor'
+import type { JobberQuoteLineItemDraft } from '@/components/quote-form/types'
 import type { AreaRecord, AreaScope } from '@/lib/areas/types'
 import type { PricingSettings } from '@/lib/calculator'
 import type { ProductRecord } from '@/lib/products/types'
+import type { ProductServiceRecord } from '@/lib/product-services/types'
+import type { QuoteLineTemplateRecord } from '@/lib/quote-line-templates/types'
 
 type MaterialFormState = {
   manufacturer: string
@@ -19,6 +34,15 @@ type MaterialFormState = {
 
 type MaterialEditFormState = MaterialFormState & {
   volumeLitres: string
+}
+
+type ProductServiceFormState = {
+  name: string
+  description: string
+  category: string
+  unitPrice: string
+  unitCost: string
+  taxable: boolean
 }
 
 type MaterialUpdateInput = {
@@ -35,6 +59,8 @@ type MaterialUpdateInput = {
 interface SettingsFormProps {
   initialAreas: AreaRecord[]
   initialProducts: ProductRecord[]
+  initialProductServices?: ProductServiceRecord[]
+  initialQuoteLineTemplates?: QuoteLineTemplateRecord[]
   initialSettings: PricingSettings
 }
 
@@ -123,6 +149,26 @@ const MATERIAL_CSV_TEMPLATE_ROWS = [
   ['Bunnings', 'Wall Paint', 'White', 'Matte', '4', '89.90'],
 ]
 
+const PRODUCT_SERVICE_CSV_HEADER = [
+  'Name',
+  'Description',
+  'Category',
+  'Unit Price',
+  'Unit Cost',
+  'Bookable',
+  'Duration Minutes',
+  'Quantity Enabled',
+  'Minimum Quantity',
+  'Maximum Quantity',
+  'Taxable',
+  'Active',
+]
+
+const PRODUCT_SERVICE_CSV_TEMPLATE_ROWS = [
+  ['Ceiling', 'All interior ceilings', 'Service', '14.50', '0.00', 'false', '', 'true', '1', '', 'true', 'true'],
+  ['Touch up', 'Patch and repaint visible marks', 'Service', '120.00', '80.00', 'false', '60', 'false', '', '', 'true', 'true'],
+]
+
 function buildMaterialCsv(products: ProductRecord[]): string {
   const lines = products.map((product) => {
     const price = product.rrpPrice ?? product.marketPrice
@@ -146,6 +192,30 @@ function buildMaterialCsvTemplate(): string {
   return [MATERIAL_CSV_HEADER.join(','), ...lines].join('\n')
 }
 
+function buildProductServiceCsv(productServices: ProductServiceRecord[]): string {
+  const lines = productServices.map((item) => [
+    item.name,
+    item.description ?? '',
+    item.category ?? '',
+    item.unitPrice,
+    item.unitCost ?? '',
+    String(item.bookable),
+    item.durationMinutes ?? '',
+    String(item.quantityEnabled),
+    item.minimumQuantity ?? '',
+    item.maximumQuantity ?? '',
+    String(item.taxable),
+    String(item.active),
+  ].map(toCsvSafe).join(','))
+
+  return [PRODUCT_SERVICE_CSV_HEADER.join(','), ...lines].join('\n')
+}
+
+function buildProductServiceCsvTemplate(): string {
+  const lines = PRODUCT_SERVICE_CSV_TEMPLATE_ROWS.map((row) => row.map(toCsvSafe).join(','))
+  return [PRODUCT_SERVICE_CSV_HEADER.join(','), ...lines].join('\n')
+}
+
 function downloadTextFile(filename: string, text: string): void {
   if (typeof window === 'undefined') return
 
@@ -163,6 +233,10 @@ function downloadTextFile(filename: string, text: string): void {
 
 export function MaterialCsvTemplate(): string {
   return buildMaterialCsvTemplate()
+}
+
+export function ProductServiceCsvTemplate(): string {
+  return buildProductServiceCsvTemplate()
 }
 
 export function MaterialAddItemForm({
@@ -404,13 +478,363 @@ export function MaterialProductsTable({
   )
 }
 
-export function SettingsForm({ initialAreas, initialProducts, initialSettings }: SettingsFormProps) {
+interface ProductServicesTableProps {
+  productServices: ProductServiceRecord[]
+  editingProductServiceId?: string | null
+  editForm?: ProductServiceFormState
+  onEdit?: (productService: ProductServiceRecord) => void
+  onCancel?: () => void
+  onSave?: () => void
+  onDelete?: (id: string) => void
+  onFieldChange?: (field: keyof ProductServiceFormState, value: string | boolean) => void
+  disabled?: boolean
+}
+
+export function ProductServiceAddItemForm({
+  form = {
+    name: '',
+    description: '',
+    category: 'Service',
+    unitPrice: '',
+    unitCost: '',
+    taxable: true,
+  },
+  onFieldChange = () => undefined,
+  onAdd = () => undefined,
+  disabled = false,
+}: {
+  form?: ProductServiceFormState
+  onFieldChange?: (field: keyof ProductServiceFormState, value: string | boolean) => void
+  onAdd?: () => void
+  disabled?: boolean
+}) {
+  const canAdd = !disabled && trimFormValue(form.name) && trimFormValue(form.unitPrice)
+
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault()
+        if (canAdd) onAdd()
+      }}
+      className="mb-5 border-b border-slate-100 pb-5"
+    >
+      <h3 className="text-sm font-bold text-slate-950">Add Product & Service</h3>
+      <div className="mt-3 grid gap-3 lg:grid-cols-[1.2fr_1.4fr_0.8fr_0.7fr_0.7fr_auto]">
+        <label className="space-y-1 text-xs font-bold text-slate-500">
+          Name
+          <input value={form.name} onChange={(event) => onFieldChange('name', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="e.g. Ceiling" />
+        </label>
+        <label className="space-y-1 text-xs font-bold text-slate-500">
+          Description
+          <input value={form.description} onChange={(event) => onFieldChange('description', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Public quote description" />
+        </label>
+        <label className="space-y-1 text-xs font-bold text-slate-500">
+          Category
+          <input value={form.category} onChange={(event) => onFieldChange('category', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Service" />
+        </label>
+        <label className="space-y-1 text-xs font-bold text-slate-500">
+          Unit Price
+          <input value={form.unitPrice} onChange={(event) => onFieldChange('unitPrice', event.target.value)} inputMode="decimal" className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="0.00" />
+        </label>
+        <label className="space-y-1 text-xs font-bold text-slate-500">
+          Unit Cost
+          <input value={form.unitCost} onChange={(event) => onFieldChange('unitCost', event.target.value)} inputMode="decimal" className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Optional" />
+        </label>
+        <label className="flex items-end gap-2 pb-2 text-xs font-bold text-slate-500">
+          <input type="checkbox" checked={form.taxable} onChange={(event) => onFieldChange('taxable', event.target.checked)} className="h-4 w-4 rounded border-slate-300" />
+          Taxable
+        </label>
+      </div>
+      <button type="submit" disabled={!canAdd} className="mt-3 rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-bold text-white hover:bg-[var(--primary-strong)] disabled:opacity-50">
+        Add Product & Service
+      </button>
+    </form>
+  )
+}
+
+export function ProductServicesTable({
+  productServices,
+  editingProductServiceId = null,
+  editForm = {
+    name: '',
+    description: '',
+    category: '',
+    unitPrice: '',
+    unitCost: '',
+    taxable: true,
+  },
+  onEdit = () => undefined,
+  onCancel = () => undefined,
+  onSave = () => undefined,
+  onDelete = () => undefined,
+  onFieldChange = () => undefined,
+  disabled = false,
+}: ProductServicesTableProps) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="min-w-full text-left text-sm">
+        <thead className="border-b border-slate-100 text-xs uppercase text-slate-400">
+          <tr>
+            <th className="px-3 py-2 font-semibold">Name</th>
+            <th className="px-3 py-2 font-semibold">Description</th>
+            <th className="px-3 py-2 font-semibold">Category</th>
+            <th className="px-3 py-2 text-right font-semibold">Unit Price</th>
+            <th className="px-3 py-2 text-right font-semibold">Unit Cost</th>
+            <th className="px-3 py-2 font-semibold">Tax</th>
+            <th className="px-3 py-2 text-right font-semibold">Actions</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {productServices.map((item) => {
+            const isEditing = editingProductServiceId === item.id
+            return (
+              <tr key={item.id} className="align-top">
+                <td className="px-3 py-2">
+                  {isEditing ? <input value={editForm.name} onChange={(event) => onFieldChange('name', event.target.value)} className="w-full rounded-lg border border-slate-200 px-2 py-1 text-sm" /> : <span className="font-semibold text-slate-950">{item.name}</span>}
+                </td>
+                <td className="max-w-md px-3 py-2">
+                  {isEditing ? <textarea value={editForm.description} onChange={(event) => onFieldChange('description', event.target.value)} className="min-h-20 w-full rounded-lg border border-slate-200 px-2 py-1 text-sm" /> : <span className="line-clamp-3 text-slate-600">{item.description ?? '-'}</span>}
+                </td>
+                <td className="px-3 py-2">
+                  {isEditing ? <input value={editForm.category} onChange={(event) => onFieldChange('category', event.target.value)} className="w-full rounded-lg border border-slate-200 px-2 py-1 text-sm" /> : <span className="text-slate-600">{item.category ?? '-'}</span>}
+                </td>
+                <td className="px-3 py-2 text-right">
+                  {isEditing ? <input value={editForm.unitPrice} onChange={(event) => onFieldChange('unitPrice', event.target.value)} inputMode="decimal" className="w-full rounded-lg border border-slate-200 px-2 py-1 text-right text-sm" /> : <span className="font-mono font-semibold text-slate-950">${item.unitPrice}</span>}
+                </td>
+                <td className="px-3 py-2 text-right">
+                  {isEditing ? <input value={editForm.unitCost} onChange={(event) => onFieldChange('unitCost', event.target.value)} inputMode="decimal" className="w-full rounded-lg border border-slate-200 px-2 py-1 text-right text-sm" /> : <span className="font-mono text-slate-600">{item.unitCost ? `$${item.unitCost}` : '-'}</span>}
+                </td>
+                <td className="px-3 py-2">
+                  {isEditing ? (
+                    <input type="checkbox" checked={editForm.taxable} onChange={(event) => onFieldChange('taxable', event.target.checked)} className="h-4 w-4 rounded border-slate-300" />
+                  ) : (
+                    <span className="text-slate-600">{item.taxable ? 'Taxable' : 'No tax'}</span>
+                  )}
+                </td>
+                <td className="px-3 py-2">
+                  {isEditing ? (
+                    <div className="flex flex-col gap-1 sm:flex-row">
+                      <button type="button" onClick={onSave} disabled={disabled} className="rounded-lg bg-green-700 px-2 py-1 text-xs font-bold text-white hover:bg-green-800 disabled:opacity-50">Save</button>
+                      <button type="button" onClick={onCancel} disabled={disabled} className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50">Cancel</button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-1 sm:flex-row">
+                      <button type="button" onClick={() => onEdit(item)} disabled={disabled} className="rounded-lg border border-blue-100 px-2 py-1 text-xs font-bold text-[var(--primary)] hover:bg-[var(--primary-soft)] disabled:opacity-50">Edit</button>
+                      <button type="button" onClick={() => onDelete(item.id)} disabled={disabled} className="rounded-lg border border-red-100 px-2 py-1 text-xs font-bold text-red-600 hover:bg-red-50 disabled:opacity-50">Delete</button>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function templateItemToDraft(item: QuoteLineTemplateRecord['items'][number]): JobberQuoteLineItemDraft {
+  return {
+    id: item.id,
+    kind: item.kind,
+    name: item.name,
+    description: item.description ?? '',
+    quantity: item.quantity ?? '1',
+    unitPrice: item.unitPrice ?? '0',
+    taxable: item.kind === 'line_item' ? item.taxable : false,
+    clientVisible: item.clientVisible,
+    linkedProductOrServiceId: item.linkedProductOrServiceId ?? undefined,
+  }
+}
+
+function templateLinesToInput(lines: JobberQuoteLineItemDraft[]) {
+  return lines.map((line, index) => ({
+    kind: line.kind,
+    name: trimFormValue(line.name) || (line.kind === 'text' ? `Text ${index + 1}` : `Line item ${index + 1}`),
+    description: trimFormValue(line.description) || null,
+    quantity: line.kind === 'line_item' ? optionalNumber(line.quantity) : undefined,
+    unitPrice: line.kind === 'line_item' ? optionalNumber(line.unitPrice) : undefined,
+    taxable: line.kind === 'line_item' ? line.taxable : false,
+    clientVisible: line.clientVisible,
+    linkedProductOrServiceId: line.linkedProductOrServiceId ?? null,
+    position: index,
+  }))
+}
+
+export function QuoteLineTemplateEditor({
+  templates,
+  productServices,
+  disabled = false,
+  onTemplatesChange = () => undefined,
+}: {
+  templates: QuoteLineTemplateRecord[]
+  productServices: ProductServiceRecord[]
+  disabled?: boolean
+  onTemplatesChange?: (templates: QuoteLineTemplateRecord[]) => void
+}) {
   const [isPending, startTransition] = useTransition()
-  const [activeTab, setActiveTab] = useState<'labour' | 'material' | 'area'>('labour')
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null)
+  const [templateName, setTemplateName] = useState('')
+  const [templateLines, setTemplateLines] = useState<JobberQuoteLineItemDraft[]>([])
+  const [message, setMessage] = useState<string | null>(null)
+  const isDisabled = disabled || isPending
+
+  function resetForm() {
+    setEditingTemplateId(null)
+    setTemplateName('')
+    setTemplateLines([])
+  }
+
+  function editTemplate(template: QuoteLineTemplateRecord) {
+    setMessage(null)
+    setEditingTemplateId(template.id)
+    setTemplateName(template.name)
+    setTemplateLines(template.items.map(templateItemToDraft))
+  }
+
+  function saveTemplate() {
+    const name = trimFormValue(templateName)
+    if (!name) {
+      setMessage('Template name is required.')
+      return
+    }
+
+    setMessage(null)
+    startTransition(async () => {
+      const payload = {
+        name,
+        items: templateLinesToInput(templateLines),
+      }
+      const result = editingTemplateId
+        ? await updateQuoteLineTemplate({ id: editingTemplateId, ...payload })
+        : await createQuoteLineTemplate(payload)
+
+      if (result.ok) {
+        onTemplatesChange(editingTemplateId
+          ? templates.map((template) => template.id === result.data.id ? result.data : template)
+          : [result.data, ...templates]
+        )
+        resetForm()
+        setMessage('Template saved.')
+      } else {
+        setMessage(result.error)
+      }
+    })
+  }
+
+  function removeTemplate(id: string) {
+    setMessage(null)
+    startTransition(async () => {
+      const result = await deleteQuoteLineTemplate({ id })
+      if (result.ok) {
+        onTemplatesChange(templates.filter((template) => template.id !== id))
+        if (editingTemplateId === id) resetForm()
+        setMessage('Template deleted.')
+      } else {
+        setMessage(result.error)
+      }
+    })
+  }
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h2 className="text-sm font-bold uppercase text-slate-400">Template</h2>
+        <p className="mt-1 text-sm text-slate-500">Save reusable Product / Service line item and text item sets for new quotes.</p>
+      </div>
+
+      <div className="rounded-lg border border-slate-100 bg-slate-50/60 p-4">
+        <label className="block space-y-1 text-xs font-bold text-slate-500">
+          Template name
+          <input
+            value={templateName}
+            onChange={(event) => setTemplateName(event.target.value)}
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+            placeholder="e.g. Standard interior quote"
+          />
+        </label>
+        <JobberProductServiceEditor
+          value={templateLines}
+          saveMode="priced_line_items"
+          productServices={productServices}
+          onChange={setTemplateLines}
+          onSaveModeChange={() => undefined}
+        />
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <button type="button" onClick={saveTemplate} disabled={isDisabled || !trimFormValue(templateName)} className="rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-bold text-white hover:bg-[var(--primary-strong)] disabled:opacity-50">
+            {isPending ? 'Saving...' : 'Save Template'}
+          </button>
+          {editingTemplateId ? (
+            <button type="button" onClick={resetForm} disabled={isDisabled} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50">
+              Cancel
+            </button>
+          ) : null}
+          {message ? <p className="text-sm text-slate-600">{message}</p> : null}
+        </div>
+      </div>
+
+      <div className="divide-y divide-slate-100 rounded-lg border border-[var(--border)]">
+        {templates.length === 0 ? <p className="px-3 py-3 text-sm text-slate-500">No templates saved yet.</p> : null}
+        {templates.map((template) => (
+          <div key={template.id} className="flex flex-wrap items-center justify-between gap-3 px-3 py-3">
+            <div>
+              <p className="font-semibold text-slate-950">{template.name}</p>
+              <p className="text-xs text-slate-500">{template.items.length} line items</p>
+              {template.items.length > 0 ? (
+                <p className="mt-1 text-xs text-slate-400">{template.items.map((item) => item.name).join(', ')}</p>
+              ) : null}
+            </div>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => editTemplate(template)} disabled={isDisabled} className="rounded-lg border border-blue-100 px-3 py-2 text-xs font-bold text-[var(--primary)] hover:bg-[var(--primary-soft)] disabled:opacity-50">
+                Edit
+              </button>
+              <button type="button" onClick={() => removeTemplate(template.id)} disabled={isDisabled} className="rounded-lg border border-red-100 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 disabled:opacity-50">
+                Delete
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export function SettingsForm({
+  initialAreas,
+  initialProducts,
+  initialProductServices = [],
+  initialQuoteLineTemplates = [],
+  initialSettings,
+}: SettingsFormProps) {
+  const [isPending, startTransition] = useTransition()
+  const [activeTab, setActiveTab] = useState<'labour' | 'material' | 'productService' | 'template' | 'area'>('labour')
   const [materialQuery, setMaterialQuery] = useState('')
   const [materialProducts, setMaterialProducts] = useState(initialProducts)
   const [editingProductId, setEditingProductId] = useState<string | null>(null)
   const [materialMessage, setMaterialMessage] = useState<string | null>(null)
+  const [productServiceQuery, setProductServiceQuery] = useState('')
+  const [productServices, setProductServices] = useState(initialProductServices)
+  const [quoteLineTemplates, setQuoteLineTemplates] = useState(initialQuoteLineTemplates)
+  const [editingProductServiceId, setEditingProductServiceId] = useState<string | null>(null)
+  const [productServiceMessage, setProductServiceMessage] = useState<string | null>(null)
+  const [productServiceImportError, setProductServiceImportError] = useState<string | null>(null)
+  const productServiceFileInputRef = useRef<HTMLInputElement>(null)
+  const [newProductServiceForm, setNewProductServiceForm] = useState<ProductServiceFormState>({
+    name: '',
+    description: '',
+    category: 'Service',
+    unitPrice: '',
+    unitCost: '',
+    taxable: true,
+  })
+  const [productServiceEditForm, setProductServiceEditForm] = useState<ProductServiceFormState>({
+    name: '',
+    description: '',
+    category: '',
+    unitPrice: '',
+    unitCost: '',
+    taxable: true,
+  })
   const [newMaterialForm, setNewMaterialForm] = useState({
     manufacturer: '',
     productLine: '',
@@ -582,6 +1006,112 @@ export function SettingsForm({ initialAreas, initialProducts, initialSettings }:
     })
   }
 
+  function resetNewProductServiceForm() {
+    setNewProductServiceForm({
+      name: '',
+      description: '',
+      category: 'Service',
+      unitPrice: '',
+      unitCost: '',
+      taxable: true,
+    })
+  }
+
+  function setNewProductServiceField(field: keyof ProductServiceFormState, value: string | boolean) {
+    setNewProductServiceForm((current) => ({ ...current, [field]: value }))
+  }
+
+  function setProductServiceEditField(field: keyof ProductServiceFormState, value: string | boolean) {
+    setProductServiceEditForm((current) => ({ ...current, [field]: value }))
+  }
+
+  function startProductServiceEdit(productService: ProductServiceRecord) {
+    setProductServiceMessage(null)
+    setEditingProductServiceId(productService.id)
+    setProductServiceEditForm({
+      name: productService.name,
+      description: productService.description ?? '',
+      category: productService.category ?? '',
+      unitPrice: productService.unitPrice,
+      unitCost: productService.unitCost ?? '',
+      taxable: productService.taxable,
+    })
+  }
+
+  function cancelProductServiceEdit() {
+    setEditingProductServiceId(null)
+    setProductServiceEditForm({
+      name: '',
+      description: '',
+      category: '',
+      unitPrice: '',
+      unitCost: '',
+      taxable: true,
+    })
+  }
+
+  function addProductService() {
+    setProductServiceMessage(null)
+    setProductServiceImportError(null)
+    startTransition(async () => {
+      const result = await createProductService({
+        name: trimFormValue(newProductServiceForm.name),
+        description: trimFormValue(newProductServiceForm.description) || null,
+        category: trimFormValue(newProductServiceForm.category) || null,
+        unitPrice: optionalNumber(newProductServiceForm.unitPrice),
+        unitCost: optionalNumber(newProductServiceForm.unitCost) ?? null,
+        taxable: newProductServiceForm.taxable,
+      })
+
+      if (result.ok) {
+        setProductServices((current) => [result.data, ...current])
+        setProductServiceQuery('')
+        resetNewProductServiceForm()
+        setProductServiceMessage('Product & Service item added.')
+      } else {
+        setProductServiceMessage(result.error)
+      }
+    })
+  }
+
+  function saveProductService() {
+    if (!editingProductServiceId) return
+    setProductServiceMessage(null)
+    startTransition(async () => {
+      const result = await updateProductService({
+        id: editingProductServiceId,
+        name: trimFormValue(productServiceEditForm.name),
+        description: trimFormValue(productServiceEditForm.description) || null,
+        category: trimFormValue(productServiceEditForm.category) || null,
+        unitPrice: optionalNumber(productServiceEditForm.unitPrice),
+        unitCost: optionalNumber(productServiceEditForm.unitCost) ?? null,
+        taxable: productServiceEditForm.taxable,
+      })
+
+      if (result.ok) {
+        setProductServices((current) => current.map((item) => item.id === result.data.id ? result.data : item))
+        cancelProductServiceEdit()
+        setProductServiceMessage('Product & Service item updated.')
+      } else {
+        setProductServiceMessage(result.error)
+      }
+    })
+  }
+
+  function removeProductService(id: string) {
+    setProductServiceMessage(null)
+    startTransition(async () => {
+      const result = await deleteProductService({ id })
+      if (result.ok) {
+        setProductServices((current) => current.filter((item) => item.id !== id))
+        if (editingProductServiceId === id) cancelProductServiceEdit()
+        setProductServiceMessage('Product & Service item deleted.')
+      } else {
+        setProductServiceMessage(result.error)
+      }
+    })
+  }
+
   function exportMaterials() {
     const csvData = materialProducts.filter((product) => product.active !== false)
     if (csvData.length === 0) {
@@ -593,9 +1123,24 @@ export function SettingsForm({ initialAreas, initialProducts, initialSettings }:
     downloadTextFile(`materials-${new Date().toISOString().slice(0, 10)}.csv`, csvText)
   }
 
+  function exportProductServices() {
+    const csvData = productServices.filter((item) => item.active !== false)
+    if (csvData.length === 0) {
+      setProductServiceMessage('No Product & Service items to export.')
+      return
+    }
+
+    downloadTextFile(`product-services-${new Date().toISOString().slice(0, 10)}.csv`, buildProductServiceCsv(csvData))
+  }
+
   function exportMaterialTemplate() {
     downloadTextFile('material-import-template.csv', buildMaterialCsvTemplate())
     setMaterialMessage('Template downloaded.')
+  }
+
+  function exportProductServiceTemplate() {
+    downloadTextFile('product-service-import-template.csv', buildProductServiceCsvTemplate())
+    setProductServiceMessage('Template downloaded.')
   }
 
   async function importMaterials(file: File | null) {
@@ -617,6 +1162,31 @@ export function SettingsForm({ initialAreas, initialProducts, initialSettings }:
       }
 
       if (fileInputRef.current) fileInputRef.current.value = ''
+    })
+  }
+
+  async function importProductServices(file: File | null) {
+    if (!file) return
+    setProductServiceMessage(null)
+    setProductServiceImportError(null)
+
+    const csvText = await file.text()
+    startTransition(async () => {
+      const result = await importProductServicesCSV({ csvText })
+
+      if (result.ok) {
+        setProductServices((current) => [
+          ...result.data.productServices,
+          ...current.filter((item) => !result.data.productServices.some((imported) => imported.id === item.id)),
+        ])
+        setProductServiceMessage(`Imported ${result.data.imported} Product & Service items.`)
+        setProductServiceImportError(null)
+      } else {
+        setProductServiceImportError(result.error)
+        setProductServiceMessage(null)
+      }
+
+      if (productServiceFileInputRef.current) productServiceFileInputRef.current.value = ''
     })
   }
 
@@ -660,26 +1230,34 @@ export function SettingsForm({ initialAreas, initialProducts, initialSettings }:
       .includes(needle)
   })
 
+  const filteredProductServices = productServices.filter((item) => {
+    const needle = productServiceQuery.trim().toLowerCase()
+    if (!needle) return true
+    return [
+      item.name,
+      item.description,
+      item.category,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+      .includes(needle)
+  })
+
   return (
     <div className="overflow-hidden rounded-lg border border-white bg-white/90 shadow-[var(--shadow-soft)]">
-      <div className="flex flex-col gap-3 border-b border-slate-100 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-sm font-bold uppercase text-slate-400">Jobber Connection</h2>
-          <p className="mt-1 text-sm text-slate-600">Refresh the Jobber OAuth connection used for quote lookup.</p>
-        </div>
-        <a
-          href="/api/jobber/connect"
-          className="inline-flex w-fit rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-bold text-white hover:bg-[var(--primary-strong)]"
-        >
-          Reconnect Jobber
-        </a>
-      </div>
       <div className="flex gap-1 border-b border-slate-100 bg-slate-50/80 p-2">
         <button type="button" onClick={() => setActiveTab('labour')} className={`rounded-lg px-4 py-2 text-sm font-bold ${activeTab === 'labour' ? 'bg-white text-[var(--primary)] shadow-sm' : 'text-slate-500 hover:text-slate-950'}`}>
           Labour Rates
         </button>
         <button type="button" onClick={() => setActiveTab('material')} className={`rounded-lg px-4 py-2 text-sm font-bold ${activeTab === 'material' ? 'bg-white text-[var(--primary)] shadow-sm' : 'text-slate-500 hover:text-slate-950'}`}>
           Material
+        </button>
+        <button type="button" onClick={() => setActiveTab('productService')} className={`rounded-lg px-4 py-2 text-sm font-bold ${activeTab === 'productService' ? 'bg-white text-[var(--primary)] shadow-sm' : 'text-slate-500 hover:text-slate-950'}`}>
+          Product & Service
+        </button>
+        <button type="button" onClick={() => setActiveTab('template')} className={`rounded-lg px-4 py-2 text-sm font-bold ${activeTab === 'template' ? 'bg-white text-[var(--primary)] shadow-sm' : 'text-slate-500 hover:text-slate-950'}`}>
+          Template
         </button>
         <button type="button" onClick={() => setActiveTab('area')} className={`rounded-lg px-4 py-2 text-sm font-bold ${activeTab === 'area' ? 'bg-white text-[var(--primary)] shadow-sm' : 'text-slate-500 hover:text-slate-950'}`}>
           Area
@@ -807,6 +1385,64 @@ export function SettingsForm({ initialAreas, initialProducts, initialSettings }:
           <p className="mt-3 text-sm text-slate-500">{filteredProducts.length} materials</p>
           {materialMessage ? <p className="mt-2 text-sm text-slate-600">{materialMessage}</p> : null}
           {materialImportError ? <p className="mt-2 text-sm text-red-600">{materialImportError}</p> : null}
+        </div>
+      ) : activeTab === 'productService' ? (
+        <div className="p-5">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-sm font-bold uppercase text-slate-400">Product & Service</h2>
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+              <input value={productServiceQuery} onChange={(event) => setProductServiceQuery(event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm sm:max-w-xs" placeholder="Search product or service..." />
+              <input
+                ref={productServiceFileInputRef}
+                type="file"
+                accept=".csv,text/csv"
+                onChange={(event) => {
+                  void importProductServices(event.target.files?.[0] ?? null)
+                }}
+                className="hidden"
+              />
+              <div className="flex gap-2">
+                <button type="button" onClick={() => productServiceFileInputRef.current?.click()} disabled={isPending} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50">
+                  Import CSV
+                </button>
+                <button type="button" onClick={exportProductServices} disabled={isPending || productServices.filter((item) => item.active !== false).length === 0} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50">
+                  Export CSV
+                </button>
+                <button type="button" onClick={exportProductServiceTemplate} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50">
+                  CSV Template
+                </button>
+              </div>
+            </div>
+          </div>
+          <ProductServiceAddItemForm
+            form={newProductServiceForm}
+            onFieldChange={setNewProductServiceField}
+            onAdd={addProductService}
+            disabled={isPending}
+          />
+          <ProductServicesTable
+            productServices={filteredProductServices}
+            editingProductServiceId={editingProductServiceId}
+            editForm={productServiceEditForm}
+            onEdit={startProductServiceEdit}
+            onCancel={cancelProductServiceEdit}
+            onSave={saveProductService}
+            onDelete={removeProductService}
+            onFieldChange={setProductServiceEditField}
+            disabled={isPending}
+          />
+          <p className="mt-3 text-sm text-slate-500">{filteredProductServices.length} Product & Service items</p>
+          {productServiceMessage ? <p className="mt-2 text-sm text-slate-600">{productServiceMessage}</p> : null}
+          {productServiceImportError ? <p className="mt-2 text-sm text-red-600">{productServiceImportError}</p> : null}
+        </div>
+      ) : activeTab === 'template' ? (
+        <div className="p-5">
+          <QuoteLineTemplateEditor
+            templates={quoteLineTemplates}
+            productServices={productServices}
+            disabled={isPending}
+            onTemplatesChange={setQuoteLineTemplates}
+          />
         </div>
       ) : (
         <div className="p-5">

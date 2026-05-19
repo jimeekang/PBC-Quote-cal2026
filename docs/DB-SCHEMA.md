@@ -91,6 +91,9 @@
 | `0007_add_jobber_tokens.sql` | `jobber_tokens`(사용자별 access/refresh 토큰, 암호화 저장) + RLS |
 | `0008_add_quote_jobber_snapshot.sql` | `quotes.jobber_snapshot JSONB` (Jobber 원본 응답 캐시) |
 | `0009_add_quote_options.sql` | `quote_options` + `quote_option_items` + RLS |
+| `0010_add_jobber_quote_lines.sql` | Jobber write-back용 공개 Product / Service line item + quote sync 상태 |
+| `0011_add_product_services.sql` | Jobber Product & Service CSV import용 공개 line item 카탈로그 |
+| `0012_add_quote_line_templates.sql` | Settings에서 저장하는 재사용 Product / Service line/text template |
 
 > 아래 DDL은 변경 후 최종 형태 요약. 정확한 SQL은 마이그레이션 파일 자체를 source of truth로 본다.
 
@@ -263,6 +266,100 @@ CREATE TABLE quote_option_items (
 > 옵션 견적은 메인 견적과 독립 계산되며 `quotes.final_total`에 합산되지 않는다.
 > 자세한 규칙: `docs/superpowers/specs/2026-05-15-quote-options-design.md`.
 
+## Jobber write-back local schema
+
+정확한 SQL은 `supabase/migrations/0010_add_jobber_quote_lines.sql`을 source of truth로 둔다. 이 스키마는 우리 앱의 로컬 저장용이며, Jobber 실제 mutation 전송은 중앙 Jobber client의 승인된 quote line item write-back 경로만 사용한다.
+
+```sql
+ALTER TABLE quotes
+  ADD COLUMN jobber_save_mode TEXT CHECK (
+    jobber_save_mode IS NULL OR jobber_save_mode IN ('priced_line_items','description_total')
+  ),
+  ADD COLUMN jobber_sync_status TEXT NOT NULL DEFAULT 'not_synced' CHECK (
+    jobber_sync_status IN ('not_synced','synced','failed')
+  ),
+  ADD COLUMN jobber_last_synced_at TIMESTAMPTZ,
+  ADD COLUMN jobber_sync_error TEXT;
+
+CREATE TABLE jobber_quote_lines (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  quote_id UUID NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL CHECK (kind IN ('line_item','text')),
+  name TEXT NOT NULL CHECK (length(btrim(name)) > 0),
+  description TEXT,
+  quantity NUMERIC(10,2) CHECK (quantity IS NULL OR quantity >= 0),
+  unit_price NUMERIC(10,2) CHECK (unit_price IS NULL OR unit_price >= 0),
+  total_price NUMERIC(10,2) CHECK (total_price IS NULL OR total_price >= 0),
+  taxable BOOLEAN NOT NULL DEFAULT true,
+  client_visible BOOLEAN NOT NULL DEFAULT true,
+  jobber_line_item_id TEXT,
+  linked_product_or_service_id TEXT,
+  position INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+`jobber_quote_lines`는 Jobber에 공개 저장할 Product / Service line만 보관한다. 내부 material은 계속 `quote_items`/`quote_option_items`에만 저장한다.
+
+## Product & Service catalog schema
+
+정확한 SQL은 `supabase/migrations/0011_add_product_services.sql`을 source of truth로 둔다. 이 테이블은 Jobber `Products and Services Export` CSV를 우리 앱에서 관리하고, quote editor의 공개 Product / Service line item 자동채우기에 사용한다.
+
+```sql
+CREATE TABLE product_services (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  description TEXT,
+  category TEXT,
+  unit_price NUMERIC(10,2) NOT NULL DEFAULT 0,
+  unit_cost NUMERIC(10,2),
+  bookable BOOLEAN NOT NULL DEFAULT false,
+  duration_minutes INT,
+  quantity_enabled BOOLEAN NOT NULL DEFAULT false,
+  minimum_quantity NUMERIC(10,2),
+  maximum_quantity NUMERIC(10,2),
+  taxable BOOLEAN NOT NULL DEFAULT true,
+  active BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (name, category)
+);
+```
+
+`unit_cost`는 Settings 카탈로그 관리용으로만 보관한다. Quote 저장/Jobber write-back에는 `name`, `description`, `unit_price`, `taxable`, 최소 수량만 자동채우기에 사용하며 material 원가와 별도로 취급한다.
+
+## Quote line template schema
+
+정확한 SQL은 `supabase/migrations/0012_add_quote_line_templates.sql`을 source of truth로 둔다. 이 테이블은 Settings > Template 섹션에서 저장한 공개 Product / Service line item 묶음을 보관하고, `/quotes/new`와 `/quotes/[id]/edit`에서 선택 시 현재 quote line 뒤에 복사한다. 템플릿은 Jobber에 직접 동기화하지 않고, quote에 복사된 `jobber_quote_lines`만 기존 write-back 경로로 전송된다.
+
+```sql
+CREATE TABLE quote_line_templates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  active BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (name)
+);
+
+CREATE TABLE quote_line_template_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  template_id UUID NOT NULL REFERENCES quote_line_templates(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL CHECK (kind IN ('line_item','text')),
+  name TEXT NOT NULL,
+  description TEXT,
+  quantity NUMERIC(10,2),
+  unit_price NUMERIC(10,2),
+  taxable BOOLEAN NOT NULL DEFAULT true,
+  client_visible BOOLEAN NOT NULL DEFAULT true,
+  linked_product_or_service_id TEXT,
+  position INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
 ---
 
 ## RLS 정책 (`supabase/migrations/0002_rls_policies.sql`)
@@ -270,6 +367,9 @@ CREATE TABLE quote_option_items (
 ```sql
 -- 모든 테이블 RLS 켜기
 ALTER TABLE products            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE product_services    ENABLE ROW LEVEL SECURITY;   -- 0011
+ALTER TABLE quote_line_templates ENABLE ROW LEVEL SECURITY;  -- 0012
+ALTER TABLE quote_line_template_items ENABLE ROW LEVEL SECURITY; -- 0012
 ALTER TABLE pricing_settings    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quotes              ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quote_items         ENABLE ROW LEVEL SECURITY;
@@ -280,6 +380,9 @@ ALTER TABLE quote_option_items  ENABLE ROW LEVEL SECURITY;   -- 0009
 
 -- v1.0 공통 정책: 인증 사용자 = read/write 전부, 미인증 = 거부
 CREATE POLICY "authenticated_all" ON products            FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "authenticated_all" ON product_services    FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "authenticated_all" ON quote_line_templates FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "authenticated_all" ON quote_line_template_items FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "authenticated_all" ON pricing_settings    FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "authenticated_all" ON quotes              FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "authenticated_all" ON quote_items         FOR ALL TO authenticated USING (true) WITH CHECK (true);

@@ -1,15 +1,29 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import Decimal from 'decimal.js'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { CustomerPanel } from '@/components/quote-form/customer-panel'
 import { FinalSummary } from '@/components/quote-form/final-summary'
 import { MaterialRow } from '@/components/quote-form/material-row'
 import { MaterialsPanel } from '@/components/quote-form/materials-panel'
 import { OptionTotalsSummary } from '@/components/quote-form/option-totals-summary'
+import { QuoteForm } from '@/components/quote-form/quote-form'
 import { QuoteDetailView } from '@/components/quote-detail/quote-detail-view'
 import { QuoteCard } from '@/components/quote-list/quote-card'
 import type { QuoteRecord } from '@/lib/dev-data'
+
+const routerPushMock = vi.hoisted(() => vi.fn())
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: routerPushMock,
+  }),
+}))
+
+vi.mock('@/lib/actions/quotes', () => ({
+  createQuote: vi.fn(),
+  updateQuote: vi.fn(),
+}))
 
 describe('quote form pricing UI', () => {
   const quoteRecord: QuoteRecord = {
@@ -17,6 +31,10 @@ describe('quote form pricing UI', () => {
     customerName: 'Jane Customer',
     customerAddress: '10 Main St',
     jobberQuoteId: 'encoded-quote-id',
+    jobberSaveMode: 'priced_line_items',
+    jobberSyncStatus: 'not_synced',
+    jobberLastSyncedAt: null,
+    jobberSyncError: null,
     areaSqft: null,
     workType: 'Exterior',
     workingDays: '5.00',
@@ -46,6 +64,7 @@ describe('quote form pricing UI', () => {
     createdByName: 'Mia Kang',
     createdByEmail: 'mia@example.com',
     items: [],
+    jobberQuoteLines: [],
     options: [],
     jobberSnapshot: null,
   }
@@ -57,6 +76,44 @@ describe('quote form pricing UI', () => {
     expect(markup).toContain('Edit')
     expect(markup).toContain(`/quotes/${quoteRecord.id}/edit`)
     expect(markup).toContain('Delete')
+  })
+
+  it('keeps the quote save action sticky while editing long forms', () => {
+    const markup = renderToStaticMarkup(
+      createElement(QuoteForm, {
+        settings: quoteRecord.pricingSettingsSnapshot,
+        areas: [],
+        productServices: [],
+        quoteLineTemplates: [],
+        initialQuote: quoteRecord,
+      })
+    )
+
+    expect(markup).toContain('Update Quote')
+    expect(markup).toContain('sticky top-16')
+  })
+
+  it('passes saved templates into the Product / Service editor', () => {
+    const markup = renderToStaticMarkup(
+      createElement(QuoteForm, {
+        settings: quoteRecord.pricingSettingsSnapshot,
+        areas: [],
+        productServices: [],
+        quoteLineTemplates: [
+          {
+            id: 'template-1',
+            name: 'Standard terms',
+            active: true,
+            createdAt: '2026-05-19T00:00:00.000Z',
+            updatedAt: '2026-05-19T00:00:00.000Z',
+            items: [],
+          },
+        ],
+      })
+    )
+
+    expect(markup).toContain('Template')
+    expect(markup).toContain('Standard terms')
   })
 
   it('shows subtotal details for labour and material totals', () => {
@@ -546,6 +603,58 @@ describe('quote form pricing UI', () => {
     expect(markup).toContain('Paint supplies')
     expect(markup).toContain('Jobber profit')
     expect(markup).toContain('90.2%')
+  })
+
+  it('shows app-saved Product / Service line items on quote detail pages', () => {
+    const markup = renderToStaticMarkup(
+      createElement(QuoteDetailView, {
+        quote: {
+          ...quoteRecord,
+          jobberQuoteLines: [
+            {
+              id: 'app-line-1',
+              quoteId: quoteRecord.id,
+              kind: 'text',
+              name: 'Ceiling',
+              description: 'All interior ceiling\n2 coats of Dulux ceiling paint',
+              quantity: '1.00',
+              unitPrice: '0.00',
+              totalPrice: '0.00',
+              taxable: false,
+              clientVisible: true,
+              jobberLineItemId: 'jobber-line-1',
+              linkedProductOrServiceId: null,
+              position: 0,
+              createdAt: '2026-05-19T00:00:00Z',
+              updatedAt: '2026-05-19T00:00:00Z',
+            },
+            {
+              id: 'app-line-2',
+              quoteId: quoteRecord.id,
+              kind: 'line_item',
+              name: 'Total',
+              description: 'Public quote total',
+              quantity: '1.00',
+              unitPrice: '3478.93',
+              totalPrice: '3478.93',
+              taxable: true,
+              clientVisible: true,
+              jobberLineItemId: 'jobber-line-2',
+              linkedProductOrServiceId: null,
+              position: 1,
+              createdAt: '2026-05-19T00:00:00Z',
+              updatedAt: '2026-05-19T00:00:00Z',
+            },
+          ],
+        },
+      })
+    )
+
+    expect(markup).toContain('App Product / Service')
+    expect(markup).toContain('Ceiling')
+    expect(markup).toContain('All interior ceiling')
+    expect(markup).toContain('Total')
+    expect(markup).toContain('$3478.93')
   })
 
   it('shows saved option totals on quote detail pages without changing the main final total', () => {
