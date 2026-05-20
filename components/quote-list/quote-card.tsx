@@ -23,7 +23,8 @@ export function QuoteCard({ quote }: { quote: QuoteRecord }) {
           </div>
         </div>
         <div className="shrink-0 text-right">
-          <div className="font-mono text-lg font-bold text-slate-950">${quote.finalTotal}</div>
+          <div className="font-mono text-lg font-bold text-slate-950">${quote.subtotal}</div>
+          <div className="text-xs font-semibold text-slate-400">ex GST</div>
           <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
             <Link href={`/quotes/${quote.id}`} className="rounded-lg bg-[var(--primary-soft)] px-3 py-1.5 text-xs font-bold text-[var(--primary)] hover:bg-blue-100">
               View

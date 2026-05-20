@@ -116,7 +116,7 @@ describe('quote form pricing UI', () => {
     expect(markup).toContain('Standard terms')
   })
 
-  it('shows subtotal details for labour and material totals', () => {
+  it('shows the app final total as the GST-exclusive subtotal with GST at the end', () => {
     const markup = renderToStaticMarkup(
       createElement(FinalSummary, {
         labourTotal: new Decimal('1200'),
@@ -131,11 +131,16 @@ describe('quote form pricing UI', () => {
     expect(markup).toContain('$1200.00')
     expect(markup).toContain('Material total')
     expect(markup).toContain('$255.74')
-    expect(markup).toContain('Subtotal')
+    expect(markup).toContain('Subtotal price')
     expect(markup).toContain('GST 10%')
     expect(markup).toContain('$145.57')
     expect(markup).toContain('Final total')
-    expect(markup).toContain('$1601.31')
+    expect(markup).toContain('$1455.74')
+    expect(markup).toContain('Ex GST')
+    expect(markup).toContain('Total price')
+    expect(markup).toContain('Subtotal price + GST')
+    expect(markup).not.toContain('$1601.31')
+    expect(markup.lastIndexOf('GST 10%')).toBeGreaterThan(markup.lastIndexOf('Total price'))
   })
 
   it('shows Jobber quote total, expenses total, and profit margin in the right summary', () => {
@@ -712,5 +717,21 @@ describe('quote form pricing UI', () => {
     expect(cardMarkup).toContain('Created by Mia Kang')
     expect(detailMarkup).toContain('Created by')
     expect(detailMarkup).toContain('Mia Kang')
+  })
+
+  it('uses saved subtotal, not GST-inclusive final total, as the visible quote amount', () => {
+    const quoteWithGstIncludedTotal = {
+      ...quoteRecord,
+      subtotal: '1455.74',
+      finalTotal: '1601.31',
+    }
+
+    const cardMarkup = renderToStaticMarkup(createElement(QuoteCard, { quote: quoteWithGstIncludedTotal }))
+    const detailMarkup = renderToStaticMarkup(createElement(QuoteDetailView, { quote: quoteWithGstIncludedTotal }))
+
+    expect(cardMarkup).toContain('$1455.74')
+    expect(cardMarkup).not.toContain('$1601.31')
+    expect(detailMarkup).toContain('$1455.74')
+    expect(detailMarkup).not.toContain('$1601.31')
   })
 })
