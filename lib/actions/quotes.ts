@@ -729,12 +729,18 @@ async function syncSavedQuoteToJobber(params: {
       })
     }
 
-    const refreshedSnapshot = mapJobberQuoteToDraft(await fetchJobberQuote(params.jobberQuoteId, {
-      accessToken,
-      graphqlVersion: config.graphqlVersion,
-    }))
-
     await recordSyncedJobberLineIds(params.supabase, params.quoteId, syncResult.syncedLineItems)
+
+    let refreshedSnapshot: JobberQuoteDraft | undefined
+    try {
+      refreshedSnapshot = mapJobberQuoteToDraft(await fetchJobberQuote(params.jobberQuoteId, {
+        accessToken,
+        graphqlVersion: config.graphqlVersion,
+      }))
+    } catch {
+      refreshedSnapshot = undefined
+    }
+
     await markJobberSyncStatus(params.supabase, params.quoteId, 'synced', null, refreshedSnapshot)
   } catch (error) {
     await markJobberSyncStatus(params.supabase, params.quoteId, 'failed', getSyncErrorMessage(error))

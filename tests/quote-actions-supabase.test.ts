@@ -538,6 +538,60 @@ describe('quote actions against Supabase', () => {
     expect(syncStatusUpdate.eq).toHaveBeenCalledWith('id', quoteId)
   })
 
+  it('keeps successful Jobber line sync when only the post-write snapshot refresh is throttled', async () => {
+    const existingQuote = createSelectSingleBuilder({
+      data: { pricing_settings_snapshot: DEFAULT_PRICING_SETTINGS },
+      error: null,
+    })
+    const quoteUpdate = createThenableBuilder({ error: null })
+    const syncStatusUpdate = createThenableBuilder({ error: null })
+    const itemDelete = createThenableBuilder({ error: null })
+    const optionDelete = createThenableBuilder({ error: null })
+    const jobberLineDelete = createThenableBuilder({ error: null })
+    const itemInsert = createInsertOnlyBuilder({ error: null })
+    const jobberLineInsert = createInsertOnlyBuilder({ error: null })
+    const jobberLineIdUpdate = createThenableBuilder({ error: null })
+    const builders: Record<string, unknown[]> = {
+      quotes: [existingQuote, quoteUpdate, syncStatusUpdate],
+      quote_items: [itemDelete, itemInsert],
+      quote_options: [optionDelete],
+      jobber_quote_lines: [jobberLineDelete, jobberLineInsert, jobberLineIdUpdate],
+    }
+    const from = vi.fn((table: string) => {
+      const builder = builders[table]?.shift()
+      if (!builder) throw new Error(`unexpected table ${table}`)
+      return builder
+    })
+    mocks.syncJobberQuoteLineItems.mockResolvedValueOnce({
+      deletedLineItemIds: [],
+      createdLineItemIds: ['created-line-id'],
+      editedLineItemIds: [],
+      syncedLineItems: [{ sourcePosition: 0, jobberLineItemId: 'created-line-id' }],
+    })
+    mocks.fetchJobberQuote.mockRejectedValueOnce(new Error('Jobber returned a GraphQL error: Throttled'))
+    mocks.createClient.mockResolvedValueOnce({ auth: createAuthUser(), from })
+
+    const result = await updateQuote({
+      id: quoteId,
+      ...quoteInputWithJobberLines,
+      jobberQuoteId: 'jobber-quote-id',
+      jobberSaveMode: 'priced_line_items',
+    })
+
+    expect(result).toEqual({ ok: true, data: { id: quoteId } })
+    expect(jobberLineIdUpdate.update).toHaveBeenCalledWith({ jobber_line_item_id: 'created-line-id' })
+    expect(jobberLineIdUpdate.eq).toHaveBeenCalledWith('quote_id', quoteId)
+    expect(jobberLineIdUpdate.eq).toHaveBeenCalledWith('position', 0)
+    expect(syncStatusUpdate.update).toHaveBeenCalledWith(expect.objectContaining({
+      jobber_sync_status: 'synced',
+      jobber_sync_error: null,
+      jobber_last_synced_at: expect.any(String),
+    }))
+    expect(syncStatusUpdate.update).toHaveBeenCalledWith(expect.not.objectContaining({
+      jobber_snapshot: expect.anything(),
+    }))
+  })
+
   it('rejects quote updates without an id before touching Supabase', async () => {
     const result = await updateQuote(quoteInput)
 

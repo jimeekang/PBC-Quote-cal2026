@@ -183,6 +183,12 @@ interface JobberJobSearchResult {
   title: string | null
 }
 
+interface JobberQuoteSearchResult {
+  id: string
+  quoteNumber: string
+  title: string | null
+}
+
 export interface JobberQuoteLineSyncResult {
   deletedLineItemIds: string[]
   createdLineItemIds: string[]
@@ -197,9 +203,9 @@ interface MutationError {
   message?: string
 }
 
-const DEFAULT_THROTTLE_RETRIES = 2
+const DEFAULT_THROTTLE_RETRIES = 4
 const DEFAULT_THROTTLE_RETRY_DELAY_MS = 500
-const MAX_THROTTLE_RETRY_DELAY_MS = 3000
+const MAX_THROTTLE_RETRY_DELAY_MS = 10000
 
 export function assertJobberReadOnlyGraphqlDocument(query: string): void {
   const executableLines = query
@@ -315,103 +321,12 @@ const JOBBER_QUOTE_QUERY = `
 `
 
 const JOBBER_QUOTE_SEARCH_QUERY = `
-  fragment PbcCustomFieldParts on CustomFieldUnion {
-    ... on CustomFieldText {
-      label
-      valueText
-    }
-    ... on CustomFieldDropdown {
-      label
-      valueDropdown
-    }
-    ... on CustomFieldNumeric {
-      label
-      unit
-      valueNumeric
-    }
-    ... on CustomFieldArea {
-      label
-      unit
-      valueArea {
-        length
-        width
-      }
-    }
-    ... on CustomFieldTrueFalse {
-      label
-      valueTrueFalse
-    }
-    ... on CustomFieldLink {
-      label
-    }
-  }
-
   query PbcQuoteSearch($term: String!) {
     quotes(searchTerm: $term, first: 10) {
       nodes {
         id
         quoteNumber
         title
-        createdAt
-        message
-        customFields {
-          ...PbcCustomFieldParts
-        }
-        jobberWebUri
-        client {
-          id
-          name
-          companyName
-          firstName
-          lastName
-          leadSource
-          sourceAttribution {
-            displayLeadSource
-            source
-            sourceText
-          }
-          tags(first: 20) {
-            nodes {
-              id
-              label
-            }
-          }
-          customFields {
-            ...PbcCustomFieldParts
-          }
-        }
-        property {
-          id
-          jobberWebUri
-          customFields {
-            ...PbcCustomFieldParts
-          }
-          address {
-            street1
-            street2
-            city
-            province
-            postalCode
-          }
-        }
-        lineItems(first: 100) {
-          nodes {
-            id
-            name
-            category
-            description
-            quantity
-            unitPrice
-            totalPrice
-            textOnly
-            linkedProductOrService {
-              id
-              name
-              category
-              description
-            }
-          }
-        }
       }
     }
   }
@@ -729,7 +644,7 @@ function getQuoteFromPayload(payload: unknown): JobberQuote {
   return data.quote as unknown as JobberQuote
 }
 
-function getQuoteFromSearchPayload(payload: unknown, searchTerm: string): JobberQuote {
+function getQuoteSearchResultFromPayload(payload: unknown, searchTerm: string): JobberQuoteSearchResult {
   if (!isRecord(payload)) throw new Error('Invalid Jobber response')
   const errors = payload.errors
   if (Array.isArray(errors) && errors.length > 0) {
@@ -752,7 +667,7 @@ function getQuoteFromSearchPayload(payload: unknown, searchTerm: string): Jobber
     node.quoteNumber.toLowerCase() === searchTerm.toLowerCase()
   ))
 
-  return (exactQuote ?? nodes[0]) as unknown as JobberQuote
+  return (exactQuote ?? nodes[0]) as unknown as JobberQuoteSearchResult
 }
 
 function getQuoteJobsFromPayload(payload: unknown): JobberJob[] {
@@ -1381,7 +1296,8 @@ export async function searchJobberQuote(
   options: FetchJobberQuoteOptions
 ): Promise<JobberQuote> {
   const payload = await postJobberGraphql(JOBBER_QUOTE_SEARCH_QUERY, { term: searchTerm }, options)
-  return getQuoteFromSearchPayload(payload, searchTerm)
+  const result = getQuoteSearchResultFromPayload(payload, searchTerm)
+  return fetchJobberQuote(result.id, options)
 }
 
 export async function fetchJobberQuoteJobs(
