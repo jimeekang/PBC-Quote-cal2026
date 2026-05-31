@@ -22,7 +22,7 @@ vi.mock('next/cache', () => ({
   revalidatePath: mocks.revalidatePath,
 }))
 
-import { createArea, listAreas } from '@/lib/actions/areas'
+import { createArea, deleteArea, listAreas, updateArea } from '@/lib/actions/areas'
 
 const areaRow = {
   id: 'area-1',
@@ -47,6 +47,16 @@ function createAreasListBuilder(response: unknown) {
 function createAreasInsertBuilder(response: unknown) {
   const builder = {
     insert: vi.fn(() => builder),
+    select: vi.fn(() => builder),
+    single: vi.fn(async () => response),
+  }
+  return builder
+}
+
+function createAreasUpdateBuilder(response: unknown) {
+  const builder = {
+    update: vi.fn(() => builder),
+    eq: vi.fn(() => builder),
     select: vi.fn(() => builder),
     single: vi.fn(async () => response),
   }
@@ -103,5 +113,72 @@ describe('area actions against Supabase', () => {
     })
     expect(mocks.revalidatePath).toHaveBeenCalledWith('/settings')
     expect(mocks.revalidatePath).toHaveBeenCalledWith('/quotes/new')
+  })
+
+  it('updates an area through Supabase and revalidates consumers', async () => {
+    const updatedRow = { ...areaRow, scope: 'interior', name: 'Feature Wall' }
+    const builder = createAreasUpdateBuilder({ data: updatedRow, error: null })
+    mocks.createClient.mockResolvedValueOnce({
+      from: vi.fn(() => builder),
+    })
+
+    const result = await updateArea({ id: 'area-1', scope: 'interior', name: ' Feature Wall ' })
+
+    expect(result).toEqual({
+      ok: true,
+      data: expect.objectContaining({ id: 'area-1', scope: 'interior', name: 'Feature Wall' }),
+    })
+    expect(builder.update).toHaveBeenCalledWith(expect.objectContaining({
+      scope: 'interior',
+      name: 'Feature Wall',
+    }))
+    expect(builder.eq).toHaveBeenCalledWith('id', 'area-1')
+    expect(mocks.revalidatePath).toHaveBeenCalledWith('/settings')
+    expect(mocks.revalidatePath).toHaveBeenCalledWith('/quotes/new')
+  })
+
+  it('returns fetch failures when area update throws before Supabase returns a result', async () => {
+    const builder = createAreasUpdateBuilder({ data: null, error: null })
+    builder.single.mockRejectedValueOnce(new TypeError('fetch failed'))
+    mocks.createClient.mockResolvedValueOnce({
+      from: vi.fn(() => builder),
+    })
+
+    const result = await updateArea({ id: 'area-1', scope: 'interior', name: 'Feature Wall' })
+
+    expect(result).toEqual({ ok: false, error: 'fetch failed' })
+  })
+
+  it('soft deletes an area through Supabase and revalidates consumers', async () => {
+    const deletedRow = { ...areaRow, active: false }
+    const builder = createAreasUpdateBuilder({ data: deletedRow, error: null })
+    mocks.createClient.mockResolvedValueOnce({
+      from: vi.fn(() => builder),
+    })
+
+    const result = await deleteArea({ id: 'area-1' })
+
+    expect(result).toEqual({
+      ok: true,
+      data: expect.objectContaining({ id: 'area-1', active: false }),
+    })
+    expect(builder.update).toHaveBeenCalledWith(expect.objectContaining({
+      active: false,
+    }))
+    expect(builder.eq).toHaveBeenCalledWith('id', 'area-1')
+    expect(mocks.revalidatePath).toHaveBeenCalledWith('/settings')
+    expect(mocks.revalidatePath).toHaveBeenCalledWith('/quotes/new')
+  })
+
+  it('returns fetch failures when area delete throws before Supabase returns a result', async () => {
+    const builder = createAreasUpdateBuilder({ data: null, error: null })
+    builder.single.mockRejectedValueOnce(new TypeError('fetch failed'))
+    mocks.createClient.mockResolvedValueOnce({
+      from: vi.fn(() => builder),
+    })
+
+    const result = await deleteArea({ id: 'area-1' })
+
+    expect(result).toEqual({ ok: false, error: 'fetch failed' })
   })
 })

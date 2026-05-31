@@ -1,0 +1,61 @@
+/*
+ * PBC Quote Calculator — 디자인 토큰 (단일 소스)
+ * ---------------------------------------------------------------------------
+ * 색상·폰트·반경·그림자를 여기서만 수정하면 앱 전체에 반영된다.
+ * 컴포넌트/페이지에서는 항상 var(--...) 토큰을 참조할 것. (하드코딩 금지)
+ * 출처: Claude Design handoff (pbc-quote).
+ */
+
+:root {
+  /* ── 배경 / 표면 ─────────────────────────────────────── */
+  --background: #eef3fb;
+  --bg-grad: #f6f9ff;
+  --surface: #ffffff;
+  --surface-soft: #f7fafe;
+
+  /* ── 텍스트 ──────────────────────────────────────────── */
+  --foreground: #0f2440;
+  --muted: #64748b;
+  --muted-2: #94a3b8;
+
+  /* ── 경계선 ──────────────────────────────────────────── */
+  --border: #e2e9f4;
+  --border-soft: #eef2f9;
+
+  /* ── 브랜드 / 강조 ───────────────────────────────────── */
+  --primary: #0b66d8;
+  --primary-strong: #0756bb;
+  --primary-soft: #e8f2ff;
+
+  /* ── 공식 LOW(min) 톤 ────────────────────────────────── */
+  --lo: #0e9f6e;
+  --lo-soft: #e7f7f0;
+  --lo-bd: #b6e6d1;
+
+  /* ── 공식 HIGH(max) 톤 ───────────────────────────────── */
+  --hi: #7c5cf0;
+  --hi-soft: #efeaff;
+  --hi-bd: #d4c9fb;
+
+  /* ── 상태 색 ─────────────────────────────────────────── */
+  --warning: #b7791f;
+  --warning-soft: #fff8e8;
+  --danger: #d83a3a;
+  --danger-soft: #fdeeee;
+  --success: #0e9f6e;
+  --success-soft: #e7f7f0;
+
+  /* ── 반경 ────────────────────────────────────────────── */
+  --r-lg: 16px;
+  --r-md: 12px;
+  --r-sm: 9px;
+
+  /* ── 그림자 ──────────────────────────────────────────── */
+  --shadow: 0 1px 2px rgb(15 36 64 / 4%), 0 18px 40px -22px rgb(15 36 64 / 22%);
+  --shadow-soft: 0 1px 2px rgb(15 36 64 / 4%), 0 18px 40px -22px rgb(15 36 64 / 22%);
+  --shadow-pop: 0 12px 38px -8px rgb(15 36 64 / 26%);
+
+  /* ── 폰트 ────────────────────────────────────────────── */
+  --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+}

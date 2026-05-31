@@ -51,7 +51,7 @@ export function PaintSearch({ onAdd }: PaintSearchProps) {
   }
 
   return (
-    <div className="relative">
+    <div className="relative mt-4">
       <input
         value={query}
         onChange={(event) => setQuery(event.target.value)}
@@ -61,16 +61,16 @@ export function PaintSearch({ onAdd }: PaintSearchProps) {
             addCustom()
           }
         }}
-        className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm shadow-sm"
+        className="pbc-input"
         placeholder="Search paint or material..."
       />
-      {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
+      {error ? <p className="pbc-alert pbc-alert--danger mt-2">{error}</p> : null}
       {query.trim() ? (
-        <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-lg border border-[var(--border)] bg-white shadow-[var(--shadow-soft)]">
+        <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-[var(--r-md)] border border-[var(--border)] bg-white shadow-[var(--shadow-soft)]">
           {results.map((product) => (
-            <button key={product.id} type="button" onClick={() => addProduct(product)} className="block w-full px-3 py-2 text-left hover:bg-slate-50">
-              <span className="block text-sm font-semibold text-slate-950">{product.name}</span>
-              <span className="block text-xs font-semibold text-slate-500">RRP ${product.marketPrice}</span>
+            <button key={product.id} type="button" onClick={() => addProduct(product)} className="block w-full px-3 py-2 text-left hover:bg-[var(--surface-soft)]">
+              <span className="block text-sm font-semibold text-[var(--foreground)]">{product.name}</span>
+              <span className="block text-xs font-semibold text-[var(--muted)]">RRP ${product.marketPrice}</span>
             </button>
           ))}
           {results.length === 0 ? (

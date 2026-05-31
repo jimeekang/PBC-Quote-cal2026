@@ -20,11 +20,21 @@ export function SearchInput() {
   }, [router, currentSearch, value])
 
   return (
-    <input
-      value={value}
-      onChange={(event) => setValue(event.target.value)}
-      className="w-full rounded-lg border border-white bg-white px-4 py-3 text-sm shadow-sm"
-      placeholder="Search by customer or address..."
-    />
+    <div className="pbc-search pbc-search--inline">
+      <span className="pbc-search__icon">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 20 20" fill="none">
+          <g stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="9" cy="9" r="6" />
+            <path d="m14.5 14.5 3 3" />
+          </g>
+        </svg>
+      </span>
+      <input
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        className="pbc-search__input"
+        placeholder="Search by customer, address or quote #…"
+      />
+    </div>
   )
 }

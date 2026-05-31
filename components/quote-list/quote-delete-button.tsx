@@ -37,11 +37,11 @@ export function QuoteDeleteButton({ quoteId, redirectToQuotes = false }: QuoteDe
         type="button"
         onClick={handleDelete}
         disabled={isPending}
-        className="rounded-lg border border-red-100 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50 disabled:opacity-50"
+        className="pbc-btn pbc-btn--danger pbc-btn--sm"
       >
-        {isPending ? 'Deleting...' : 'Delete'}
+        {isPending ? 'Deleting…' : 'Delete'}
       </button>
-      {error ? <span className="text-xs text-red-600">{error}</span> : null}
+      {error ? <span className="text-xs text-[var(--danger)]">{error}</span> : null}
     </span>
   )
 }

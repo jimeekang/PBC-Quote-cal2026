@@ -66,18 +66,18 @@ function getAreasForMaterial(item: MaterialItem, visibleAreas: AreaRecord[], all
 function LabourSummaryRow({ label, totals }: { label: string; totals: LabourTotals }) {
   return (
     <div className="grid grid-cols-[minmax(6.5rem,1fr)_repeat(3,minmax(4.75rem,auto))] items-center gap-2 py-2 text-xs">
-      <span className="font-bold text-slate-700">{label}</span>
+      <span className="font-bold text-[var(--foreground)]">{label}</span>
       <span className="text-right">
-        <span className="block text-[10px] font-bold uppercase text-slate-400">Working Days</span>
-        <span className="font-mono font-semibold text-slate-950">{totals.workingDays.toFixed(2)}</span>
+        <span className="block text-[10px] font-bold uppercase text-[var(--muted-2)]">Working Days</span>
+        <span className="mono font-semibold text-[var(--foreground)]">{totals.workingDays.toFixed(2)}</span>
       </span>
       <span className="text-right">
-        <span className="block text-[10px] font-bold uppercase text-slate-400">Labour / Day</span>
-        <span className="font-mono font-semibold text-slate-950">{totals.labourPerDay.toFixed(2)}</span>
+        <span className="block text-[10px] font-bold uppercase text-[var(--muted-2)]">Labour / Day</span>
+        <span className="mono font-semibold text-[var(--foreground)]">{totals.labourPerDay.toFixed(2)}</span>
       </span>
       <span className="text-right">
-        <span className="block text-[10px] font-bold uppercase text-slate-400">Labour Days</span>
-        <span className="font-mono font-semibold text-slate-950">{totals.labourDays.toFixed(2)}</span>
+        <span className="block text-[10px] font-bold uppercase text-[var(--muted-2)]">Labour Days</span>
+        <span className="mono font-semibold text-[var(--foreground)]">{totals.labourDays.toFixed(2)}</span>
       </span>
     </div>
   )
@@ -120,18 +120,20 @@ export function MaterialsPanel({
   }
 
   return (
-    <section className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-sm font-bold uppercase text-slate-400">Materials</h2>
-        <div className="flex flex-wrap items-center gap-2">
+    <section>
+      <div className="pbc-panelhead">
+        <div className="pbc-panelhead__copy">
+          <h2 className="pbc-paneltitle">Materials</h2>
+        </div>
+        <div className="pbc-panelhead__actions">
           {hasAreaSections ? (
-            <div className="rounded-lg bg-slate-100 p-1">
+            <div className="pbc-toggle">
               {(['interior', 'exterior'] as AreaScope[]).map((scope) => (
                 <button
                   key={scope}
                   type="button"
                   onClick={() => changeAreaScope(scope)}
-                  className={`rounded-md px-3 py-1.5 text-xs font-bold transition ${areaScope === scope ? 'bg-white text-[var(--primary)] shadow-sm' : 'text-slate-500 hover:text-slate-950'}`}
+                  className={areaScope === scope ? 'is-on' : ''}
                   aria-pressed={areaScope === scope}
                 >
                   {scope === 'interior' ? 'Interior' : 'Exterior'}
@@ -142,7 +144,7 @@ export function MaterialsPanel({
           <button
             type="button"
             onClick={() => setIsExpanded((current) => !current)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+            className="pbc-btn pbc-btn--ghost pbc-btn--sm"
           >
             {isExpanded ? 'Collapse' : 'Expand'}
           </button>
@@ -152,31 +154,31 @@ export function MaterialsPanel({
       {isExpanded ? (
         <>
           {hasAreaSections ? (
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-lg border border-[var(--border)] bg-slate-50 px-3 py-2 text-sm">
-                <div className="text-xs font-semibold text-slate-400">{activeScopeLabel} material</div>
-                <div className="font-mono font-semibold text-slate-950">${visibleMaterialTotal.toFixed(2)}</div>
+            <div className="pbc-ministats pbc-ministats--3 mt-4">
+              <div className="pbc-ministat">
+                <span>{activeScopeLabel} material</span>
+                <b className="mono">${visibleMaterialTotal.toFixed(2)}</b>
               </div>
-              <div className="rounded-lg border border-[var(--border)] bg-slate-50 px-3 py-2 text-sm">
-                <div className="text-xs font-semibold text-slate-400">{activeScopeLabel} subtotal</div>
-                <div className="font-mono font-semibold text-slate-950">{activeAreaSubtotal ? `$${activeAreaSubtotal.toFixed(2)}` : '$0.00'}</div>
+              <div className="pbc-ministat">
+                <span>{activeScopeLabel} subtotal</span>
+                <b className="mono">{activeAreaSubtotal ? `$${activeAreaSubtotal.toFixed(2)}` : '$0.00'}</b>
               </div>
-              <div className="rounded-lg border border-[var(--border)] bg-slate-50 px-3 py-2 text-sm">
-                <div className="text-xs font-semibold text-slate-400">{activeScopeLabel} Labour Days</div>
-                <div className="font-mono font-semibold text-slate-950">{activeLabourTotals.labourDays.toFixed(2)}</div>
+              <div className="pbc-ministat">
+                <span>{activeScopeLabel} Labour Days</span>
+                <b className="mono">{activeLabourTotals.labourDays.toFixed(2)}</b>
               </div>
             </div>
           ) : null}
           <PaintSearch onAdd={addMaterialToActiveArea} />
           {areas.length > 0 && filteredAreas.length === 0 ? (
-            <p className="rounded-lg border border-amber-100 bg-[var(--warning-soft)] px-3 py-2 text-sm text-amber-800">
+            <p className="pbc-alert pbc-alert--warning">
               No {areaScope} areas yet. Add them in Settings.
             </p>
           ) : null}
           {materials.length === 0 ? (
-            <p className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-sm text-slate-500">No materials yet. Search paint or add a custom material.</p>
+            <p className="pbc-empty">No materials yet. Search paint or add a custom material.</p>
           ) : visibleMaterials.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-500">
+            <p className="pbc-empty">
               No {areaScope} materials in this section.
             </p>
           ) : (
@@ -187,7 +189,7 @@ export function MaterialsPanel({
             </div>
           )}
           {hiddenMaterialCount > 0 ? (
-            <p className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500">
+            <p className="pbc-empty">
               {hiddenMaterialCount} material {hiddenMaterialCount === 1 ? 'row is' : 'rows are'} hidden by the {activeScopeLabel} filter.
             </p>
           ) : null}
@@ -204,39 +206,39 @@ export function MaterialsPanel({
           ) : null}
         </>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-lg border border-[var(--border)] bg-slate-50 px-3 py-2 text-sm">
-            <div className="text-xs font-semibold text-slate-400">{activeScopeLabel} rows</div>
-            <div className="font-mono font-semibold text-slate-950">{visibleMaterials.length}</div>
+        <div className="pbc-ministats pbc-ministats--3 mt-4">
+          <div className="pbc-ministat">
+            <span>{activeScopeLabel} rows</span>
+            <b className="mono">{visibleMaterials.length}</b>
           </div>
-          <div className="rounded-lg border border-[var(--border)] bg-slate-50 px-3 py-2 text-sm">
-            <div className="text-xs font-semibold text-slate-400">{activeScopeLabel} material</div>
-            <div className="font-mono font-semibold text-slate-950">${visibleMaterialTotal.toFixed(2)}</div>
+          <div className="pbc-ministat">
+            <span>{activeScopeLabel} material</span>
+            <b className="mono">${visibleMaterialTotal.toFixed(2)}</b>
           </div>
-          <div className="rounded-lg border border-[var(--border)] bg-slate-50 px-3 py-2 text-sm">
-            <div className="text-xs font-semibold text-slate-400">{activeScopeLabel} Labour Days</div>
-            <div className="font-mono font-semibold text-slate-950">{activeLabourTotals.labourDays.toFixed(2)}</div>
+          <div className="pbc-ministat">
+            <span>{activeScopeLabel} Labour Days</span>
+            <b className="mono">{activeLabourTotals.labourDays.toFixed(2)}</b>
           </div>
         </div>
       )}
 
-      <div className="border-t border-slate-100 pt-4 text-sm">
+      <div className="pbc-divider mt-4 text-sm">
         <div className="flex justify-between">
-          <span className="text-slate-500">{activeScopeLabel} material total</span>
-          <span className="font-mono font-semibold text-slate-950">${visibleMaterialTotal.toFixed(2)}</span>
+          <span className="text-[var(--muted)]">{activeScopeLabel} material total</span>
+          <span className="mono font-semibold text-[var(--foreground)]">${visibleMaterialTotal.toFixed(2)}</span>
         </div>
         {hasAreaSections ? (
           <div className="mt-2 flex justify-between">
-            <span className="text-slate-500">{activeScopeLabel} subtotal price</span>
-            <span className="font-mono font-semibold text-slate-950">{activeAreaSubtotal ? `$${activeAreaSubtotal.toFixed(2)}` : '$0.00'}</span>
+            <span className="text-[var(--muted)]">{activeScopeLabel} subtotal price</span>
+            <span className="mono font-semibold text-[var(--foreground)]">{activeAreaSubtotal ? `$${activeAreaSubtotal.toFixed(2)}` : '$0.00'}</span>
           </div>
         ) : null}
-        <div className="mt-4 border-t border-slate-100 pt-3">
+        <div className="mt-4 border-t border-[var(--border-soft)] pt-3">
           <div className="flex items-center justify-between gap-3">
-            <span className="text-xs font-bold uppercase text-slate-400">Labour by area</span>
-            <span className="text-xs font-semibold text-slate-500">{activeScopeLabel} only</span>
+            <span className="text-xs font-bold uppercase text-[var(--muted-2)]">Labour by area</span>
+            <span className="text-xs font-semibold text-[var(--muted)]">{activeScopeLabel} only</span>
           </div>
-          <div className="mt-2 divide-y divide-slate-100">
+          <div className="mt-2 divide-y divide-[var(--border-soft)]">
             <LabourSummaryRow label={`${activeScopeLabel} labour`} totals={activeLabourTotals} />
           </div>
         </div>

@@ -1,5 +1,6 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { readFileSync } from 'node:fs'
 import Decimal from 'decimal.js'
 import { describe, expect, it, vi } from 'vitest'
 import { CustomerPanel } from '@/components/quote-form/customer-panel'
@@ -72,6 +73,34 @@ describe('quote form pricing UI', () => {
     jobberSnapshot: null,
   }
 
+  it('keeps quote form panels on the shared design system instead of legacy visual Tailwind', () => {
+    const files = [
+      'components/quote-form/customer-panel.tsx',
+      'components/quote-form/formula-results.tsx',
+      'components/quote-form/material-row.tsx',
+      'components/quote-form/quote-memos-panel.tsx',
+      'components/quote-form/quote-options-panel.tsx',
+      'components/quote-form/jobber-product-service-editor.tsx',
+    ]
+    const legacyPatterns = [
+      'rounded-lg border border-slate-200',
+      'rounded-lg border border-[var(--border)] bg-white',
+      'rounded-lg border border-dashed border-slate-200 bg-slate-50',
+      'text-slate-400',
+      'bg-slate-50',
+      'shadow-sm',
+    ]
+
+    for (const file of files) {
+      const source = readFileSync(file, 'utf8')
+
+      expect(source).toContain('pbc-')
+      for (const legacyPattern of legacyPatterns) {
+        expect(source, `${file} still contains ${legacyPattern}`).not.toContain(legacyPattern)
+      }
+    }
+  })
+
   function createAreaBreakdown(
     subtotal: Decimal,
     finalTotal: Decimal = subtotal,
@@ -133,10 +162,11 @@ describe('quote form pricing UI', () => {
     )
 
     expect(markup).toContain('Update Quote')
-    expect(markup).toContain('sticky top-16')
+    expect(markup).toContain('pbc-topbar')
+    expect(markup).toContain('pbc-btn pbc-btn--primary')
   })
 
-  it('renders the quote editor in the original two-column page-scroll layout', () => {
+  it('renders the quote editor in the design-system page-scroll layout', () => {
     const markup = renderToStaticMarkup(
       createElement(QuoteForm, {
         settings: quoteRecord.pricingSettingsSnapshot,
@@ -147,11 +177,10 @@ describe('quote form pricing UI', () => {
       })
     )
 
-    expect(markup).toContain('grid gap-6 xl:grid-cols-[minmax(0,1.06fr)_minmax(360px,0.94fr)]')
-    expect(markup).toContain('space-y-8 rounded-lg border border-white bg-white/90 p-5')
-    expect(markup).toContain('space-y-6 rounded-lg border border-white bg-white/90 p-5')
-    expect(markup).toContain('xl:sticky')
-    expect(markup).toContain('xl:top-24')
+    expect(markup).toContain('pbc-editgrid')
+    expect(markup).toContain('pbc-workspace')
+    expect(markup).toContain('pbc-calcstack')
+    expect(markup).toContain('pbc-card pbc-card--pad pbc-calcpanel')
     expect(markup).not.toContain('quote-workspace')
     expect(markup).not.toContain('quote-input-flow')
     expect(markup).not.toContain('quote-scroll-section')
@@ -450,6 +479,48 @@ describe('quote form pricing UI', () => {
     expect(markup.lastIndexOf('GST 10%')).toBeGreaterThan(markup.lastIndexOf('Material total'))
   })
 
+  it('uses the shared design-system card styling for final subtotal', () => {
+    const markup = renderToStaticMarkup(
+      createElement(FinalSummary, {
+        labourTotal: new Decimal('1200'),
+        materialTotal: new Decimal('255.74'),
+        areaBreakdown: createAreaBreakdown(new Decimal('1455.74'), new Decimal('1601.31')),
+        jobberFinancialSummary: null,
+      })
+    )
+
+    expect(markup).toContain('pbc-card')
+    expect(markup).toContain('pbc-summary')
+    expect(markup).toContain('pbc-summary__hero')
+    expect(markup).toContain('pbc-summary__rows')
+    expect(markup).toContain('pbc-summary__chips')
+    expect(markup).not.toContain('rounded-lg border border-[var(--border)] bg-white p-4')
+  })
+
+  it('uses shared design-system panel and mini-stat classes in materials', () => {
+    const markup = renderToStaticMarkup(
+      createElement(MaterialsPanel, {
+        materials: [],
+        areas: [{ id: 'area-1', scope: 'interior', name: 'Interior', active: true, position: 0 }],
+        areaBreakdown: createAreaBreakdown(new Decimal('0')),
+        areaFormulaSelections: {
+          interior: { selectedMin: 1, selectedMax: 1 },
+          exterior: { selectedMin: 1, selectedMax: 1 },
+        },
+        onAdd: () => undefined,
+        onChange: () => undefined,
+        onRemove: () => undefined,
+        onAreaFormulaSelectionChange: () => undefined,
+      })
+    )
+
+    expect(markup).toContain('pbc-panelhead')
+    expect(markup).toContain('pbc-toggle')
+    expect(markup).toContain('pbc-ministats')
+    expect(markup).toContain('pbc-ministat')
+    expect(markup).toContain('pbc-empty')
+  })
+
   it('does not show the legacy overall subtotal when grouped area subtotals differ', () => {
     const markup = renderToStaticMarkup(
       createElement(FinalSummary, {
@@ -577,6 +648,11 @@ describe('quote form pricing UI', () => {
     expect(markup).toContain('Labour / Day')
     expect(markup).toContain('Eaves')
     expect(markup).toContain('Fascia')
+    expect(markup).toContain('sm:grid-cols-2')
+    expect(markup).toContain('xl:grid-cols-[4.25rem_5.25rem_minmax(8rem,1fr)_6.25rem_6.25rem]')
+    expect(markup).toContain('sm:col-span-2 xl:col-span-1')
+    expect(markup).toContain('pbc-field min-w-0')
+    expect(markup).toContain('pbc-input min-w-0')
     expect(markup).not.toContain('Market')
     expect(markup).not.toContain('Actual')
   })
@@ -1333,6 +1409,14 @@ describe('quote form pricing UI', () => {
     expect(cardMarkup).not.toContain('$1601.31')
     expect(detailMarkup).toContain('$1455.74')
     expect(detailMarkup).not.toContain('$1601.31')
+  })
+
+  it('uses the final subtotal summary as the only detail total hero', () => {
+    const markup = renderToStaticMarkup(createElement(QuoteDetailView, { quote: quoteRecord }))
+
+    expect(markup).not.toContain('Final quote - inc GST')
+    expect(markup).toContain('pbc-summary__heroLabel">Final subtotal')
+    expect(markup).toContain('pbc-card pbc-summary')
   })
 
   it('uses grouped area subtotal as the detail final subtotal when unassigned rows exist', () => {

@@ -55,25 +55,23 @@ function formatStatus(value: string): string {
 
 function ProductServiceRow({ item }: { item: JobberQuoteDraftLineItem }) {
   return (
-    <li className="border-t border-slate-100 py-3 first:border-t-0 first:pt-0 last:pb-0">
+    <li className="pbc-rowitem">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-semibold text-slate-950">{item.name}</span>
-            <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-semibold text-slate-500">
-              {formatCategory(item.category)}
-            </span>
+            <span className="pbc-titletext">{item.name}</span>
+            <span className="pbc-chip">{formatCategory(item.category)}</span>
           </div>
           {item.linkedName && item.linkedName !== item.name ? (
-            <p className="mt-1 text-xs text-slate-500">{item.linkedName}</p>
+            <p className="pbc-listitem__meta">{item.linkedName}</p>
           ) : null}
           {item.description.trim() ? (
-            <p className="mt-2 whitespace-pre-line text-xs leading-5 text-slate-600">{item.description}</p>
+            <p className="pbc-bodytext mt-2 whitespace-pre-line">{item.description}</p>
           ) : null}
         </div>
-        <div className="shrink-0 text-right text-xs text-slate-500">
+        <div className="shrink-0 text-right text-xs text-[var(--muted)]">
           <div>Qty {item.quantity}</div>
-          <div className="font-mono text-slate-950">{formatMoney(item.totalPrice)}</div>
+          <div className="pbc-moneytext">{formatMoney(item.totalPrice)}</div>
         </div>
       </div>
     </li>
@@ -82,22 +80,22 @@ function ProductServiceRow({ item }: { item: JobberQuoteDraftLineItem }) {
 
 function ExpenseRow({ expense }: { expense: JobberQuoteDraftExpense }) {
   return (
-    <li className="border-t border-slate-100 py-3 first:border-t-0 first:pt-0 last:pb-0">
+    <li className="pbc-rowitem">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-semibold text-slate-950">{expense.title}</span>
-            <span className="text-xs text-slate-500">{formatDate(expense.date)}</span>
+            <span className="pbc-titletext">{expense.title}</span>
+            <span className="pbc-listitem__meta">{formatDate(expense.date)}</span>
           </div>
           {expense.description.trim() ? (
-            <p className="mt-2 whitespace-pre-line text-xs leading-5 text-slate-600">{expense.description}</p>
+            <p className="pbc-bodytext mt-2 whitespace-pre-line">{expense.description}</p>
           ) : null}
-          <p className="mt-2 text-xs text-slate-500">
+          <p className="pbc-listitem__meta mt-2">
             Entered by {expense.enteredBy ?? '-'} | Paid by {expense.paidBy ?? '-'}
             {expense.reimbursableTo ? ` | Reimburse to ${expense.reimbursableTo}` : ''}
           </p>
         </div>
-        <div className="shrink-0 text-right text-xs font-mono text-slate-950">
+        <div className="pbc-moneytext shrink-0 text-right text-xs">
           {formatOptionalMoney(expense.total)}
         </div>
       </div>
@@ -107,13 +105,13 @@ function ExpenseRow({ expense }: { expense: JobberQuoteDraftExpense }) {
 
 function JobExpensesGroup({ job }: { job: JobberQuoteDraftJobExpenses }) {
   return (
-    <div className="rounded-lg border border-[var(--border)] bg-white p-3">
+    <div className="pbc-inlinepanel">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-slate-950">
+          <p className="pbc-titletext">
             Job #{job.jobNumber}{job.jobTitle ? ` - ${job.jobTitle}` : ''}
           </p>
-          <p className="mt-1 text-xs text-slate-500">{formatStatus(job.jobStatus)}</p>
+          <p className="pbc-listitem__meta">{formatStatus(job.jobStatus)}</p>
         </div>
         {job.jobUrl ? (
           <a href={job.jobUrl} target="_blank" rel="noreferrer" className="text-xs font-bold text-[var(--primary)] hover:text-[var(--primary-strong)]">
@@ -122,13 +120,13 @@ function JobExpensesGroup({ job }: { job: JobberQuoteDraftJobExpenses }) {
         ) : null}
       </div>
       {job.expenses.length > 0 ? (
-        <ul className="mt-3 border-t border-slate-100">
+        <ul className="mt-3">
           {job.expenses.map((expense) => (
             <ExpenseRow key={expense.id} expense={expense} />
           ))}
         </ul>
       ) : (
-        <p className="mt-3 rounded-lg border border-[var(--border)] bg-slate-50 px-3 py-2 text-sm text-slate-500">
+        <p className="pbc-empty mt-3">
           No expenses found for this Jobber job.
         </p>
       )}
@@ -140,51 +138,51 @@ export function JobberQuoteSummary({ quote }: { quote: JobberQuoteDraft }) {
   const sourceLabel = quote.sourceType === 'job' ? 'Jobber job' : 'Jobber quote'
 
   return (
-    <div className="rounded-lg border border-[var(--border)] bg-slate-50 p-4">
+    <div className="pbc-softpanel">
       <div className="grid gap-3 sm:grid-cols-3">
         <div>
-          <p className="text-xs font-bold uppercase text-slate-400">{sourceLabel}</p>
-          <p className="mt-1 font-mono text-sm text-slate-950">{quote.quoteNumber}</p>
+          <p className="pbc-field__label uppercase">{sourceLabel}</p>
+          <p className="pbc-moneytext mt-1 text-sm">{quote.quoteNumber}</p>
         </div>
         <div>
-          <p className="text-xs font-bold uppercase text-slate-400">Created date</p>
-          <p className="mt-1 text-sm text-slate-950">{formatDate(quote.createdAt)}</p>
+          <p className="pbc-field__label uppercase">Created date</p>
+          <p className="pbc-titletext mt-1">{formatDate(quote.createdAt)}</p>
         </div>
         <div>
-          <p className="text-xs font-bold uppercase text-slate-400">Address</p>
-          <p className="mt-1 text-sm text-slate-950">{quote.customerAddress || '-'}</p>
+          <p className="pbc-field__label uppercase">Address</p>
+          <p className="pbc-titletext mt-1">{quote.customerAddress || '-'}</p>
         </div>
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <div>
-          <p className="text-xs font-bold uppercase text-slate-400">Work type</p>
-          <p className="mt-1 text-sm text-slate-950">{quote.workType || '-'}</p>
+          <p className="pbc-field__label uppercase">Work type</p>
+          <p className="pbc-titletext mt-1">{quote.workType || '-'}</p>
         </div>
         <div>
-          <p className="text-xs font-bold uppercase text-slate-400">Customer type</p>
-          <p className="mt-1 text-sm text-slate-950">{quote.customerType || '-'}</p>
+          <p className="pbc-field__label uppercase">Customer type</p>
+          <p className="pbc-titletext mt-1">{quote.customerType || '-'}</p>
         </div>
       </div>
 
       <div className="mt-4">
-        <p className="text-xs font-bold uppercase text-slate-400">Product / Service</p>
+        <p className="pbc-paneltitle">Product / Service</p>
         {quote.productsAndServices.length > 0 ? (
-          <ul className="mt-3 max-h-80 overflow-y-auto rounded-lg border border-[var(--border)] bg-white p-3">
+          <ul className="pbc-list mt-3 max-h-80 overflow-y-auto p-3">
             {quote.productsAndServices.map((item) => (
               <ProductServiceRow key={item.id} item={item} />
             ))}
           </ul>
         ) : (
-          <p className="mt-2 rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-sm text-slate-500">
+          <p className="pbc-empty mt-2">
             No product or service line items found.
           </p>
         )}
       </div>
 
       <div className="mt-4">
-        <p className="text-xs font-bold uppercase text-slate-400">Job Expenses</p>
+        <p className="pbc-paneltitle">Job Expenses</p>
         {quote.jobExpensesError ? (
-          <div className="mt-2 rounded-lg border border-amber-100 bg-[var(--warning-soft)] px-3 py-2 text-sm text-amber-700">
+          <div className="pbc-alert pbc-alert--warning mt-2">
             <p>{quote.jobExpensesError}</p>
             {quote.jobExpensesError.includes('Reconnect Jobber') ? (
               <a href="/api/jobber/connect" className="mt-2 inline-flex font-bold text-amber-800 underline underline-offset-2">
@@ -200,7 +198,7 @@ export function JobberQuoteSummary({ quote }: { quote: JobberQuoteDraft }) {
             ))}
           </div>
         ) : (
-          <p className="mt-2 rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-sm text-slate-500">
+          <p className="pbc-empty mt-2">
             No converted Jobber job expenses found.
           </p>
         )}
@@ -216,24 +214,26 @@ export function CustomerPanel(props: CustomerPanelProps) {
 
   return (
     <section className="space-y-4">
-      <div>
-        <h2 className="text-sm font-bold uppercase text-slate-400">Customer Info</h2>
+      <div className="pbc-panelhead">
+        <div className="pbc-panelhead__copy">
+          <h2 className="pbc-paneltitle">Customer Info</h2>
+        </div>
       </div>
       <div className="grid items-end gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]">
-        <label className="flex min-w-0 flex-col gap-1 text-sm font-semibold text-slate-600">
-          <span className="flex min-h-8 items-center">Customer</span>
-          <input value={props.customerName} onChange={(event) => props.onCustomerNameChange(event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm" />
+        <label className="pbc-field">
+          <span className="pbc-field__label flex min-h-8 items-center">Customer</span>
+          <input value={props.customerName} onChange={(event) => props.onCustomerNameChange(event.target.value)} className="pbc-input" />
         </label>
-        <label className="flex min-w-0 flex-col gap-1 text-sm font-semibold text-slate-600">
+        <label className="pbc-field">
           <span className="flex min-h-8 flex-wrap items-center justify-between gap-2">
-            <span className="min-w-0">{lookupLabel}</span>
-            <span className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+            <span className="pbc-field__label min-w-0">{lookupLabel}</span>
+            <span className="pbc-toggle">
               {(['quote', 'job'] as const).map((type) => (
                 <button
                   key={type}
                   type="button"
                   onClick={() => props.onJobberLookupTypeChange(type)}
-                  className={`rounded-md px-2 py-1 text-xs font-bold ${props.jobberLookupType === type ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-950'}`}
+                  className={props.jobberLookupType === type ? 'is-on' : ''}
                 >
                   {type === 'quote' ? 'Quote' : 'Job'}
                 </button>
@@ -241,13 +241,13 @@ export function CustomerPanel(props: CustomerPanelProps) {
             </span>
           </span>
           <div className="flex min-w-0 gap-2">
-            <input value={props.jobberQuoteId} onChange={(event) => props.onJobberQuoteIdChange(event.target.value)} className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2.5 text-sm" />
-            <button type="button" onClick={props.onFetchJobberQuote} disabled={props.isFetchingJobberQuote} className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50">
+            <input value={props.jobberQuoteId} onChange={(event) => props.onJobberQuoteIdChange(event.target.value)} className="pbc-input min-w-0 flex-1" />
+            <button type="button" onClick={props.onFetchJobberQuote} disabled={props.isFetchingJobberQuote} className="pbc-btn pbc-btn--ghost shrink-0">
               {props.isFetchingJobberQuote ? 'Loading' : 'Fetch'}
             </button>
           </div>
           {props.jobberFetchError ? (
-            <span className="block text-xs font-normal text-red-600">
+            <span className="pbc-alert pbc-alert--danger mt-2">
               {props.jobberFetchError}
               {props.jobberFetchError.includes('Reconnect Jobber') ? (
                 <a href="/api/jobber/connect" className="ml-2 font-bold text-red-700 underline underline-offset-2">
@@ -258,19 +258,19 @@ export function CustomerPanel(props: CustomerPanelProps) {
           ) : null}
         </label>
       </div>
-      <label className="block space-y-1 text-sm font-medium text-gray-700">
-        Address
-        <input value={props.customerAddress} onChange={(event) => props.onCustomerAddressChange(event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm" />
+      <label className="pbc-field">
+        <span className="pbc-field__label">Address</span>
+        <input value={props.customerAddress} onChange={(event) => props.onCustomerAddressChange(event.target.value)} className="pbc-input" />
       </label>
       {props.jobberQuoteDraft ? <JobberQuoteSummary quote={props.jobberQuoteDraft} /> : null}
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className="space-y-1 text-sm font-semibold text-slate-600">
-          Work Type
-          <input value={props.workType} onChange={(event) => props.onWorkTypeChange(event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm" placeholder="Interior, exterior..." />
+        <label className="pbc-field">
+          <span className="pbc-field__label">Work Type</span>
+          <input value={props.workType} onChange={(event) => props.onWorkTypeChange(event.target.value)} className="pbc-input" placeholder="Interior, exterior..." />
         </label>
-        <label className="space-y-1 text-sm font-semibold text-slate-600">
-          Customer Type
-          <input value={props.customerType} readOnly className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-600" />
+        <label className="pbc-field">
+          <span className="pbc-field__label">Customer Type</span>
+          <input value={props.customerType} readOnly className="pbc-input" />
         </label>
       </div>
     </section>

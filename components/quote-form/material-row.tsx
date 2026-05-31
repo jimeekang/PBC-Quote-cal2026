@@ -21,19 +21,19 @@ export function MaterialRow({ item, areas, onChange, onRemove }: MaterialRowProp
   }
 
   return (
-    <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+    <div className="pbc-softpanel">
       <div className="flex items-start justify-between gap-3">
         <input
           type="text"
           value={item.name}
           onChange={(event) => onChange({ ...item, name: event.target.value })}
           aria-label="Material name"
-          className="min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-2 py-1 text-sm font-bold text-slate-950 hover:border-slate-200 hover:bg-white focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100"
+          className="pbc-input min-w-0 flex-1 font-bold"
         />
         <button
           type="button"
           onClick={onRemove}
-          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+          className="pbc-iconbtn pbc-iconbtn--danger shrink-0"
           aria-label={`Remove ${item.name}`}
         >
           <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 20 20" fill="none">
@@ -41,29 +41,29 @@ export function MaterialRow({ item, areas, onChange, onRemove }: MaterialRowProp
           </svg>
         </button>
       </div>
-      <div className="mt-3 grid gap-2 md:grid-cols-[4.25rem_5.25rem_minmax(8rem,1fr)_5.5rem_5.5rem] md:items-end">
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-[4.25rem_5.25rem_minmax(8rem,1fr)_6.25rem_6.25rem] xl:items-end">
         <DecimalInput
           label="Qty"
           value={item.quantity}
           onValueChange={(value) => onChange({ ...item, quantity: value })}
-          labelClassName="space-y-1 text-xs font-bold text-slate-500"
-          inputClassName="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
+          labelClassName="pbc-field min-w-0"
+          inputClassName="pbc-input min-w-0"
           warningClassName="block text-[11px] font-normal text-amber-600"
         />
         <DecimalInput
           label="RRP"
           value={item.marketPrice}
           onValueChange={(value) => onChange({ ...item, marketPrice: value, actualPrice: value })}
-          labelClassName="space-y-1 text-xs font-bold text-slate-500"
-          inputClassName="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm font-semibold"
+          labelClassName="pbc-field min-w-0"
+          inputClassName="pbc-input min-w-0 font-semibold"
           warningClassName="block text-[11px] font-normal text-amber-600"
         />
-        <label className="space-y-1 text-xs font-bold text-slate-500">
-          Area
+        <label className="pbc-field min-w-0 sm:col-span-2 xl:col-span-1">
+          <span className="pbc-field__label">Area</span>
           <select
             value={item.areaId ?? ''}
             onChange={(event) => changeArea(event.target.value)}
-            className="w-full min-w-0 rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
+            className="pbc-input min-w-0"
             title={item.areaName ?? (areas.length === 0 ? 'Add in Settings' : 'Select area')}
           >
             <option value="">{areas.length === 0 ? 'Add in Settings' : 'Select area'}</option>
@@ -82,16 +82,16 @@ export function MaterialRow({ item, areas, onChange, onRemove }: MaterialRowProp
           label="Working Days"
           value={item.workingDays}
           onValueChange={(value) => onChange({ ...item, workingDays: value })}
-          labelClassName="space-y-1 text-xs font-bold text-slate-500"
-          inputClassName="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
+          labelClassName="pbc-field min-w-0"
+          inputClassName="pbc-input min-w-0"
           warningClassName="block text-[11px] font-normal text-amber-600"
         />
         <DecimalInput
           label="Labour / Day"
           value={item.labourPerDay}
           onValueChange={(value) => onChange({ ...item, labourPerDay: value })}
-          labelClassName="space-y-1 text-xs font-bold text-slate-500"
-          inputClassName="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
+          labelClassName="pbc-field min-w-0"
+          inputClassName="pbc-input min-w-0"
           warningClassName="block text-[11px] font-normal text-amber-600"
         />
       </div>

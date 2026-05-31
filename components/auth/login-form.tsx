@@ -8,9 +8,9 @@ export function LoginForm() {
   const [state, formAction, pending] = useActionState(signIn, initialAuthState)
 
   return (
-    <form action={formAction} className="space-y-5">
-      <div>
-        <label htmlFor="email" className="mb-1 block text-sm font-medium text-gray-700">
+    <form action={formAction} className="pbc-form">
+      <div className="pbc-field">
+        <label htmlFor="email" className="pbc-field__label">
           Email
         </label>
         <input
@@ -21,13 +21,13 @@ export function LoginForm() {
           autoCapitalize="none"
           spellCheck={false}
           required
-          className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400"
+          className="pbc-input"
           placeholder="you@example.com"
         />
       </div>
 
-      <div>
-        <label htmlFor="password" className="mb-1 block text-sm font-medium text-gray-700">
+      <div className="pbc-field">
+        <label htmlFor="password" className="pbc-field__label">
           Password
         </label>
         <input
@@ -36,7 +36,7 @@ export function LoginForm() {
           type="password"
           autoComplete="current-password"
           required
-          className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400"
+          className="pbc-input"
           placeholder="Password"
         />
       </div>
@@ -44,13 +44,13 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-lg bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[var(--primary-strong)] disabled:opacity-50"
+        className="pbc-btn pbc-btn--primary pbc-btn--full"
       >
         {pending ? 'Signing in...' : 'Sign In'}
       </button>
 
       {state.error ? (
-        <p className="text-sm text-red-600" role="alert">
+        <p className="pbc-alert pbc-alert--danger" role="alert">
           {state.error}
         </p>
       ) : null}

@@ -43,7 +43,6 @@ function createTextLine(): JobberQuoteLineItemDraft {
 }
 
 type DropPlacement = 'before' | 'after'
-type MoveDirection = 'top' | 'up' | 'down' | 'bottom'
 type ScrollContainerRect = Pick<DOMRect, 'top' | 'bottom' | 'height'>
 
 const PRODUCT_SERVICE_DRAG_SCROLL_EDGE_PX = 72
@@ -130,32 +129,6 @@ export function reorderJobberQuoteLines(
   const nextTargetIndex = nextLines.findIndex((line) => line.id === targetId)
   const insertIndex = placement === 'after' ? nextTargetIndex + 1 : nextTargetIndex
   nextLines.splice(insertIndex, 0, draggedLine)
-  return nextLines
-}
-
-export function moveJobberQuoteLine(
-  lines: JobberQuoteLineItemDraft[],
-  lineId: string,
-  direction: MoveDirection
-): JobberQuoteLineItemDraft[] {
-  const currentIndex = lines.findIndex((line) => line.id === lineId)
-  if (currentIndex < 0) return lines
-
-  const targetIndex = direction === 'top'
-    ? 0
-    : direction === 'bottom'
-      ? lines.length - 1
-      : direction === 'up'
-        ? currentIndex - 1
-        : currentIndex + 1
-
-  if (targetIndex < 0 || targetIndex >= lines.length || targetIndex === currentIndex) {
-    return lines
-  }
-
-  const nextLines = [...lines]
-  const [movedLine] = nextLines.splice(currentIndex, 1)
-  nextLines.splice(targetIndex, 0, movedLine)
   return nextLines
 }
 
@@ -309,18 +282,18 @@ export function JobberProductServiceEditor({
 
   return (
     <section className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-sm font-bold uppercase text-slate-400">Product / Service</h2>
-          <p className="mt-1 text-xs text-slate-500">Add the public Jobber-facing product and service lines for this quote.</p>
+      <div className="pbc-panelhead">
+        <div className="pbc-panelhead__copy">
+          <h2 className="pbc-paneltitle">Product / Service</h2>
+          <p className="pbc-panelsub">Add the public Jobber-facing product and service lines for this quote.</p>
         </div>
         {templates.length > 0 ? (
-          <label className="flex min-w-48 flex-col gap-1 text-xs font-bold text-slate-500">
-            Template
+          <label className="pbc-field min-w-48">
+            <span className="pbc-field__label">Template</span>
             <select
               value={selectedTemplateId}
               onChange={(event) => applyTemplate(event.target.value)}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700"
+              className="pbc-input font-semibold"
             >
               <option value="">Choose template...</option>
               {templates.map((template) => (
@@ -332,7 +305,7 @@ export function JobberProductServiceEditor({
       </div>
 
       {value.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-500">
+        <p className="pbc-empty">
           No public product or service lines yet.
         </p>
       ) : null}
@@ -348,7 +321,7 @@ export function JobberProductServiceEditor({
         }}
         className="product-service-scroll-list max-h-[30rem] space-y-3 overflow-y-auto pr-1"
       >
-        {value.map((line, index) => {
+        {value.map((line) => {
           const isDropTarget = dropTarget?.id === line.id
           if (line.kind === 'line_item') {
             return (
@@ -361,9 +334,6 @@ export function JobberProductServiceEditor({
                 onDragOver={(event) => handleDragOver(line.id, event)}
                 onDrop={(event) => handleDrop(line.id, event)}
                 onDragEnd={handleDragEnd}
-                rowIndex={index}
-                rowCount={value.length}
-                onMove={(direction) => onChange(moveJobberQuoteLine(value, line.id, direction))}
                 isLookupActive={activeLookupLineId === line.id}
                 onLookupFocus={() => setActiveLookupLineId(line.id)}
                 onLookupBlur={() => setActiveLookupLineId(null)}
@@ -385,9 +355,6 @@ export function JobberProductServiceEditor({
               onDragOver={(event) => handleDragOver(line.id, event)}
               onDrop={(event) => handleDrop(line.id, event)}
               onDragEnd={handleDragEnd}
-              rowIndex={index}
-              rowCount={value.length}
-              onMove={(direction) => onChange(moveJobberQuoteLine(value, line.id, direction))}
               isLookupActive={activeLookupLineId === line.id}
               onLookupFocus={() => setActiveLookupLineId(line.id)}
               onLookupBlur={() => setActiveLookupLineId(null)}
@@ -404,14 +371,14 @@ export function JobberProductServiceEditor({
         <button
           type="button"
           onClick={() => onChange([...value, createPricedLineItem()])}
-          className="rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50"
+          className="pbc-btn pbc-btn--ghost"
         >
           Add Line Item
         </button>
         <button
           type="button"
           onClick={() => onChange([...value, createTextLine()])}
-          className="rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50"
+          className="pbc-btn pbc-btn--ghost"
         >
           Add Text
         </button>
@@ -428,9 +395,6 @@ interface PricedLineRowProps {
   onDragOver: (event: DragEvent<HTMLDivElement>) => void
   onDrop: (event: DragEvent<HTMLDivElement>) => void
   onDragEnd: () => void
-  rowIndex: number
-  rowCount: number
-  onMove: (direction: MoveDirection) => void
   isLookupActive: boolean
   onLookupFocus: () => void
   onLookupBlur: () => void
@@ -454,9 +418,6 @@ function PricedLineRow({
   onDragOver,
   onDrop,
   onDragEnd,
-  rowIndex,
-  rowCount,
-  onMove,
   isLookupActive,
   onLookupFocus,
   onLookupBlur,
@@ -472,12 +433,12 @@ function PricedLineRow({
       onDragOver={onDragOver}
       onDrop={onDrop}
       className={[
-        'rounded-lg border border-[var(--border)] bg-white p-3 transition-shadow',
+        'pbc-inlinepanel transition-shadow',
         isDragging ? 'opacity-60' : '',
         getDropTargetClass(dropPlacement),
       ].join(' ')}
     >
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-2">
         <button
           type="button"
           draggable
@@ -485,16 +446,10 @@ function PricedLineRow({
           onDragEnd={onDragEnd}
           aria-label={`Drag ${line.name || 'line item'}`}
           title="Drag to reorder"
-          className="mt-1 flex h-10 w-10 touch-none select-none items-center justify-center rounded-lg border border-slate-200 bg-slate-100 text-base font-bold text-slate-500 cursor-grab hover:bg-slate-200 active:cursor-grabbing"
+          className="pbc-iconbtn mt-1 cursor-grab touch-none select-none active:cursor-grabbing"
         >
           ::
         </button>
-        <LineMoveControls
-          lineName={line.name || 'line item'}
-          rowIndex={rowIndex}
-          rowCount={rowCount}
-          onMove={onMove}
-        />
         <div className="min-w-0 flex-1 space-y-3">
           <div className="relative">
             <label className="sr-only" htmlFor={`${line.id}-name`}>Line item name</label>
@@ -505,22 +460,22 @@ function PricedLineRow({
               onFocus={onLookupFocus}
               onBlur={onLookupBlur}
               onChange={(event: ChangeEvent<HTMLInputElement>) => onChange({ ...line, name: event.target.value })}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-950"
+              className="pbc-input font-semibold"
               placeholder="Line item name"
             />
             {isLookupActive && filteredProductServices.length > 0 ? (
-              <div className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg" aria-label="Product / Service dropdown">
+              <div className="pbc-list absolute z-20 mt-1 max-h-56 w-full overflow-auto py-1 shadow-[var(--shadow-pop)]" aria-label="Product / Service dropdown">
                 {filteredProductServices.map((productService) => (
                   <button
                     key={productService.id}
                     type="button"
                     onMouseDown={(event) => event.preventDefault()}
                     onClick={() => onApplyProductService(productService)}
-                    className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50"
+                    className="block w-full px-3 py-2 text-left text-sm hover:bg-[var(--surface-soft)]"
                   >
-                    <span className="block font-semibold text-slate-950">{productService.name}</span>
-                    <span className="block truncate text-xs text-slate-500">
-                      {productService.category ?? 'Service'} · ${productService.unitPrice}
+                    <span className="pbc-titletext block">{productService.name}</span>
+                    <span className="pbc-listitem__meta block truncate">
+                      {productService.category ?? 'Service'} | ${productService.unitPrice}
                     </span>
                   </button>
                 ))}
@@ -534,45 +489,45 @@ function PricedLineRow({
               aria-label="Line item description"
               value={line.description}
               onChange={(event: ChangeEvent<HTMLTextAreaElement>) => onChange({ ...line, description: event.target.value })}
-              className="min-h-20 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700"
+              className="pbc-textarea min-h-20 w-full"
               placeholder="Description"
             />
           </div>
-          <div className="grid gap-3 md:grid-cols-[5rem_7rem_1fr] md:items-end">
-            <label className="text-xs font-semibold text-slate-500">
-              Qty
+          <div className="grid gap-3 sm:grid-cols-[5rem_minmax(0,8rem)] xl:grid-cols-[5rem_minmax(0,8rem)_minmax(0,1fr)] xl:items-end">
+            <label className="pbc-field min-w-0">
+              <span className="pbc-field__label">Qty</span>
               <input
                 value={line.quantity}
                 onChange={(event: ChangeEvent<HTMLInputElement>) => onChange({ ...line, quantity: event.target.value })}
                 inputMode="decimal"
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-950"
+                className="pbc-input min-w-0"
               />
             </label>
-            <label className="text-xs font-semibold text-slate-500">
-              Unit price
+            <label className="pbc-field min-w-0">
+              <span className="pbc-field__label">Unit price</span>
               <input
                 value={line.unitPrice}
                 onChange={(event: ChangeEvent<HTMLInputElement>) => onChange({ ...line, unitPrice: event.target.value })}
                 inputMode="decimal"
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-mono text-slate-950"
+                className="pbc-input min-w-0 font-mono"
               />
             </label>
-            <div className="flex flex-wrap gap-3 pb-2 text-xs font-semibold text-slate-600">
-              <label className="inline-flex items-center gap-2">
+            <div className="flex min-w-0 flex-wrap gap-3 pb-2 sm:col-span-2 xl:col-span-1">
+              <label className="pbc-checkfield">
                 <input
                   type="checkbox"
                   checked={line.taxable}
                   onChange={(event: ChangeEvent<HTMLInputElement>) => onChange({ ...line, taxable: event.target.checked })}
-                  className="h-4 w-4 rounded border-slate-300"
+                  className="pbc-checkbox"
                 />
                 Taxable
               </label>
-              <label className="inline-flex items-center gap-2">
+              <label className="pbc-checkfield">
                 <input
                   type="checkbox"
                   checked={line.clientVisible}
                   onChange={(event: ChangeEvent<HTMLInputElement>) => onChange({ ...line, clientVisible: event.target.checked })}
-                  className="h-4 w-4 rounded border-slate-300"
+                  className="pbc-checkbox"
                 />
                 Client visible
               </label>
@@ -582,9 +537,11 @@ function PricedLineRow({
         <button
           type="button"
           onClick={onRemove}
-          className="rounded-lg border border-red-100 px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50"
+          aria-label={`Delete ${line.name || 'line item'}`}
+          title="Delete"
+          className="pbc-iconbtn pbc-iconbtn--compact pbc-iconbtn--danger mt-1 shrink-0"
         >
-          Delete
+          X
         </button>
       </div>
     </div>
@@ -599,9 +556,6 @@ interface TextLineRowProps {
   onDragOver: (event: DragEvent<HTMLDivElement>) => void
   onDrop: (event: DragEvent<HTMLDivElement>) => void
   onDragEnd: () => void
-  rowIndex: number
-  rowCount: number
-  onMove: (direction: MoveDirection) => void
   isLookupActive: boolean
   onLookupFocus: () => void
   onLookupBlur: () => void
@@ -619,9 +573,6 @@ function TextLineRow({
   onDragOver,
   onDrop,
   onDragEnd,
-  rowIndex,
-  rowCount,
-  onMove,
   isLookupActive,
   onLookupFocus,
   onLookupBlur,
@@ -637,12 +588,12 @@ function TextLineRow({
       onDragOver={onDragOver}
       onDrop={onDrop}
       className={[
-        'rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3 transition-shadow',
+        'pbc-softpanel transition-shadow',
         isDragging ? 'opacity-60' : '',
         getDropTargetClass(dropPlacement),
       ].join(' ')}
     >
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-2">
         <button
           type="button"
           draggable
@@ -650,16 +601,10 @@ function TextLineRow({
           onDragEnd={onDragEnd}
           aria-label={`Drag ${line.name || 'text line'}`}
           title="Drag to reorder"
-          className="mt-1 flex h-10 w-10 touch-none select-none items-center justify-center rounded-lg border border-slate-200 bg-white text-base font-bold text-slate-500 cursor-grab hover:bg-slate-100 active:cursor-grabbing"
+          className="pbc-iconbtn mt-1 cursor-grab touch-none select-none active:cursor-grabbing"
         >
           ::
         </button>
-        <LineMoveControls
-          lineName={line.name || 'text line'}
-          rowIndex={rowIndex}
-          rowCount={rowCount}
-          onMove={onMove}
-        />
         <div className="min-w-0 flex-1 space-y-3">
           <div className="relative">
             <label className="sr-only" htmlFor={`${line.id}-title`}>Text title</label>
@@ -670,21 +615,21 @@ function TextLineRow({
               onFocus={onLookupFocus}
               onBlur={onLookupBlur}
               onChange={(event: ChangeEvent<HTMLInputElement>) => onChange({ ...line, name: event.target.value })}
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-950"
+              className="pbc-input font-semibold"
               placeholder="Text title"
             />
             {isLookupActive && filteredProductServices.length > 0 ? (
-              <div className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg" aria-label="Product / Service dropdown">
+              <div className="pbc-list absolute z-20 mt-1 max-h-56 w-full overflow-auto py-1 shadow-[var(--shadow-pop)]" aria-label="Product / Service dropdown">
                 {filteredProductServices.map((productService) => (
                   <button
                     key={productService.id}
                     type="button"
                     onMouseDown={(event) => event.preventDefault()}
                     onClick={() => onApplyProductService(productService)}
-                    className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50"
+                    className="block w-full px-3 py-2 text-left text-sm hover:bg-[var(--surface-soft)]"
                   >
-                    <span className="block font-semibold text-slate-950">{productService.name}</span>
-                    <span className="block truncate text-xs text-slate-500">
+                    <span className="pbc-titletext block">{productService.name}</span>
+                    <span className="pbc-listitem__meta block truncate">
                       {productService.category ?? 'Service'}
                     </span>
                   </button>
@@ -699,16 +644,16 @@ function TextLineRow({
               aria-label="Text body"
               value={line.description}
               onChange={(event: ChangeEvent<HTMLTextAreaElement>) => onChange({ ...line, description: event.target.value })}
-              className="min-h-20 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+              className="pbc-textarea min-h-20 w-full"
               placeholder="Description text"
             />
           </div>
-          <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600">
+          <label className="pbc-checkfield">
             <input
               type="checkbox"
               checked={line.clientVisible}
               onChange={(event: ChangeEvent<HTMLInputElement>) => onChange({ ...line, clientVisible: event.target.checked })}
-              className="h-4 w-4 rounded border-slate-300"
+              className="pbc-checkbox"
             />
             Client visible
           </label>
@@ -716,46 +661,13 @@ function TextLineRow({
         <button
           type="button"
           onClick={onRemove}
-          className="rounded-lg border border-red-100 bg-white px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50"
+          aria-label={`Delete ${line.name || 'text line'}`}
+          title="Delete"
+          className="pbc-iconbtn pbc-iconbtn--compact pbc-iconbtn--danger mt-1 shrink-0"
         >
-          Delete
+          X
         </button>
       </div>
-    </div>
-  )
-}
-
-interface LineMoveControlsProps {
-  lineName: string
-  rowIndex: number
-  rowCount: number
-  onMove: (direction: MoveDirection) => void
-}
-
-function LineMoveControls({ lineName, rowIndex, rowCount, onMove }: LineMoveControlsProps) {
-  const isFirst = rowIndex === 0
-  const isLast = rowIndex === rowCount - 1
-  const controls: Array<{ direction: MoveDirection; label: string; disabled: boolean }> = [
-    { direction: 'top', label: 'Top', disabled: isFirst },
-    { direction: 'up', label: 'Up', disabled: isFirst },
-    { direction: 'down', label: 'Down', disabled: isLast },
-    { direction: 'bottom', label: 'Bottom', disabled: isLast },
-  ]
-
-  return (
-    <div className="mt-1 grid grid-cols-2 gap-1" aria-label={`Move ${lineName}`}>
-      {controls.map((control) => (
-        <button
-          key={control.direction}
-          type="button"
-          aria-label={`Move ${lineName} ${control.direction === 'top' ? 'to top' : control.direction === 'bottom' ? 'to bottom' : control.direction}`}
-          disabled={control.disabled}
-          onClick={() => onMove(control.direction)}
-          className="h-5 rounded border border-slate-200 bg-white px-1 text-[10px] font-bold leading-none text-slate-500 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {control.label}
-        </button>
-      ))}
     </div>
   )
 }

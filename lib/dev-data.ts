@@ -257,6 +257,38 @@ export function createDevArea(input: AreaInput): AreaRecord {
   return area
 }
 
+export function updateDevArea(input: AreaInput & { id: string }): AreaRecord | null {
+  const index = store.areas.findIndex((area) => area.id === input.id)
+  if (index === -1) return null
+
+  const updated: AreaRecord = {
+    ...store.areas[index],
+    scope: input.scope,
+    name: input.name.trim(),
+    active: true,
+    updatedAt: new Date().toISOString(),
+  }
+
+  store.areas = [...store.areas]
+  store.areas[index] = updated
+  return updated
+}
+
+export function deleteDevArea(id: string): AreaRecord | null {
+  const index = store.areas.findIndex((area) => area.id === id)
+  if (index === -1) return null
+
+  const deleted: AreaRecord = {
+    ...store.areas[index],
+    active: false,
+    updatedAt: new Date().toISOString(),
+  }
+
+  store.areas = [...store.areas]
+  store.areas[index] = deleted
+  return deleted
+}
+
 export function searchDevProducts(query: string, limit = 8): ProductRecord[] {
   const tokens = searchTokens(query)
   if (tokens.length === 0) return products.filter((product) => product.active).slice(0, limit)

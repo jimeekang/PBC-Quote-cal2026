@@ -1,0 +1,87 @@
+/*
+ * PBC Quote Calculator — 기본(base) 스타일
+ * ---------------------------------------------------------------------------
+ * 전역 element 기본값. 토큰(tokens.css)을 참조한다.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--foreground);
+  background: linear-gradient(180deg, var(--bg-grad), var(--background));
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.01em;
+}
+
+/* 등폭 숫자 표시 (금액/수치) */
+.mono,
+.font-mono {
+  font-family: var(--mono);
+  font-feature-settings: 'tnum' 1;
+  letter-spacing: -0.02em;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input,
+select,
+textarea {
+  font-family: inherit;
+  color: var(--foreground) !important;
+  -webkit-text-fill-color: var(--foreground);
+  background-color: #ffffff;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted-2);
+  opacity: 1;
+}
+
+button,
+a {
+  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+*:focus-visible {
+  outline: 3px solid rgb(11 102 216 / 28%);
+  outline-offset: 2px;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 4px rgb(11 102 216 / 12%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

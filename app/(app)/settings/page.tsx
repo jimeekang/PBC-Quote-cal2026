@@ -1,4 +1,6 @@
+import Link from 'next/link'
 import { SettingsForm } from '@/components/settings/settings-form'
+import { Icons } from '@/components/ui/icons'
 import { listAreas } from '@/lib/actions/areas'
 import { listProductServices } from '@/lib/actions/product-services'
 import { listProducts } from '@/lib/actions/products'
@@ -63,25 +65,29 @@ export default async function SettingsPage() {
     areas: normalizeResult(rawAreasResult as ActionResult<AreaRecord[]> | undefined, 'Failed to load areas'),
   }
 
+  const loadErrors = [
+    !normalized.settings.ok ? normalized.settings.error : null,
+    !normalized.products.ok ? normalized.products.error : null,
+    !normalized.productServices.ok ? normalized.productServices.error : null,
+    !normalized.quoteLineTemplates.ok ? normalized.quoteLineTemplates.error : null,
+    !normalized.areas.ok ? normalized.areas.error : null,
+  ].filter((value): value is string => Boolean(value))
+
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mb-6">
-        <p className="text-sm font-bold uppercase text-slate-400">Admin tools</p>
-        <h1 className="mt-1 text-3xl font-bold text-slate-950">Settings</h1>
-        <p className="mt-1 text-sm text-slate-500">Control labour rates, material pricing, and quote areas.</p>
-        {!normalized.settings.ok ? (
-          <p className="mt-1 text-sm text-red-600">{normalized.settings.error}</p>
-        ) : null}
-        {!normalized.products.ok ? (
-          <p className="mt-1 text-sm text-red-600">{normalized.products.error}</p>
-        ) : null}
-        {!normalized.productServices.ok ? (
-          <p className="mt-1 text-sm text-red-600">{normalized.productServices.error}</p>
-        ) : null}
-        {!normalized.quoteLineTemplates.ok ? (
-          <p className="mt-1 text-sm text-red-600">{normalized.quoteLineTemplates.error}</p>
-        ) : null}
-        {!normalized.areas.ok ? <p className="mt-1 text-sm text-red-600">{normalized.areas.error}</p> : null}
+    <main>
+      <header className="pbc-topbar">
+        <div className="pbc-crumb"><span>Admin</span>{Icons.arrowDown({ size: 14 })}<b>Settings</b></div>
+        <div className="pbc-topbar__right">
+          <Link href="/quotes/new" className="pbc-btn pbc-btn--ghost">{Icons.back({ size: 15 })} Back to quote</Link>
+        </div>
+      </header>
+      <div className="pbc-page">
+      <div className="pbc-pagehead">
+        <h1>Settings</h1>
+        <p>Control labour rates, margins, material pricing, work areas and quote templates.</p>
+        {loadErrors.map((error) => (
+          <p key={error} className="text-[var(--danger)]">{error}</p>
+        ))}
       </div>
       <SettingsForm
         initialAreas={normalized.areas.ok ? normalized.areas.data : []}
@@ -90,6 +96,7 @@ export default async function SettingsPage() {
         initialQuoteLineTemplates={normalized.quoteLineTemplates.ok ? normalized.quoteLineTemplates.data : []}
         initialSettings={normalized.settings.ok ? normalized.settings.data : DEFAULT_PRICING_SETTINGS}
       />
+      </div>
     </main>
   )
 }

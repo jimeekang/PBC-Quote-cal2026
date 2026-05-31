@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState, useTransition } from 'react'
-import { createArea } from '@/lib/actions/areas'
+import { createArea, deleteArea, updateArea } from '@/lib/actions/areas'
 import { createProduct, deleteProduct, importProductsCSV, updateProduct } from '@/lib/actions/products'
 import {
   createProductService,
@@ -15,6 +15,7 @@ import {
   updateQuoteLineTemplate,
 } from '@/lib/actions/quote-line-templates'
 import { updatePricingSettings } from '@/lib/actions/settings'
+import { Icons } from '@/components/ui/icons'
 import { JobberProductServiceEditor } from '@/components/quote-form/jobber-product-service-editor'
 import type { JobberQuoteLineItemDraft } from '@/components/quote-form/types'
 import type { AreaRecord, AreaScope } from '@/lib/areas/types'
@@ -43,6 +44,11 @@ type ProductServiceFormState = {
   unitPrice: string
   unitCost: string
   taxable: boolean
+}
+
+type AreaEditFormState = {
+  scope: AreaScope
+  name: string
 }
 
 type MaterialUpdateInput = {
@@ -95,6 +101,11 @@ function trimFormValue(value: unknown): string {
 function optionalNumber(value: unknown): number | undefined {
   const trimmed = trimFormValue(value)
   return trimmed ? Number(trimmed) : undefined
+}
+
+export function formatAreaMutationError(action: 'add' | 'update' | 'delete', error: unknown): string {
+  const message = error instanceof Error ? error.message : 'Unknown error'
+  return `Failed to ${action} area: ${message}`
 }
 
 export function buildMaterialUpdateInput(
@@ -260,62 +271,62 @@ export function MaterialAddItemForm({
         event.preventDefault()
         if (canAdd) onAdd()
       }}
-      className="mb-5 border-b border-slate-100 pb-5"
+      className="pbc-formgroup"
     >
-      <h3 className="text-sm font-bold text-slate-950">Add Item</h3>
+      <h3 className="pbc-paneltitle">Add Item</h3>
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-        <label className="space-y-1 text-xs font-bold text-slate-500">
-          Brand
+        <label className="pbc-field">
+          <span className="pbc-field__label">Brand</span>
           <input
             value={form.manufacturer}
             onChange={(event) => onFieldChange('manufacturer', event.target.value)}
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            className="pbc-input"
             placeholder="e.g. Dulux"
           />
         </label>
-        <label className="space-y-1 text-xs font-bold text-slate-500 sm:col-span-2">
-          Material or service name
+        <label className="pbc-field sm:col-span-2">
+          <span className="pbc-field__label">Material or service name</span>
           <input
             value={form.productLine}
             onChange={(event) => onFieldChange('productLine', event.target.value)}
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            className="pbc-input"
             placeholder="e.g. Minor drywall repair"
           />
         </label>
-        <label className="space-y-1 text-xs font-bold text-slate-500">
-          Base
+        <label className="pbc-field">
+          <span className="pbc-field__label">Base</span>
           <input
             value={form.base}
             onChange={(event) => onFieldChange('base', event.target.value)}
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            className="pbc-input"
             placeholder="Optional"
           />
         </label>
-        <label className="space-y-1 text-xs font-bold text-slate-500">
-          Sheen/Finish
+        <label className="pbc-field">
+          <span className="pbc-field__label">Sheen/Finish</span>
           <input
             value={form.sheen}
             onChange={(event) => onFieldChange('sheen', event.target.value)}
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            className="pbc-input"
             placeholder="Optional"
           />
         </label>
-        <label className="space-y-1 text-xs font-bold text-slate-500">
-          Unit
+        <label className="pbc-field">
+          <span className="pbc-field__label">Unit</span>
           <input
             value={form.unit}
             onChange={(event) => onFieldChange('unit', event.target.value)}
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            className="pbc-input"
             placeholder="each / 4L"
           />
         </label>
-        <label className="space-y-1 text-xs font-bold text-slate-500">
-          Price
+        <label className="pbc-field">
+          <span className="pbc-field__label">Price</span>
           <input
             value={form.rrpPrice}
             onChange={(event) => onFieldChange('rrpPrice', event.target.value)}
             inputMode="decimal"
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            className="pbc-input"
             placeholder="0.00"
           />
         </label>
@@ -323,7 +334,7 @@ export function MaterialAddItemForm({
       <button
         type="submit"
         disabled={!canAdd}
-        className="mt-3 rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-bold text-white hover:bg-[var(--primary-strong)] disabled:opacity-50"
+        className="pbc-btn pbc-btn--primary mt-3"
       >
         Add Item
       </button>
@@ -351,9 +362,9 @@ export function MaterialProductsTable({
   disabled = false,
 }: MaterialProductsTableProps) {
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full text-left text-sm">
-        <thead className="border-b border-slate-100 text-xs uppercase text-slate-400">
+    <div className="pbc-tablewrap">
+      <table className="pbc-table">
+        <thead>
           <tr>
             <th className="px-3 py-2 font-semibold">Brand</th>
             <th className="px-3 py-2 font-semibold">Kind</th>
@@ -374,10 +385,10 @@ export function MaterialProductsTable({
                     <input
                       value={editForm.manufacturer}
                       onChange={(event) => onFieldChange('manufacturer', event.target.value)}
-                      className="w-full rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                      className="pbc-tableinput"
                     />
                   ) : (
-                    <span className="font-semibold text-slate-950">{product.manufacturer ?? '-'}</span>
+                    <span className="pbc-tabletext pbc-tabletext--strong">{product.manufacturer ?? '-'}</span>
                   )}
                 </td>
                 <td className="px-3 py-2">
@@ -385,24 +396,24 @@ export function MaterialProductsTable({
                     <input
                       value={editForm.productLine}
                       onChange={(event) => onFieldChange('productLine', event.target.value)}
-                      className="w-full rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                      className="pbc-tableinput"
                     />
                   ) : (
-                    <span className="font-semibold text-slate-700">{product.productLine ?? product.type ?? '-'}</span>
+                    <span className="pbc-tabletext pbc-tabletext--strong">{product.productLine ?? product.type ?? '-'}</span>
                   )}
                 </td>
                 <td className="px-3 py-2">
                   {isEditing ? (
-                    <input value={editForm.base} onChange={(event) => onFieldChange('base', event.target.value)} className="w-full rounded-lg border border-slate-200 px-2 py-1 text-sm" />
+                    <input value={editForm.base} onChange={(event) => onFieldChange('base', event.target.value)} className="pbc-tableinput" />
                   ) : (
-                    <span className="text-slate-600">{product.base ?? '-'}</span>
+                    <span className="pbc-tabletext">{product.base ?? '-'}</span>
                   )}
                 </td>
                 <td className="px-3 py-2">
                   {isEditing ? (
-                    <input value={editForm.sheen} onChange={(event) => onFieldChange('sheen', event.target.value)} className="w-full rounded-lg border border-slate-200 px-2 py-1 text-sm" />
+                    <input value={editForm.sheen} onChange={(event) => onFieldChange('sheen', event.target.value)} className="pbc-tableinput" />
                   ) : (
-                    <span className="text-slate-600">{product.sheen ?? '-'}</span>
+                    <span className="pbc-tabletext">{product.sheen ?? '-'}</span>
                   )}
                 </td>
                 <td className="px-3 py-2">
@@ -410,10 +421,10 @@ export function MaterialProductsTable({
                     <input
                       value={editForm.volumeLitres}
                       onChange={(event) => onFieldChange('volumeLitres', event.target.value)}
-                      className="w-full rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                      className="pbc-tableinput"
                     />
                   ) : (
-                    <span className="text-slate-600">{product.volumeLitres ? `${product.volumeLitres}L` : product.unit}</span>
+                    <span className="pbc-tabletext">{product.volumeLitres ? `${product.volumeLitres}L` : product.unit}</span>
                   )}
                 </td>
                 <td className="px-3 py-2 text-right">
@@ -422,20 +433,20 @@ export function MaterialProductsTable({
                       value={editForm.rrpPrice}
                       onChange={(event) => onFieldChange('rrpPrice', event.target.value)}
                       inputMode="decimal"
-                      className="w-full rounded-lg border border-slate-200 px-2 py-1 text-right text-sm"
+                      className="pbc-tableinput text-right"
                     />
                   ) : (
-                    <span className="font-mono font-semibold text-slate-950">${product.rrpPrice ?? product.marketPrice}</span>
+                    <span className="pbc-tabletext--money">${product.rrpPrice ?? product.marketPrice}</span>
                   )}
                 </td>
                 <td className="px-3 py-2">
                   {isEditing ? (
-                    <div className="flex flex-col gap-1 sm:flex-row">
+                    <div className="pbc-tableactions">
                       <button
                         type="button"
                         onClick={() => onSave()}
                         disabled={disabled}
-                        className="rounded-lg bg-green-700 px-2 py-1 text-xs font-bold text-white hover:bg-green-800 disabled:opacity-50"
+                        className="pbc-btn pbc-btn--primary pbc-btn--sm"
                       >
                         Save
                       </button>
@@ -443,18 +454,18 @@ export function MaterialProductsTable({
                         type="button"
                         onClick={onCancel}
                         disabled={disabled}
-                        className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                        className="pbc-btn pbc-btn--ghost pbc-btn--sm"
                       >
                         Cancel
                       </button>
                     </div>
                   ) : (
-                    <div className="flex flex-col gap-1 sm:flex-row">
+                    <div className="pbc-tableactions">
                       <button
                         type="button"
                         onClick={() => onEdit(product)}
                         disabled={disabled}
-                        className="rounded-lg border border-blue-100 px-2 py-1 text-xs font-bold text-[var(--primary)] hover:bg-[var(--primary-soft)] disabled:opacity-50"
+                        className="pbc-btn pbc-btn--ghost pbc-btn--sm"
                       >
                         Edit
                       </button>
@@ -462,7 +473,7 @@ export function MaterialProductsTable({
                         type="button"
                         onClick={() => onDelete(product.id)}
                         disabled={disabled}
-                        className="rounded-lg border border-red-100 px-2 py-1 text-xs font-bold text-red-600 hover:bg-red-50 disabled:opacity-50"
+                        className="pbc-btn pbc-btn--danger pbc-btn--sm"
                       >
                         Delete
                       </button>
@@ -516,36 +527,36 @@ export function ProductServiceAddItemForm({
         event.preventDefault()
         if (canAdd) onAdd()
       }}
-      className="mb-5 border-b border-slate-100 pb-5"
+      className="pbc-formgroup"
     >
-      <h3 className="text-sm font-bold text-slate-950">Add Product & Service</h3>
+      <h3 className="pbc-paneltitle">Add Product & Service</h3>
       <div className="mt-3 grid gap-3 lg:grid-cols-[1.2fr_1.4fr_0.8fr_0.7fr_0.7fr_auto]">
-        <label className="space-y-1 text-xs font-bold text-slate-500">
-          Name
-          <input value={form.name} onChange={(event) => onFieldChange('name', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="e.g. Ceiling" />
+        <label className="pbc-field">
+          <span className="pbc-field__label">Name</span>
+          <input value={form.name} onChange={(event) => onFieldChange('name', event.target.value)} className="pbc-input" placeholder="e.g. Ceiling" />
         </label>
-        <label className="space-y-1 text-xs font-bold text-slate-500">
-          Description
-          <input value={form.description} onChange={(event) => onFieldChange('description', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Public quote description" />
+        <label className="pbc-field">
+          <span className="pbc-field__label">Description</span>
+          <input value={form.description} onChange={(event) => onFieldChange('description', event.target.value)} className="pbc-input" placeholder="Public quote description" />
         </label>
-        <label className="space-y-1 text-xs font-bold text-slate-500">
-          Category
-          <input value={form.category} onChange={(event) => onFieldChange('category', event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Service" />
+        <label className="pbc-field">
+          <span className="pbc-field__label">Category</span>
+          <input value={form.category} onChange={(event) => onFieldChange('category', event.target.value)} className="pbc-input" placeholder="Service" />
         </label>
-        <label className="space-y-1 text-xs font-bold text-slate-500">
-          Unit Price
-          <input value={form.unitPrice} onChange={(event) => onFieldChange('unitPrice', event.target.value)} inputMode="decimal" className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="0.00" />
+        <label className="pbc-field">
+          <span className="pbc-field__label">Unit Price</span>
+          <input value={form.unitPrice} onChange={(event) => onFieldChange('unitPrice', event.target.value)} inputMode="decimal" className="pbc-input" placeholder="0.00" />
         </label>
-        <label className="space-y-1 text-xs font-bold text-slate-500">
-          Unit Cost
-          <input value={form.unitCost} onChange={(event) => onFieldChange('unitCost', event.target.value)} inputMode="decimal" className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Optional" />
+        <label className="pbc-field">
+          <span className="pbc-field__label">Unit Cost</span>
+          <input value={form.unitCost} onChange={(event) => onFieldChange('unitCost', event.target.value)} inputMode="decimal" className="pbc-input" placeholder="Optional" />
         </label>
-        <label className="flex items-end gap-2 pb-2 text-xs font-bold text-slate-500">
-          <input type="checkbox" checked={form.taxable} onChange={(event) => onFieldChange('taxable', event.target.checked)} className="h-4 w-4 rounded border-slate-300" />
+        <label className="pbc-checkfield">
+          <input type="checkbox" checked={form.taxable} onChange={(event) => onFieldChange('taxable', event.target.checked)} className="pbc-checkbox" />
           Taxable
         </label>
       </div>
-      <button type="submit" disabled={!canAdd} className="mt-3 rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-bold text-white hover:bg-[var(--primary-strong)] disabled:opacity-50">
+      <button type="submit" disabled={!canAdd} className="pbc-btn pbc-btn--primary mt-3">
         Add Product & Service
       </button>
     </form>
@@ -571,9 +582,9 @@ export function ProductServicesTable({
   disabled = false,
 }: ProductServicesTableProps) {
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full text-left text-sm">
-        <thead className="border-b border-slate-100 text-xs uppercase text-slate-400">
+    <div className="pbc-tablewrap">
+      <table className="pbc-table">
+        <thead>
           <tr>
             <th className="px-3 py-2 font-semibold">Name</th>
             <th className="px-3 py-2 font-semibold">Description</th>
@@ -590,37 +601,37 @@ export function ProductServicesTable({
             return (
               <tr key={item.id} className="align-top">
                 <td className="px-3 py-2">
-                  {isEditing ? <input value={editForm.name} onChange={(event) => onFieldChange('name', event.target.value)} className="w-full rounded-lg border border-slate-200 px-2 py-1 text-sm" /> : <span className="font-semibold text-slate-950">{item.name}</span>}
+                  {isEditing ? <input value={editForm.name} onChange={(event) => onFieldChange('name', event.target.value)} className="pbc-tableinput" /> : <span className="pbc-tabletext pbc-tabletext--strong">{item.name}</span>}
                 </td>
                 <td className="max-w-md px-3 py-2">
-                  {isEditing ? <textarea value={editForm.description} onChange={(event) => onFieldChange('description', event.target.value)} className="min-h-20 w-full rounded-lg border border-slate-200 px-2 py-1 text-sm" /> : <span className="line-clamp-3 text-slate-600">{item.description ?? '-'}</span>}
+                  {isEditing ? <textarea value={editForm.description} onChange={(event) => onFieldChange('description', event.target.value)} className="pbc-tableinput min-h-20" /> : <span className="line-clamp-3 pbc-tabletext">{item.description ?? '-'}</span>}
                 </td>
                 <td className="px-3 py-2">
-                  {isEditing ? <input value={editForm.category} onChange={(event) => onFieldChange('category', event.target.value)} className="w-full rounded-lg border border-slate-200 px-2 py-1 text-sm" /> : <span className="text-slate-600">{item.category ?? '-'}</span>}
+                  {isEditing ? <input value={editForm.category} onChange={(event) => onFieldChange('category', event.target.value)} className="pbc-tableinput" /> : <span className="pbc-tabletext">{item.category ?? '-'}</span>}
                 </td>
                 <td className="px-3 py-2 text-right">
-                  {isEditing ? <input value={editForm.unitPrice} onChange={(event) => onFieldChange('unitPrice', event.target.value)} inputMode="decimal" className="w-full rounded-lg border border-slate-200 px-2 py-1 text-right text-sm" /> : <span className="font-mono font-semibold text-slate-950">${item.unitPrice}</span>}
+                  {isEditing ? <input value={editForm.unitPrice} onChange={(event) => onFieldChange('unitPrice', event.target.value)} inputMode="decimal" className="pbc-tableinput text-right" /> : <span className="pbc-tabletext--money">${item.unitPrice}</span>}
                 </td>
                 <td className="px-3 py-2 text-right">
-                  {isEditing ? <input value={editForm.unitCost} onChange={(event) => onFieldChange('unitCost', event.target.value)} inputMode="decimal" className="w-full rounded-lg border border-slate-200 px-2 py-1 text-right text-sm" /> : <span className="font-mono text-slate-600">{item.unitCost ? `$${item.unitCost}` : '-'}</span>}
+                  {isEditing ? <input value={editForm.unitCost} onChange={(event) => onFieldChange('unitCost', event.target.value)} inputMode="decimal" className="pbc-tableinput text-right" /> : <span className="pbc-tabletext--money">{item.unitCost ? `$${item.unitCost}` : '-'}</span>}
                 </td>
                 <td className="px-3 py-2">
                   {isEditing ? (
-                    <input type="checkbox" checked={editForm.taxable} onChange={(event) => onFieldChange('taxable', event.target.checked)} className="h-4 w-4 rounded border-slate-300" />
+                    <input type="checkbox" checked={editForm.taxable} onChange={(event) => onFieldChange('taxable', event.target.checked)} className="pbc-checkbox" />
                   ) : (
-                    <span className="text-slate-600">{item.taxable ? 'Taxable' : 'No tax'}</span>
+                    <span className="pbc-tabletext">{item.taxable ? 'Taxable' : 'No tax'}</span>
                   )}
                 </td>
                 <td className="px-3 py-2">
                   {isEditing ? (
-                    <div className="flex flex-col gap-1 sm:flex-row">
-                      <button type="button" onClick={onSave} disabled={disabled} className="rounded-lg bg-green-700 px-2 py-1 text-xs font-bold text-white hover:bg-green-800 disabled:opacity-50">Save</button>
-                      <button type="button" onClick={onCancel} disabled={disabled} className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50">Cancel</button>
+                    <div className="pbc-tableactions">
+                      <button type="button" onClick={onSave} disabled={disabled} className="pbc-btn pbc-btn--primary pbc-btn--sm">Save</button>
+                      <button type="button" onClick={onCancel} disabled={disabled} className="pbc-btn pbc-btn--ghost pbc-btn--sm">Cancel</button>
                     </div>
                   ) : (
-                    <div className="flex flex-col gap-1 sm:flex-row">
-                      <button type="button" onClick={() => onEdit(item)} disabled={disabled} className="rounded-lg border border-blue-100 px-2 py-1 text-xs font-bold text-[var(--primary)] hover:bg-[var(--primary-soft)] disabled:opacity-50">Edit</button>
-                      <button type="button" onClick={() => onDelete(item.id)} disabled={disabled} className="rounded-lg border border-red-100 px-2 py-1 text-xs font-bold text-red-600 hover:bg-red-50 disabled:opacity-50">Delete</button>
+                    <div className="pbc-tableactions">
+                      <button type="button" onClick={() => onEdit(item)} disabled={disabled} className="pbc-btn pbc-btn--ghost pbc-btn--sm">Edit</button>
+                      <button type="button" onClick={() => onDelete(item.id)} disabled={disabled} className="pbc-btn pbc-btn--danger pbc-btn--sm">Delete</button>
                     </div>
                   )}
                 </td>
@@ -738,18 +749,20 @@ export function QuoteLineTemplateEditor({
 
   return (
     <div className="space-y-5">
-      <div>
-        <h2 className="text-sm font-bold uppercase text-slate-400">Template</h2>
-        <p className="mt-1 text-sm text-slate-500">Save reusable Product / Service line item and text item sets for new quotes.</p>
+      <div className="pbc-panelhead">
+        <div className="pbc-panelhead__copy">
+          <h2 className="pbc-paneltitle">Template</h2>
+          <p className="pbc-panelsub">Save reusable Product / Service line item and text item sets for new quotes.</p>
+        </div>
       </div>
 
-      <div className="rounded-lg border border-slate-100 bg-slate-50/60 p-4">
-        <label className="block space-y-1 text-xs font-bold text-slate-500">
-          Template name
+      <div className="pbc-formgroup">
+        <label className="pbc-field">
+          <span className="pbc-field__label">Template name</span>
           <input
             value={templateName}
             onChange={(event) => setTemplateName(event.target.value)}
-            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+            className="pbc-input"
             placeholder="e.g. Standard interior quote"
           />
         </label>
@@ -758,35 +771,35 @@ export function QuoteLineTemplateEditor({
           productServices={productServices}
           onChange={setTemplateLines}
         />
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <button type="button" onClick={saveTemplate} disabled={isDisabled || !trimFormValue(templateName)} className="rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-bold text-white hover:bg-[var(--primary-strong)] disabled:opacity-50">
+        <div className="pbc-panelhead__actions mt-4">
+          <button type="button" onClick={saveTemplate} disabled={isDisabled || !trimFormValue(templateName)} className="pbc-btn pbc-btn--primary">
             {isPending ? 'Saving...' : 'Save Template'}
           </button>
           {editingTemplateId ? (
-            <button type="button" onClick={resetForm} disabled={isDisabled} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50">
+            <button type="button" onClick={resetForm} disabled={isDisabled} className="pbc-btn pbc-btn--ghost">
               Cancel
             </button>
           ) : null}
-          {message ? <p className="text-sm text-slate-600">{message}</p> : null}
+          {message ? <p className="pbc-panelsub">{message}</p> : null}
         </div>
       </div>
 
-      <div className="divide-y divide-slate-100 rounded-lg border border-[var(--border)]">
-        {templates.length === 0 ? <p className="px-3 py-3 text-sm text-slate-500">No templates saved yet.</p> : null}
+      <div className="pbc-list">
+        {templates.length === 0 ? <p className="pbc-empty">No templates saved yet.</p> : null}
         {templates.map((template) => (
-          <div key={template.id} className="flex flex-wrap items-center justify-between gap-3 px-3 py-3">
-            <div>
-              <p className="font-semibold text-slate-950">{template.name}</p>
-              <p className="text-xs text-slate-500">{template.items.length} line items</p>
+          <div key={template.id} className="pbc-listitem">
+            <div className="pbc-listitem__main">
+              <p className="pbc-listitem__title">{template.name}</p>
+              <p className="pbc-listitem__meta">{template.items.length} line items</p>
               {template.items.length > 0 ? (
-                <p className="mt-1 text-xs text-slate-400">{template.items.map((item) => item.name).join(', ')}</p>
+                <p className="pbc-listitem__sub">{template.items.map((item) => item.name).join(', ')}</p>
               ) : null}
             </div>
-            <div className="flex gap-2">
-              <button type="button" onClick={() => editTemplate(template)} disabled={isDisabled} className="rounded-lg border border-blue-100 px-3 py-2 text-xs font-bold text-[var(--primary)] hover:bg-[var(--primary-soft)] disabled:opacity-50">
+            <div className="pbc-panelhead__actions">
+              <button type="button" onClick={() => editTemplate(template)} disabled={isDisabled} className="pbc-btn pbc-btn--ghost pbc-btn--sm">
                 Edit
               </button>
-              <button type="button" onClick={() => removeTemplate(template.id)} disabled={isDisabled} className="rounded-lg border border-red-100 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 disabled:opacity-50">
+              <button type="button" onClick={() => removeTemplate(template.id)} disabled={isDisabled} className="pbc-btn pbc-btn--danger pbc-btn--sm">
                 Delete
               </button>
             </div>
@@ -857,6 +870,11 @@ export function SettingsForm({
   const [areas, setAreas] = useState(initialAreas)
   const [areaScope, setAreaScope] = useState<AreaScope>('interior')
   const [areaName, setAreaName] = useState('')
+  const [editingAreaId, setEditingAreaId] = useState<string | null>(null)
+  const [areaEditForm, setAreaEditForm] = useState<AreaEditFormState>({
+    scope: 'interior',
+    name: '',
+  })
   const [settings, setSettings] = useState({
     f1LabourRate: String(initialSettings.f1LabourRate),
     f2LabourRate: String(initialSettings.f2LabourRate),
@@ -1191,21 +1209,85 @@ export function SettingsForm({
   function addArea() {
     setAreaMessage(null)
     startTransition(async () => {
-      const result = await createArea({ scope: areaScope, name: areaName })
-      if (result.ok) {
-        if (!result.data) {
-          setMaterialMessage('Failed to add area.')
-          return
-        }
+      try {
+        const result = await createArea({ scope: areaScope, name: areaName })
+        if (result.ok) {
+          if (!result.data) {
+            setAreaMessage('Failed to add area.')
+            return
+          }
 
-        setAreas((current) => {
-          if (current.some((area) => area.id === result.data.id)) return current
-          return [...current, result.data]
+          setAreas((current) => {
+            if (current.some((area) => area.id === result.data.id)) return current
+            return [...current, result.data]
+          })
+          setAreaName('')
+          setAreaMessage('Area added.')
+        } else {
+          setAreaMessage(result.error)
+        }
+      } catch (error) {
+        setAreaMessage(formatAreaMutationError('add', error))
+      }
+    })
+  }
+
+  function startAreaEdit(area: AreaRecord) {
+    setAreaMessage(null)
+    setEditingAreaId(area.id)
+    setAreaEditForm({
+      scope: area.scope,
+      name: area.name,
+    })
+  }
+
+  function cancelAreaEdit() {
+    setEditingAreaId(null)
+    setAreaEditForm({
+      scope: 'interior',
+      name: '',
+    })
+  }
+
+  function saveArea() {
+    if (!editingAreaId) return
+    setAreaMessage(null)
+    startTransition(async () => {
+      try {
+        const result = await updateArea({
+          id: editingAreaId,
+          scope: areaEditForm.scope,
+          name: trimFormValue(areaEditForm.name),
         })
-        setAreaName('')
-        setAreaMessage('Area added.')
-      } else {
-        setAreaMessage(result.error)
+
+        if (result.ok) {
+          setAreas((current) => current.map((area) => area.id === result.data.id ? result.data : area))
+          cancelAreaEdit()
+          setAreaMessage('Area updated.')
+        } else {
+          setAreaMessage(result.error)
+        }
+      } catch (error) {
+        setAreaMessage(formatAreaMutationError('update', error))
+      }
+    })
+  }
+
+  function removeArea(id: string) {
+    setAreaMessage(null)
+    startTransition(async () => {
+      try {
+        const result = await deleteArea({ id })
+
+        if (result.ok) {
+          setAreas((current) => current.filter((area) => area.id !== id))
+          if (editingAreaId === id) cancelAreaEdit()
+          setAreaMessage('Area deleted.')
+        } else {
+          setAreaMessage(result.error)
+        }
+      } catch (error) {
+        setAreaMessage(formatAreaMutationError('delete', error))
       }
     })
   }
@@ -1242,91 +1324,102 @@ export function SettingsForm({
       .includes(needle)
   })
 
+  const tabs: Array<{ key: typeof activeTab; label: string; icon: React.ReactNode }> = [
+    { key: 'labour', label: 'Labour Rates', icon: Icons.dollar({ size: 16 }) },
+    { key: 'material', label: 'Material', icon: Icons.palette({ size: 16 }) },
+    { key: 'productService', label: 'Product & Service', icon: Icons.template({ size: 16 }) },
+    { key: 'template', label: 'Template', icon: Icons.layers({ size: 16 }) },
+    { key: 'area', label: 'Area', icon: Icons.pin({ size: 16 }) },
+  ]
+
   return (
-    <div className="overflow-hidden rounded-lg border border-white bg-white/90 shadow-[var(--shadow-soft)]">
-      <div className="flex gap-1 border-b border-slate-100 bg-slate-50/80 p-2">
-        <button type="button" onClick={() => setActiveTab('labour')} className={`rounded-lg px-4 py-2 text-sm font-bold ${activeTab === 'labour' ? 'bg-white text-[var(--primary)] shadow-sm' : 'text-slate-500 hover:text-slate-950'}`}>
-          Labour Rates
-        </button>
-        <button type="button" onClick={() => setActiveTab('material')} className={`rounded-lg px-4 py-2 text-sm font-bold ${activeTab === 'material' ? 'bg-white text-[var(--primary)] shadow-sm' : 'text-slate-500 hover:text-slate-950'}`}>
-          Material
-        </button>
-        <button type="button" onClick={() => setActiveTab('productService')} className={`rounded-lg px-4 py-2 text-sm font-bold ${activeTab === 'productService' ? 'bg-white text-[var(--primary)] shadow-sm' : 'text-slate-500 hover:text-slate-950'}`}>
-          Product & Service
-        </button>
-        <button type="button" onClick={() => setActiveTab('template')} className={`rounded-lg px-4 py-2 text-sm font-bold ${activeTab === 'template' ? 'bg-white text-[var(--primary)] shadow-sm' : 'text-slate-500 hover:text-slate-950'}`}>
-          Template
-        </button>
-        <button type="button" onClick={() => setActiveTab('area')} className={`rounded-lg px-4 py-2 text-sm font-bold ${activeTab === 'area' ? 'bg-white text-[var(--primary)] shadow-sm' : 'text-slate-500 hover:text-slate-950'}`}>
-          Area
-        </button>
+    <div className="pbc-settings">
+      <div className="pbc-tabs">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => setActiveTab(tab.key)}
+            className={`pbc-tab ${activeTab === tab.key ? 'is-on' : ''}`}
+          >
+            {tab.icon} {tab.label}
+          </button>
+        ))}
       </div>
 
+      <div className="pbc-card overflow-hidden">
       {activeTab === 'labour' ? (
-        <div className="max-w-3xl p-5">
-          <section className="space-y-4">
-            <h2 className="text-sm font-bold uppercase text-slate-400">Labour Rates</h2>
+        <div className="pbc-formsection pbc-formsection--center pbc-formsection--narrow">
+          <section className="pbc-formgroup">
+            <h2 className="pbc-paneltitle">Labour Rates</h2>
+            <div className="pbc-rates">
             {[
-              ['f1LabourRate', 'F1 (Labor Rate)'],
-              ['f2LabourRate', 'F2 (Labor Rate)'],
-              ['f3LabourRate', 'F3 (Labor Rate)'],
-              ['f4LabourRate', 'F4 (Labor Rate)'],
-              ['f5LabourRate', 'F5 (Labor Rate)'],
-            ].map(([field, label]) => (
-              <label key={field} className="grid gap-2 text-sm font-semibold text-slate-600 sm:grid-cols-[1fr_180px] sm:items-center">
-                <span>{label}</span>
-                <div className="space-y-1">
+              ['f1LabourRate', 'F1', 'Labor Rate', '$/day'],
+              ['f2LabourRate', 'F2', 'Labor Rate', '$/day'],
+              ['f3LabourRate', 'F3', 'Labor Rate', '$/day'],
+              ['f4LabourRate', 'F4', 'Labor Rate', '$/day'],
+              ['f5LabourRate', 'F5', 'Labor Rate', '$/day'],
+            ].map(([field, code, label, sub]) => (
+              <label key={field} className="pbc-rate">
+                <span className="pbc-rate__code">{code}</span>
+                <span className="pbc-rate__name">{label}<br /><i className="pbc-rate__sub">{sub}</i></span>
+                <span className="pbc-rate__money">
+                  <i>$</i>
                   <input
                     value={settings[field as keyof typeof settings]}
                     onChange={(event) => setField(field as keyof typeof settings, event.target.value)}
                     inputMode="decimal"
                     step="0.01"
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                   />
-                  <p className="text-xs text-slate-400">$/day</p>
-                </div>
+                </span>
               </label>
             ))}
+            </div>
           </section>
 
-          <section className="mt-8 space-y-4 border-t border-slate-100 pt-6">
-            <h2 className="text-sm font-bold uppercase text-slate-400">Margins</h2>
+          <section className="pbc-formgroup">
+            <h2 className="pbc-paneltitle">Margins</h2>
+            <div className="pbc-rates">
             {[
-              ['f2Margin', 'F2 margin'],
-              ['f3Margin', 'F3 margin'],
-              ['f4Margin', 'F4 margin'],
-              ['f5Margin', 'F5 margin'],
-            ].map(([field, label]) => (
-              <label key={field} className="grid gap-2 text-sm font-semibold text-slate-600 sm:grid-cols-[1fr_180px] sm:items-center">
-                <span>{label}</span>
-                <div className="space-y-1">
+              ['f2Margin', 'F2', 'Margin', 'Use 30, 0.30, or 30%'],
+              ['f3Margin', 'F3', 'Margin', 'Use 30, 0.30, or 30%'],
+              ['f4Margin', 'F4', 'Margin', 'Use 25, 0.25, or 25%'],
+              ['f5Margin', 'F5', 'Margin', 'Use 30, 0.30, or 30%'],
+            ].map(([field, code, label, sub]) => (
+              <label key={field} className="pbc-rate">
+                <span className="pbc-rate__code">{code}</span>
+                <span className="pbc-rate__name">{label}<br /><i className="pbc-rate__sub">{sub}</i></span>
+                <span className="pbc-rate__money pbc-rate__money--pct">
                   <input
                     value={settings[field as keyof typeof settings]}
                     onChange={(event) => setField(field as keyof typeof settings, event.target.value)}
                     inputMode="decimal"
                     step="0.01"
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                   />
-                  <p className="text-xs text-slate-400">Use 30 or 0.30 or 30%</p>
-                </div>
+                  <i>%</i>
+                </span>
               </label>
             ))}
+            </div>
           </section>
 
-          <div className="mt-6 flex items-center gap-4">
-            <button type="button" onClick={save} disabled={isPending} className="rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-bold text-white hover:bg-[var(--primary-strong)] disabled:opacity-50">
+          <div className="pbc-savecard__actions mt-6">
+            <button type="button" onClick={save} disabled={isPending} className="pbc-btn pbc-btn--primary">
               {isPending ? 'Saving...' : 'Save Settings'}
             </button>
-            {message ? <p className="text-sm font-medium text-slate-600">{message}</p> : null}
+            {message ? <p className="pbc-panelsub">{message}</p> : null}
           </div>
-          <p className="mt-4 rounded-lg border border-amber-100 bg-[var(--warning-soft)] px-3 py-2 text-sm text-amber-700">Changes affect future quotes only. Existing quotes preserve their snapshot.</p>
+          <p className="pbc-alert pbc-alert--warning mt-4">{Icons.lock({ size: 15 })}<span><b>Snapshot protected.</b> Changes affect future quotes only. Existing quotes preserve their saved settings.</span></p>
         </div>
       ) : activeTab === 'material' ? (
-        <div className="p-5">
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-sm font-bold uppercase text-slate-400">Paint Materials</h2>
-            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-              <input value={materialQuery} onChange={(event) => setMaterialQuery(event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm sm:max-w-xs" placeholder="Search material..." />
+        <div className="pbc-formsection pbc-formsection--center">
+          <div className="pbc-panelhead mb-4">
+            <div className="pbc-panelhead__copy">
+              <h2 className="pbc-paneltitle">Paint Materials</h2>
+              <p className="pbc-panelsub">{filteredProducts.length} materials</p>
+            </div>
+            <div className="pbc-panelhead__actions w-full sm:w-auto">
+              <input value={materialQuery} onChange={(event) => setMaterialQuery(event.target.value)} className="pbc-input sm:max-w-xs" placeholder="Search material..." />
               <input
                 ref={fileInputRef}
                 type="file"
@@ -1336,12 +1429,12 @@ export function SettingsForm({
                 }}
                 className="hidden"
               />
-              <div className="flex gap-2">
+              <div className="pbc-panelhead__actions">
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isPending}
-                  className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                  className="pbc-btn pbc-btn--ghost pbc-btn--sm"
                 >
                   Import CSV
                 </button>
@@ -1349,14 +1442,14 @@ export function SettingsForm({
                   type="button"
                   onClick={exportMaterials}
                   disabled={isPending || materialProducts.filter((product) => product.active !== false).length === 0}
-                  className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                  className="pbc-btn pbc-btn--ghost pbc-btn--sm"
                 >
                   Export CSV
                 </button>
                 <button
                   type="button"
                   onClick={exportMaterialTemplate}
-                  className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                  className="pbc-btn pbc-btn--ghost pbc-btn--sm"
                 >
                   CSV Template
                 </button>
@@ -1380,16 +1473,18 @@ export function SettingsForm({
             onFieldChange={setEditField}
             disabled={isPending}
           />
-          <p className="mt-3 text-sm text-slate-500">{filteredProducts.length} materials</p>
-          {materialMessage ? <p className="mt-2 text-sm text-slate-600">{materialMessage}</p> : null}
-          {materialImportError ? <p className="mt-2 text-sm text-red-600">{materialImportError}</p> : null}
+          {materialMessage ? <p className="pbc-alert pbc-alert--success mt-3">{materialMessage}</p> : null}
+          {materialImportError ? <p className="pbc-alert pbc-alert--danger mt-3">{materialImportError}</p> : null}
         </div>
       ) : activeTab === 'productService' ? (
-        <div className="p-5">
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-sm font-bold uppercase text-slate-400">Product & Service</h2>
-            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-              <input value={productServiceQuery} onChange={(event) => setProductServiceQuery(event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm sm:max-w-xs" placeholder="Search product or service..." />
+        <div className="pbc-formsection pbc-formsection--center">
+          <div className="pbc-panelhead mb-4">
+            <div className="pbc-panelhead__copy">
+              <h2 className="pbc-paneltitle">Product & Service</h2>
+              <p className="pbc-panelsub">{filteredProductServices.length} Product & Service items</p>
+            </div>
+            <div className="pbc-panelhead__actions w-full sm:w-auto">
+              <input value={productServiceQuery} onChange={(event) => setProductServiceQuery(event.target.value)} className="pbc-input sm:max-w-xs" placeholder="Search product or service..." />
               <input
                 ref={productServiceFileInputRef}
                 type="file"
@@ -1399,14 +1494,14 @@ export function SettingsForm({
                 }}
                 className="hidden"
               />
-              <div className="flex gap-2">
-                <button type="button" onClick={() => productServiceFileInputRef.current?.click()} disabled={isPending} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50">
+              <div className="pbc-panelhead__actions">
+                <button type="button" onClick={() => productServiceFileInputRef.current?.click()} disabled={isPending} className="pbc-btn pbc-btn--ghost pbc-btn--sm">
                   Import CSV
                 </button>
-                <button type="button" onClick={exportProductServices} disabled={isPending || productServices.filter((item) => item.active !== false).length === 0} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50">
+                <button type="button" onClick={exportProductServices} disabled={isPending || productServices.filter((item) => item.active !== false).length === 0} className="pbc-btn pbc-btn--ghost pbc-btn--sm">
                   Export CSV
                 </button>
-                <button type="button" onClick={exportProductServiceTemplate} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50">
+                <button type="button" onClick={exportProductServiceTemplate} className="pbc-btn pbc-btn--ghost pbc-btn--sm">
                   CSV Template
                 </button>
               </div>
@@ -1429,12 +1524,11 @@ export function SettingsForm({
             onFieldChange={setProductServiceEditField}
             disabled={isPending}
           />
-          <p className="mt-3 text-sm text-slate-500">{filteredProductServices.length} Product & Service items</p>
-          {productServiceMessage ? <p className="mt-2 text-sm text-slate-600">{productServiceMessage}</p> : null}
-          {productServiceImportError ? <p className="mt-2 text-sm text-red-600">{productServiceImportError}</p> : null}
+          {productServiceMessage ? <p className="pbc-alert pbc-alert--success mt-3">{productServiceMessage}</p> : null}
+          {productServiceImportError ? <p className="pbc-alert pbc-alert--danger mt-3">{productServiceImportError}</p> : null}
         </div>
       ) : activeTab === 'template' ? (
-        <div className="p-5">
+        <div className="pbc-formsection pbc-formsection--center">
           <QuoteLineTemplateEditor
             templates={quoteLineTemplates}
             productServices={productServices}
@@ -1443,50 +1537,138 @@ export function SettingsForm({
           />
         </div>
       ) : (
-        <div className="p-5">
-          <div className="mb-5">
-            <h2 className="text-sm font-bold uppercase text-slate-400">Areas</h2>
+        <div className="pbc-formsection pbc-formsection--center">
+          <div className="pbc-panelhead mb-4">
+            <div className="pbc-panelhead__copy">
+              <h2 className="pbc-paneltitle">Areas</h2>
+              <p className="pbc-panelsub">Manage reusable interior and exterior area labels for quote items.</p>
+            </div>
           </div>
           <form
             onSubmit={(event) => {
               event.preventDefault()
               if (!isPending && areaName.trim()) addArea()
             }}
-            className="grid gap-3 sm:grid-cols-[160px_1fr_auto]"
+            className="pbc-formgroup grid gap-3 sm:grid-cols-[180px_minmax(0,1fr)_auto]"
           >
-            <select value={areaScope} onChange={(event) => setAreaScope(event.target.value as AreaScope)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
-              <option value="interior">Interior</option>
-              <option value="exterior">Exterior</option>
-            </select>
-            <input value={areaName} onChange={(event) => setAreaName(event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="e.g. eaves, fascia" />
-            <button type="submit" disabled={isPending || !areaName.trim()} className="rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-bold text-white hover:bg-[var(--primary-strong)] disabled:opacity-50">
+            <label className="pbc-field">
+              <span className="pbc-field__label">Scope</span>
+              <select value={areaScope} onChange={(event) => setAreaScope(event.target.value as AreaScope)} className="pbc-input">
+                <option value="interior">Interior</option>
+                <option value="exterior">Exterior</option>
+              </select>
+            </label>
+            <label className="pbc-field">
+              <span className="pbc-field__label">Area name</span>
+              <input value={areaName} onChange={(event) => setAreaName(event.target.value)} className="pbc-input" placeholder="e.g. eaves, fascia" />
+            </label>
+            <button type="submit" disabled={isPending || !areaName.trim()} className="pbc-btn pbc-btn--primary self-end">
               Add Area
             </button>
           </form>
-          {areaMessage ? <p className="mt-3 text-sm text-slate-600">{areaMessage}</p> : null}
+          {areaMessage ? <p className="pbc-alert pbc-alert--success mt-3">{areaMessage}</p> : null}
 
           <div className="mt-6 grid gap-6 sm:grid-cols-2">
             {(['interior', 'exterior'] as AreaScope[]).map((scope) => (
               <section key={scope}>
-                <h3 className="text-xs font-bold uppercase text-slate-400">{scope === 'interior' ? 'Interior' : 'Exterior'}</h3>
-                <div className="mt-3 divide-y divide-slate-100 rounded-lg border border-[var(--border)]">
+                <div className="pbc-panelhead mb-3">
+                  <div className="pbc-panelhead__copy">
+                    <h3 className="pbc-paneltitle">{scope === 'interior' ? 'Interior' : 'Exterior'}</h3>
+                    <p className="pbc-panelsub">{areas.filter((area) => area.scope === scope).length} areas</p>
+                  </div>
+                </div>
+                <div className="pbc-list">
                   {areas.filter((area) => area.scope === scope).length === 0 ? (
-                    <p className="px-3 py-3 text-sm text-slate-500">No areas yet.</p>
+                    <p className="pbc-empty">No areas yet.</p>
                   ) : null}
                   {areas
                     .filter((area) => area.scope === scope)
                     .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name))
-                    .map((area) => (
-                      <div key={area.id} className="px-3 py-2 text-sm font-semibold text-slate-950">
-                        {area.name}
-                      </div>
-                    ))}
+                    .map((area) => {
+                      const isEditing = editingAreaId === area.id
+
+                      return (
+                        <div key={area.id} className="pbc-listitem items-start gap-3">
+                          {isEditing ? (
+                            <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-[150px_minmax(0,1fr)]">
+                              <label className="pbc-field">
+                                <span className="pbc-field__label">Scope</span>
+                                <select
+                                  value={areaEditForm.scope}
+                                  onChange={(event) => setAreaEditForm((current) => ({ ...current, scope: event.target.value as AreaScope }))}
+                                  className="pbc-input"
+                                >
+                                  <option value="interior">Interior</option>
+                                  <option value="exterior">Exterior</option>
+                                </select>
+                              </label>
+                              <label className="pbc-field">
+                                <span className="pbc-field__label">Area name</span>
+                                <input
+                                  value={areaEditForm.name}
+                                  onChange={(event) => setAreaEditForm((current) => ({ ...current, name: event.target.value }))}
+                                  className="pbc-input"
+                                  placeholder="Area name"
+                                />
+                              </label>
+                            </div>
+                          ) : (
+                            <div className="pbc-listitem__main">
+                              <p className="pbc-listitem__title">{area.name}</p>
+                              <p className="pbc-listitem__meta">{scope === 'interior' ? 'Interior' : 'Exterior'}</p>
+                            </div>
+                          )}
+                          {isEditing ? (
+                            <div className="pbc-tableactions">
+                              <button
+                                type="button"
+                                onClick={saveArea}
+                                disabled={isPending || !areaEditForm.name.trim()}
+                                className="pbc-btn pbc-btn--primary pbc-btn--sm"
+                              >
+                                Save
+                              </button>
+                              <button
+                                type="button"
+                                onClick={cancelAreaEdit}
+                                disabled={isPending}
+                                className="pbc-btn pbc-btn--ghost pbc-btn--sm"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="pbc-tableactions">
+                              <button
+                                type="button"
+                                onClick={() => startAreaEdit(area)}
+                                disabled={isPending}
+                                className="pbc-btn pbc-btn--ghost pbc-btn--sm"
+                                aria-label={`Edit area ${area.name}`}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => removeArea(area.id)}
+                                disabled={isPending}
+                                className="pbc-btn pbc-btn--danger pbc-btn--sm"
+                                aria-label={`Delete area ${area.name}`}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                 </div>
               </section>
             ))}
           </div>
         </div>
       )}
+      </div>
     </div>
   )
 }

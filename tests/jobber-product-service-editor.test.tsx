@@ -7,7 +7,6 @@ import {
   getProductServiceDragScrollStep,
   getProductServiceMatches,
   JobberProductServiceEditor,
-  moveJobberQuoteLine,
   reorderJobberQuoteLines,
 } from '@/components/quote-form/jobber-product-service-editor'
 import type { JobberQuoteLineItemDraft } from '@/components/quote-form/types'
@@ -139,24 +138,20 @@ describe('JobberProductServiceEditor', () => {
     expect(markup).toContain('cursor-grab')
   })
 
-  it('renders compact move controls for priced and text rows with edge controls disabled', () => {
+  it('keeps drag sorting and renders compact delete buttons without move controls', () => {
     const markup = renderToStaticMarkup(createElement(JobberProductServiceEditor, {
       value: lines,
       onChange: () => undefined,
     }))
 
-    expect(markup).toContain('aria-label="Move Exterior repaint to top"')
-    expect(markup).toContain('aria-label="Move Exterior repaint up"')
-    expect(markup).toContain('aria-label="Move Exterior repaint down"')
-    expect(markup).toContain('aria-label="Move Exterior repaint to bottom"')
-    expect(markup).toContain('aria-label="Move Access notes to top"')
-    expect(markup).toContain('aria-label="Move Access notes up"')
-    expect(markup).toContain('aria-label="Move Access notes down"')
-    expect(markup).toContain('aria-label="Move Access notes to bottom"')
-    expect(markup).toMatch(/aria-label="Move Exterior repaint to top"[^>]*disabled/)
-    expect(markup).toMatch(/aria-label="Move Exterior repaint up"[^>]*disabled/)
-    expect(markup).toMatch(/aria-label="Move Access notes down"[^>]*disabled/)
-    expect(markup).toMatch(/aria-label="Move Access notes to bottom"[^>]*disabled/)
+    expect(markup).toContain('aria-label="Drag Exterior repaint"')
+    expect(markup).toContain('aria-label="Delete Exterior repaint"')
+    expect(markup).toContain('aria-label="Delete Access notes"')
+    expect(markup).toContain('pbc-iconbtn--compact')
+    expect(markup).toContain('>X</button>')
+    expect(markup).not.toContain('aria-label="Move Exterior repaint')
+    expect(markup).not.toContain('aria-label="Move Access notes')
+    expect(markup).not.toContain('>Delete</button>')
   })
 
   it('does not open product service matches until the line item name field is active', () => {
@@ -401,26 +396,6 @@ describe('JobberProductServiceEditor', () => {
 
     expect(reordered.map((line) => line.id)).toEqual(['text-1', 'line-1'])
     expect(lines.map((line) => line.id)).toEqual(['line-1', 'text-1'])
-  })
-
-  it('moves line items to top, up, down, and bottom without mutating the original list', () => {
-    const moveLines = [
-      lines[0],
-      { ...lines[1], id: 'text-1' },
-      { ...lines[0], id: 'line-2', name: 'Final clean' },
-    ]
-
-    expect(moveJobberQuoteLine(moveLines, 'line-2', 'top').map((line) => line.id)).toEqual(['line-2', 'line-1', 'text-1'])
-    expect(moveJobberQuoteLine(moveLines, 'line-2', 'up').map((line) => line.id)).toEqual(['line-1', 'line-2', 'text-1'])
-    expect(moveJobberQuoteLine(moveLines, 'line-1', 'down').map((line) => line.id)).toEqual(['text-1', 'line-1', 'line-2'])
-    expect(moveJobberQuoteLine(moveLines, 'line-1', 'bottom').map((line) => line.id)).toEqual(['text-1', 'line-2', 'line-1'])
-    expect(moveLines.map((line) => line.id)).toEqual(['line-1', 'text-1', 'line-2'])
-  })
-
-  it('returns the original line item list when a move cannot change the order', () => {
-    expect(moveJobberQuoteLine(lines, 'missing-line', 'top')).toBe(lines)
-    expect(moveJobberQuoteLine(lines, 'line-1', 'up')).toBe(lines)
-    expect(moveJobberQuoteLine(lines, 'text-1', 'down')).toBe(lines)
   })
 
   it('appends template items to existing quote lines without removing saved lines', () => {

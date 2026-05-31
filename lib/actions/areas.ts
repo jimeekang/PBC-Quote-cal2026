@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { areaSchema } from '@/lib/validators'
+import { areaDeleteSchema, areaSchema, areaUpdateSchema } from '@/lib/validators'
 import { createClient } from '@/lib/supabase/server'
 import type { Database } from '@/lib/supabase/types'
 import type { AreaRecord } from '@/lib/areas/types'
@@ -27,23 +27,31 @@ function revalidateAreaConsumers(): void {
   revalidatePath('/quotes/new')
 }
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'Unknown error'
+}
+
 export async function listAreas(): Promise<ActionResult<AreaRecord[]>> {
   if (isDevNoAuthMode()) {
     const { listDevAreas } = await import('@/lib/dev-data')
     return { ok: true, data: listDevAreas() }
   }
 
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('quote_areas')
-    .select('*')
-    .eq('active', true)
-    .order('scope', { ascending: true })
-    .order('position', { ascending: true })
-    .order('name', { ascending: true })
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('quote_areas')
+      .select('*')
+      .eq('active', true)
+      .order('scope', { ascending: true })
+      .order('position', { ascending: true })
+      .order('name', { ascending: true })
 
-  if (error) return { ok: false, error: error.message }
-  return { ok: true, data: data.map(rowToArea) }
+    if (error) return { ok: false, error: error.message }
+    return { ok: true, data: data.map(rowToArea) }
+  } catch (error) {
+    return { ok: false, error: errorMessage(error) }
+  }
 }
 
 export async function createArea(input: unknown): Promise<ActionResult<AreaRecord>> {
@@ -59,19 +67,93 @@ export async function createArea(input: unknown): Promise<ActionResult<AreaRecor
     return { ok: true, data: area }
   }
 
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('quote_areas')
-    .insert({
-      scope: parsed.data.scope,
-      name: parsed.data.name,
-      active: true,
-      position: 0,
-    })
-    .select('*')
-    .single()
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('quote_areas')
+      .insert({
+        scope: parsed.data.scope,
+        name: parsed.data.name,
+        active: true,
+        position: 0,
+      })
+      .select('*')
+      .single()
 
-  if (error) return { ok: false, error: error.message }
-  revalidateAreaConsumers()
-  return { ok: true, data: rowToArea(data) }
+    if (error) return { ok: false, error: error.message }
+    revalidateAreaConsumers()
+    return { ok: true, data: rowToArea(data) }
+  } catch (error) {
+    return { ok: false, error: errorMessage(error) }
+  }
+}
+
+export async function updateArea(input: unknown): Promise<ActionResult<AreaRecord>> {
+  const parsed = areaUpdateSchema.safeParse(input)
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.message }
+  }
+
+  if (isDevNoAuthMode()) {
+    const { updateDevArea } = await import('@/lib/dev-data')
+    const area = updateDevArea(parsed.data)
+    if (!area) return { ok: false, error: 'Area not found' }
+    revalidateAreaConsumers()
+    return { ok: true, data: area }
+  }
+
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('quote_areas')
+      .update({
+        scope: parsed.data.scope,
+        name: parsed.data.name,
+        active: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', parsed.data.id)
+      .select('*')
+      .single()
+
+    if (error) return { ok: false, error: error.message }
+    revalidateAreaConsumers()
+    return { ok: true, data: rowToArea(data) }
+  } catch (error) {
+    return { ok: false, error: errorMessage(error) }
+  }
+}
+
+export async function deleteArea(input: unknown): Promise<ActionResult<AreaRecord>> {
+  const parsed = areaDeleteSchema.safeParse(input)
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.message }
+  }
+
+  if (isDevNoAuthMode()) {
+    const { deleteDevArea } = await import('@/lib/dev-data')
+    const area = deleteDevArea(parsed.data.id)
+    if (!area) return { ok: false, error: 'Area not found' }
+    revalidateAreaConsumers()
+    return { ok: true, data: area }
+  }
+
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('quote_areas')
+      .update({
+        active: false,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', parsed.data.id)
+      .select('*')
+      .single()
+
+    if (error) return { ok: false, error: error.message }
+    revalidateAreaConsumers()
+    return { ok: true, data: rowToArea(data) }
+  } catch (error) {
+    return { ok: false, error: errorMessage(error) }
+  }
 }

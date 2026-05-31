@@ -7,6 +7,8 @@ interface FinalSummaryProps {
   materialTotal: Decimal
   areaBreakdown: AreaSubtotalBreakdown
   jobberFinancialSummary: JobberQuoteFinancialSummary | null
+  framed?: boolean
+  className?: string
 }
 
 function formatJobberMoney(value: number): string {
@@ -26,7 +28,7 @@ function getMarginBarWidth(value: number | null): string {
 }
 
 function getMarginBarTone(value: number | null): string {
-  if (value === null) return 'bg-slate-300'
+  if (value === null) return 'bg-[var(--muted-2)]'
   if (value < 20) return 'bg-[var(--danger)]'
   if (value < 35) return 'bg-amber-500'
   return 'bg-[var(--success)]'
@@ -37,78 +39,65 @@ export function FinalSummary({
   materialTotal,
   areaBreakdown,
   jobberFinancialSummary,
+  framed = true,
+  className = '',
 }: FinalSummaryProps) {
   const visibleSubtotal = areaBreakdown.finalSubtotal
   const visibleFinalTotal = areaBreakdown.finalTotal
   const gstTotal = Decimal.max(visibleFinalTotal.sub(visibleSubtotal), 0)
   const unassignedLabel = areaBreakdown.unassigned.count === 1 ? 'material row needs' : 'material rows need'
+  const sectionClassName = `${framed ? 'pbc-card pbc-summary' : 'pbc-summary'} ${className}`.trim()
 
   return (
-    <section className="rounded-lg border border-[var(--border)] bg-white p-4">
-      <div className="rounded-lg bg-[var(--primary-soft)] px-4 py-4">
-        <span className="text-sm font-bold uppercase text-[var(--primary)]">Final subtotal</span>
-        <div className="mt-2 font-mono text-4xl font-bold tabular-nums text-slate-950">${visibleSubtotal.toFixed(2)}</div>
-        <p className="mt-1 text-xs font-medium text-slate-500">Ex GST. Interior and exterior are calculated separately.</p>
+    <section className={sectionClassName}>
+      <div className="pbc-summary__hero">
+        <span className="pbc-summary__heroLabel">Final subtotal</span>
+        <div className="pbc-summary__heroValue mono">${visibleSubtotal.toFixed(2)}</div>
+        <p className="pbc-summary__heroSub">Ex GST. Interior and exterior are calculated separately.</p>
       </div>
-      <div className="space-y-2 text-sm">
-        <div className="mt-4 flex justify-between">
-          <span className="text-slate-500">Interior subtotal</span>
-          <span className="font-mono font-semibold text-slate-950">${areaBreakdown.interior.subtotal.toFixed(2)}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-slate-500">Exterior subtotal</span>
-          <span className="font-mono font-semibold text-slate-950">${areaBreakdown.exterior.subtotal.toFixed(2)}</span>
-        </div>
-        <div className="flex justify-between border-t border-slate-100 pt-2">
-          <span className="text-slate-500">Final subtotal</span>
-          <span className="font-mono font-bold text-slate-950">${visibleSubtotal.toFixed(2)}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-slate-500">Labour total</span>
-          <span className="font-mono text-slate-900">${labourTotal.toFixed(2)}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-slate-500">Material total</span>
-          <span className="font-mono text-slate-900">${materialTotal.toFixed(2)}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-slate-500">GST 10%</span>
-          <span className="font-mono text-slate-900">${gstTotal.toFixed(2)}</span>
-        </div>
+      <div className="pbc-summary__rows">
+        <div className="pbc-srow pbc-srow--strong"><span>Final subtotal</span><span className="mono">${visibleSubtotal.toFixed(2)}</span></div>
+        <div className="pbc-srow"><span>Labour total</span><span className="mono">${labourTotal.toFixed(2)}</span></div>
+        <div className="pbc-srow"><span>Material total</span><span className="mono">${materialTotal.toFixed(2)}</span></div>
+        <div className="pbc-srow"><span>GST 10%</span><span className="mono">${gstTotal.toFixed(2)}</span></div>
         {areaBreakdown.unassigned.count > 0 ? (
-          <p className="rounded-lg border border-amber-100 bg-[var(--warning-soft)] px-3 py-2 text-xs font-medium text-amber-800">
+          <p className="pbc-alert pbc-alert--warning mt-3">
             {areaBreakdown.unassigned.count} {unassignedLabel} an Interior or Exterior area before being included in grouped subtotals.
           </p>
         ) : null}
       </div>
+      <div className="pbc-summary__chips">
+        <span className="pbc-statchip">Interior subtotal <b className="mono">${areaBreakdown.interior.subtotal.toFixed(2)}</b></span>
+        <span className="pbc-statchip">Exterior subtotal <b className="mono">${areaBreakdown.exterior.subtotal.toFixed(2)}</b></span>
+      </div>
       {jobberFinancialSummary ? (
-        <div className="mt-5 border-t border-slate-100 pt-4">
+        <div className="border-t border-[var(--border-soft)] px-[22px] pb-5 pt-4">
           <div className="flex items-center justify-between gap-3">
-            <span className="text-sm font-bold uppercase text-slate-400">Jobber profit</span>
-            <span className="font-mono text-sm font-bold text-slate-950">
+            <span className="pbc-paneltitle">Jobber profit</span>
+            <span className="pbc-moneytext text-sm">
               {formatMargin(jobberFinancialSummary.profitMarginPercent)}
             </span>
           </div>
           <div className="mt-3 space-y-2 text-sm">
             <div className="flex justify-between gap-3">
-              <span className="text-slate-500">Quote total</span>
-              <span className="font-mono text-slate-900">{formatJobberMoney(jobberFinancialSummary.quoteTotal)}</span>
+              <span className="text-[var(--muted)]">Quote total</span>
+              <span className="pbc-moneytext">{formatJobberMoney(jobberFinancialSummary.quoteTotal)}</span>
             </div>
             <div className="flex justify-between gap-3">
-              <span className="text-slate-500">Expenses total</span>
-              <span className="font-mono text-slate-900">{formatJobberMoney(jobberFinancialSummary.expensesTotal)}</span>
+              <span className="text-[var(--muted)]">Expenses total</span>
+              <span className="pbc-moneytext">{formatJobberMoney(jobberFinancialSummary.expensesTotal)}</span>
             </div>
             <div className="flex justify-between gap-3">
-              <span className="text-slate-500">Profit</span>
-              <span className="font-mono font-semibold text-slate-950">{formatJobberMoney(jobberFinancialSummary.profit)}</span>
+              <span className="text-[var(--muted)]">Profit</span>
+              <span className="pbc-moneytext">{formatJobberMoney(jobberFinancialSummary.profit)}</span>
             </div>
           </div>
           <div className="mt-4">
-            <div className="mb-1 flex items-center justify-between text-xs text-slate-500">
+            <div className="mb-1 flex items-center justify-between text-xs text-[var(--muted)]">
               <span>Profit margin</span>
               <span className="font-mono">{formatMargin(jobberFinancialSummary.profitMarginPercent)}</span>
             </div>
-            <div className="h-3 overflow-hidden rounded-full bg-slate-100">
+            <div className="h-3 overflow-hidden rounded-full bg-[var(--surface-soft)]">
               <div
                 className={`h-full rounded-full ${getMarginBarTone(jobberFinancialSummary.profitMarginPercent)}`}
                 style={{ width: getMarginBarWidth(jobberFinancialSummary.profitMarginPercent) }}

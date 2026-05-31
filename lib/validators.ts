@@ -294,4 +294,12 @@ export const areaSchema = z.object({
   name: z.string().trim().min(1).max(80),
 })
 
+export const areaUpdateSchema = areaSchema.extend({
+  id: z.string().trim().min(1),
+})
+
+export const areaDeleteSchema = z.object({
+  id: z.string().trim().min(1),
+})
+
 export type AreaInput = z.infer<typeof areaSchema>

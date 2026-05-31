@@ -1,15 +1,20 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
   buildMaterialUpdateInput,
+  formatAreaMutationError,
   MaterialAddItemForm,
   MaterialCsvTemplate,
   MaterialProductsTable,
+  ProductServiceAddItemForm,
+  ProductServicesTable,
   QuoteLineTemplateEditor,
   SettingsForm,
 } from '@/components/settings/settings-form'
 import type { ProductRecord } from '@/lib/products/types'
+import type { ProductServiceRecord } from '@/lib/product-services/types'
 import { DEFAULT_PRICING_SETTINGS } from '@/lib/calculator'
 
 describe('settings material UI', () => {
@@ -85,6 +90,188 @@ describe('settings material UI', () => {
     expect(markup).not.toContain('Jobber Connection')
     expect(markup).not.toContain('Reconnect Jobber')
     expect(markup).not.toContain('/api/jobber/connect')
+  })
+
+  it('uses shared design-system form section and table classes', () => {
+    const settingsMarkup = renderToStaticMarkup(createElement(SettingsForm, {
+      initialAreas: [],
+      initialProducts: [],
+      initialQuoteLineTemplates: [],
+      initialSettings: DEFAULT_PRICING_SETTINGS,
+    }))
+    const tableMarkup = renderToStaticMarkup(createElement(MaterialProductsTable, {
+      products: [
+        {
+          id: 'product-1',
+          name: 'Dulux Wash & Wear White 4L',
+          manufacturer: 'Dulux',
+          type: null,
+          unit: '4L',
+          marketPrice: '89.90',
+          actualPrice: '89.90',
+          colorCode: null,
+          active: true,
+          productLine: 'Wash & Wear',
+          base: 'White',
+          sheen: 'Low Sheen',
+          volumeLitres: '4',
+          rrpPrice: '89.90',
+        },
+      ],
+      editingProductId: 'product-1',
+    }))
+
+    expect(settingsMarkup).toContain('pbc-formsection')
+    expect(settingsMarkup).toContain('pbc-btn pbc-btn--primary')
+    expect(tableMarkup).toContain('pbc-tablewrap')
+    expect(tableMarkup).toContain('pbc-table')
+    expect(tableMarkup).toContain('pbc-tableinput')
+  })
+
+  it('centers each settings tab layout with the shared section class', () => {
+    const settingsMarkup = renderToStaticMarkup(createElement(SettingsForm, {
+      initialAreas: [],
+      initialProducts: [],
+      initialQuoteLineTemplates: [],
+      initialSettings: DEFAULT_PRICING_SETTINGS,
+    }))
+    const source = readFileSync('components/settings/settings-form.tsx', 'utf8')
+
+    expect(settingsMarkup).toContain('pbc-formsection pbc-formsection--center')
+    expect(source.match(/pbc-formsection pbc-formsection--center/g)?.length).toBeGreaterThanOrEqual(5)
+  })
+
+  it('uses the latest shared UI for labour rates', () => {
+    const markup = renderToStaticMarkup(createElement(SettingsForm, {
+      initialAreas: [],
+      initialProducts: [],
+      initialQuoteLineTemplates: [],
+      initialSettings: DEFAULT_PRICING_SETTINGS,
+    }))
+
+    expect(markup).toContain('pbc-paneltitle')
+    expect(markup).toContain('pbc-rate')
+    expect(markup).toContain('pbc-alert pbc-alert--warning')
+    expect(markup).toContain('pbc-btn pbc-btn--primary')
+  })
+
+  it('uses shared compact action buttons in material rows', () => {
+    const markup = renderToStaticMarkup(createElement(MaterialProductsTable, {
+      products: [
+        {
+          id: 'product-1',
+          name: 'Dulux Wash & Wear White 4L',
+          manufacturer: 'Dulux',
+          type: null,
+          unit: '4L',
+          marketPrice: '89.90',
+          actualPrice: '89.90',
+          colorCode: null,
+          active: true,
+          productLine: 'Wash & Wear',
+          base: 'White',
+          sheen: 'Low Sheen',
+          volumeLitres: '4',
+          rrpPrice: '89.90',
+        },
+      ],
+    }))
+
+    expect(markup).toContain('pbc-tableactions')
+    expect(markup).toContain('pbc-btn pbc-btn--ghost pbc-btn--sm')
+    expect(markup).toContain('pbc-btn pbc-btn--danger pbc-btn--sm')
+  })
+
+  it('uses shared controls for product and service settings', () => {
+    const productServices: ProductServiceRecord[] = [
+      {
+        id: 'service-1',
+        name: 'Ceiling',
+        description: 'All interior ceilings',
+        category: 'Service',
+        unitPrice: '14.50',
+        unitCost: '0.00',
+        taxable: true,
+        active: true,
+        bookable: false,
+        durationMinutes: null,
+        quantityEnabled: true,
+        minimumQuantity: '1',
+        maximumQuantity: null,
+        createdAt: '2026-05-19T00:00:00.000Z',
+        updatedAt: '2026-05-19T00:00:00.000Z',
+      },
+    ]
+    const addMarkup = renderToStaticMarkup(createElement(ProductServiceAddItemForm))
+    const tableMarkup = renderToStaticMarkup(createElement(ProductServicesTable, { productServices }))
+
+    expect(addMarkup).toContain('pbc-checkbox')
+    expect(addMarkup).toContain('pbc-input')
+    expect(tableMarkup).toContain('pbc-tablewrap')
+    expect(tableMarkup).toContain('pbc-tableactions')
+    expect(tableMarkup).toContain('pbc-btn pbc-btn--danger pbc-btn--sm')
+  })
+
+  it('uses shared panel, form, and list styles in the template section', () => {
+    const markup = renderToStaticMarkup(createElement(QuoteLineTemplateEditor, {
+      templates: [
+        {
+          id: 'template-1',
+          name: 'Standard terms',
+          active: true,
+          createdAt: '2026-05-19T00:00:00.000Z',
+          updatedAt: '2026-05-19T00:00:00.000Z',
+          items: [],
+        },
+      ],
+      productServices: [],
+    }))
+
+    expect(markup).toContain('pbc-panelhead')
+    expect(markup).toContain('pbc-formgroup')
+    expect(markup).toContain('pbc-input')
+    expect(markup).toContain('pbc-list')
+    expect(markup).toContain('pbc-listitem')
+    expect(markup).toContain('pbc-btn pbc-btn--primary')
+  })
+
+  it('uses the latest shared UI for the area section', () => {
+    const source = readFileSync('components/settings/settings-form.tsx', 'utf8')
+    const areaStart = source.indexOf('<h2 className="pbc-paneltitle">Areas</h2>')
+    const areaBranch = source.slice(areaStart)
+
+    expect(areaStart).toBeGreaterThan(-1)
+    expect(areaBranch).toContain('pbc-panelhead')
+    expect(areaBranch).toContain('pbc-paneltitle')
+    expect(areaBranch).toContain('pbc-formgroup')
+    expect(areaBranch).toContain('pbc-field')
+    expect(areaBranch).toContain('pbc-input')
+    expect(areaBranch).toContain('pbc-btn pbc-btn--primary')
+    expect(areaBranch).toContain('pbc-list')
+    expect(areaBranch).toContain('pbc-listitem')
+    expect(areaBranch).not.toContain('rounded-lg border border-slate-200')
+    expect(areaBranch).not.toContain('text-slate-400')
+  })
+
+  it('provides edit and delete controls for settings areas', () => {
+    const source = readFileSync('components/settings/settings-form.tsx', 'utf8')
+    const areaStart = source.indexOf('<h2 className="pbc-paneltitle">Areas</h2>')
+    const areaBranch = source.slice(areaStart)
+
+    expect(areaStart).toBeGreaterThan(-1)
+    expect(source).toContain('updateArea')
+    expect(source).toContain('deleteArea')
+    expect(areaBranch).toContain('editingAreaId')
+    expect(areaBranch).toContain('Edit area')
+    expect(areaBranch).toContain('Delete area')
+    expect(areaBranch).toContain('Save')
+    expect(areaBranch).toContain('Cancel')
+    expect(areaBranch).toContain('pbc-btn pbc-btn--danger pbc-btn--sm')
+  })
+
+  it('formats area mutation fetch failures without exposing raw exceptions', () => {
+    expect(formatAreaMutationError('update', new TypeError('fetch failed'))).toBe('Failed to update area: fetch failed')
+    expect(formatAreaMutationError('delete', 'network down')).toBe('Failed to delete area: Unknown error')
   })
 
   it('normalizes numeric edit form values before saving', () => {

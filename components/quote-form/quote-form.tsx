@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import { useRouter } from 'next/navigation'
 import type { PricingSettings } from '@/lib/calculator'
 import type { QuoteRecord } from '@/lib/dev-data'
+import { Icons } from '@/components/ui/icons'
 import { CustomerPanel } from './customer-panel'
 import { MaterialsPanel } from './materials-panel'
 import { FinalSummary } from './final-summary'
@@ -584,36 +585,44 @@ export function QuoteForm({ settings, areas, productServices = [], quoteLineTemp
   }
 
   return (
-    <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-      <div className="sticky top-16 z-20 mb-6 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-white/80 bg-white/95 px-4 py-3 shadow-sm backdrop-blur">
-        <div>
-          <button type="button" onClick={() => requestNavigation('/quotes')} className="text-sm font-semibold text-slate-400 hover:text-[var(--primary)]">Back to Quotes</button>
-          <h1 className="mt-1 text-3xl font-bold text-slate-950">{initialQuote ? 'Edit Quote' : 'New Quote'}</h1>
-          <p className="mt-1 text-sm text-slate-500">Build the quote, compare formulas, and lock the final total.</p>
+    <main>
+      <header className="pbc-topbar">
+        <div className="pbc-crumb">
+          <button type="button" onClick={() => requestNavigation('/quotes')}>Quotes</button>
+          {Icons.arrowDown({ size: 14 })}
+          <b>{initialQuote ? 'Edit Quote' : 'New Quote'}</b>
         </div>
-        <button type="button" onClick={saveQuote} disabled={isPending} className="rounded-lg bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[var(--primary-strong)] disabled:opacity-50">
-          {isPending ? 'Saving...' : initialQuote ? 'Update Quote' : 'Save Quote'}
-        </button>
+        <div className="pbc-topbar__right">
+          <button type="button" onClick={saveQuote} disabled={isPending} className="pbc-btn pbc-btn--primary">
+            {Icons.check({ size: 15 })} {isPending ? 'Saving…' : initialQuote ? 'Update Quote' : 'Save Quote'}
+          </button>
+        </div>
+      </header>
+
+      <div className="pbc-page">
+      <div className="pbc-pagehead">
+        <h1>{initialQuote ? 'Edit Quote' : 'New Quote'}</h1>
+        <p>Build the quote, compare formulas, and lock the final total.</p>
       </div>
 
-      {saveError ? <p className="mb-4 rounded-lg border border-red-100 bg-[var(--danger-soft)] px-3 py-2 text-sm font-medium text-[var(--danger)]">{saveError}</p> : null}
+      {saveError ? <p className="pbc-alert pbc-alert--danger">{saveError}</p> : null}
       {availableDraft ? (
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-100 bg-[var(--warning-soft)] px-4 py-3 text-sm text-amber-800">
+        <div className="pbc-alert pbc-alert--warning">
           <span>Unsaved draft found from {new Date(availableDraft.updatedAt).toLocaleString('en-AU')}.</span>
-          <span className="flex gap-2">
-            <button type="button" onClick={() => restoreDraft(availableDraft)} className="rounded-lg bg-amber-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-800">
+          <span className="pbc-alert__actions">
+            <button type="button" onClick={() => restoreDraft(availableDraft)} className="pbc-btn pbc-btn--primary pbc-btn--sm">
               Restore Draft
             </button>
-            <button type="button" onClick={discardStoredDraft} className="rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100">
+            <button type="button" onClick={discardStoredDraft} className="pbc-btn pbc-btn--ghost pbc-btn--sm">
               Discard
             </button>
           </span>
         </div>
       ) : null}
-      {draftMessage ? <p className="mb-4 rounded-lg border border-green-100 bg-[var(--success-soft)] px-3 py-2 text-sm font-medium text-green-700">{draftMessage}</p> : null}
+      {draftMessage ? <p className="pbc-alert pbc-alert--success">{draftMessage}</p> : null}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.06fr)_minmax(360px,0.94fr)]">
-        <div className="space-y-8 rounded-lg border border-white bg-white/90 p-5 shadow-[var(--shadow-soft)]">
+      <div className="pbc-editgrid">
+        <div className="pbc-workspace">
           <CustomerPanel
             customerName={customerName}
             customerAddress={customerAddress}
@@ -658,16 +667,16 @@ export function QuoteForm({ settings, areas, productServices = [], quoteLineTemp
           <QuoteMemosPanel memos={memos} onAddMemo={addMemo} onChangeMemo={changeMemo} onRemoveMemo={removeMemo} />
         </div>
 
-        <aside className="space-y-6 rounded-lg border border-white bg-white/90 p-5 shadow-[var(--shadow-soft)] xl:sticky xl:top-24 xl:self-start">
-          <section className="space-y-4">
-            <h2 className="text-sm font-bold uppercase text-slate-400">Calculation</h2>
+        <aside className="pbc-calcstack">
+          <section className="pbc-card pbc-card--pad pbc-calcpanel">
+            <h2 className="pbc-paneltitle">Calculation</h2>
             <div className="grid gap-4 sm:grid-cols-2">
               <DecimalInput
                 label="Total Working Days"
                 value={totals.totalWorkingDays.toFixed(2)}
                 onValueChange={() => undefined}
-                labelClassName="space-y-1 text-sm font-semibold text-slate-600"
-                inputClassName="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900"
+                labelClassName="pbc-field"
+                inputClassName="pbc-input"
                 warningClassName="block text-xs font-normal text-amber-600"
                 readOnly
               />
@@ -675,8 +684,8 @@ export function QuoteForm({ settings, areas, productServices = [], quoteLineTemp
                 label="Total Labour Days"
                 value={totals.totalLabourPerDay.toFixed(2)}
                 onValueChange={() => undefined}
-                labelClassName="space-y-1 text-sm font-semibold text-slate-600"
-                inputClassName="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900"
+                labelClassName="pbc-field"
+                inputClassName="pbc-input"
                 warningClassName="block text-xs font-normal text-amber-600"
                 readOnly
               />
@@ -694,24 +703,25 @@ export function QuoteForm({ settings, areas, productServices = [], quoteLineTemp
         </aside>
       </div>
       {pendingNavigation ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div role="dialog" aria-modal="true" aria-labelledby="leave-dialog-title" className="w-full max-w-md rounded-lg bg-white p-5 shadow-xl">
-            <h2 id="leave-dialog-title" className="text-lg font-bold text-slate-950">Save draft before leaving?</h2>
-            <p className="mt-2 text-sm text-slate-600">You have unsaved quote changes. Save a local draft so this quote can be restored when you return.</p>
-            <div className="mt-5 flex flex-wrap justify-end gap-2">
-              <button type="button" onClick={() => setPendingNavigation(null)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+        <div className="pbc-dialogbackdrop">
+          <div role="dialog" aria-modal="true" aria-labelledby="leave-dialog-title" className="pbc-dialog">
+            <h2 id="leave-dialog-title">Save draft before leaving?</h2>
+            <p>You have unsaved quote changes. Save a local draft so this quote can be restored when you return.</p>
+            <div className="pbc-dialog__actions">
+              <button type="button" onClick={() => setPendingNavigation(null)} className="pbc-btn pbc-btn--ghost">
                 Cancel
               </button>
-              <button type="button" onClick={leaveWithoutDraft} className="rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">
+              <button type="button" onClick={leaveWithoutDraft} className="pbc-btn pbc-btn--danger">
                 Leave without draft
               </button>
-              <button type="button" onClick={saveDraftAndLeave} className="rounded-lg bg-[var(--primary)] px-3 py-2 text-sm font-semibold text-white hover:bg-[var(--primary-strong)]">
+              <button type="button" onClick={saveDraftAndLeave} className="pbc-btn pbc-btn--primary">
                 Save draft
               </button>
             </div>
           </div>
         </div>
       ) : null}
+      </div>
     </main>
   )
 }

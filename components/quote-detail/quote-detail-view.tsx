@@ -1,12 +1,15 @@
 import Decimal from 'decimal.js'
 import Link from 'next/link'
 import type { QuoteRecord } from '@/lib/dev-data'
+import { getFormulaDescriptions } from '@/lib/calculator'
 import { JobberQuoteSummary } from '@/components/quote-form/customer-panel'
 import { FinalSummary } from '@/components/quote-form/final-summary'
 import { OptionTotalsSummary } from '@/components/quote-form/option-totals-summary'
 import { calculateAreaSubtotalBreakdown } from '@/components/quote-form/quote-calculation-totals'
 import { mapSavedItemsToMaterials } from '@/components/quote-form/quote-record-mappers'
 import { QuoteDeleteButton } from '@/components/quote-list/quote-delete-button'
+import { Card, SectionLabel } from '@/components/ui/card'
+import { Icons } from '@/components/ui/icons'
 
 interface QuoteDetailViewProps {
   quote: QuoteRecord
@@ -23,6 +26,31 @@ function jobberLineTotal(line: QuoteRecord['jobberQuoteLines'][number]): string 
   if (line.totalPrice) return new Decimal(line.totalPrice).toFixed(2)
   if (!line.quantity || !line.unitPrice) return null
   return new Decimal(line.quantity).mul(line.unitPrice).toFixed(2)
+}
+
+function quoteLineItemsTotal(lines: QuoteRecord['jobberQuoteLines']): Decimal {
+  return lines.reduce((total, line) => {
+    const lineTotal = jobberLineTotal(line)
+    return lineTotal ? total.add(lineTotal) : total
+  }, new Decimal(0))
+}
+
+function formatQuoteDate(value: string): string {
+  return new Intl.DateTimeFormat('en-AU', {
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(value))
+}
+
+function DRow({ label, mono, children }: { label: string; mono?: boolean; children: React.ReactNode }) {
+  return (
+    <div className="pbc-drow">
+      <dt>{label}</dt>
+      <dd className={mono ? 'mono' : ''}>{children}</dd>
+    </div>
+  )
 }
 
 export function QuoteDetailView({ quote }: QuoteDetailViewProps) {
@@ -67,158 +95,222 @@ export function QuoteDetailView({ quote }: QuoteDetailViewProps) {
     }
   })
 
-  return (
-    <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <Link href="/quotes" className="text-sm font-semibold text-slate-400 hover:text-[var(--primary)]">Back to Quotes</Link>
-          <h1 className="mt-1 text-3xl font-bold text-slate-950">{quote.customerName || 'Untitled Quote'}</h1>
-          <p className="mt-1 text-sm text-slate-500">{quote.customerAddress || 'No address'}</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Link href={`/quotes/${quote.id}/edit`} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50">
-            Edit
-          </Link>
-          <QuoteDeleteButton quoteId={quote.id} redirectToQuotes />
-        </div>
-      </div>
+  const finalSubtotal = areaBreakdown.finalSubtotal
+  const formulaDescriptions = getFormulaDescriptions(quote.pricingSettingsSnapshot)
+  const lineItemsTotal = quoteLineItemsTotal(quote.jobberQuoteLines)
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded-lg border border-white bg-white/90 p-5 shadow-[var(--shadow-soft)]">
-          <h2 className="text-sm font-bold uppercase text-slate-400">Summary</h2>
-          <dl className="mt-4 space-y-3 text-sm">
-            {quote.jobberQuoteId ? (
-              <div className="flex justify-between gap-4">
-                <dt className="text-slate-500">Jobber ID</dt>
-                <dd className="min-w-0 truncate font-mono text-slate-950">{quote.jobberQuoteId}</dd>
+  const formulaRows = [
+    { num: 1, label: 'F1', name: formulaDescriptions.formula1Name, total: quote.formula1Total },
+    { num: 2, label: 'F2', name: formulaDescriptions.formula2Name, total: quote.formula2Total },
+    { num: 3, label: 'F3', name: formulaDescriptions.formula3Name, total: quote.formula3Total },
+    { num: 4, label: 'F4', name: formulaDescriptions.formula4Name, total: quote.formula4Total },
+    { num: 5, label: 'F5', name: formulaDescriptions.formula5Name, total: quote.formula5Total },
+  ]
+
+  return (
+    <main>
+      <header className="pbc-topbar">
+        <div className="pbc-crumb">
+          <Link href="/quotes">Quotes</Link>
+          {Icons.arrowDown({ size: 14 })}
+          <b className="truncate">{quote.customerName || 'Untitled Quote'}</b>
+        </div>
+        <div className="pbc-topbar__right">
+          <span className="pbc-readonly">{Icons.lock({ size: 15 })} Read-only</span>
+          <Link href={`/quotes/${quote.id}/edit`} className="pbc-btn pbc-btn--ghost">
+            {Icons.edit({ size: 15 })} Edit quote
+          </Link>
+        </div>
+      </header>
+
+      <div className="pbc-page">
+        <div className="pbc-pagehead pbc-pagehead--detail">
+          <div className="min-w-0">
+            <Link href="/quotes" className="pbc-back">{Icons.back({ size: 15 })} Back to Quotes</Link>
+            <h1>{quote.customerName || 'Untitled Quote'}</h1>
+            <p className="pbc-detailaddr">{Icons.pin({ size: 15 })} {quote.customerAddress || 'No address'}</p>
+          </div>
+          <div className="pbc-detailtags">
+            <Link href={`/quotes/${quote.id}/edit`} className="pbc-btn pbc-btn--ghost">
+              {Icons.edit({ size: 15 })} Edit
+            </Link>
+            <QuoteDeleteButton quoteId={quote.id} redirectToQuotes />
+          </div>
+        </div>
+
+        <div className="pbc-dgrid">
+          {/* Summary */}
+          <Card>
+            <SectionLabel icon={Icons.user({ size: 16 })}>Summary</SectionLabel>
+            <dl className="pbc-dlist">
+              {quote.jobberQuoteId ? <DRow label="Jobber ID" mono>#{quote.jobberQuoteId}</DRow> : null}
+              {quote.workType ? <DRow label="Work type">{quote.workType}</DRow> : null}
+              <DRow label="Created by">{creatorName}</DRow>
+              <DRow label="Created on">{formatQuoteDate(quote.createdAt)}</DRow>
+              <DRow label="Total working days" mono>{quote.workingDays}</DRow>
+              <DRow label="Total man-days" mono>{quote.labourPerDay}</DRow>
+            </dl>
+            <div className="pbc-dexgst">
+              <span>Final subtotal ex GST</span>
+              <b className="mono">${finalSubtotal.toFixed(2)}</b>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+              <div className="flex justify-between gap-2">
+                <span className="text-[var(--muted)]">Interior</span>
+                <span className="mono font-semibold">${areaBreakdown.interior.subtotal.toFixed(2)}</span>
               </div>
-            ) : null}
-            {quote.workType ? (
-              <div className="flex justify-between"><dt className="text-slate-500">Work Type</dt><dd className="text-slate-950">{quote.workType}</dd></div>
-            ) : null}
-            <div className="flex justify-between gap-4"><dt className="text-slate-500">Created by</dt><dd className="min-w-0 truncate text-slate-950">{creatorName}</dd></div>
-            <div className="flex justify-between"><dt className="text-slate-500">Total Working Days</dt><dd className="font-mono text-slate-950">{quote.workingDays}</dd></div>
-            <div className="flex justify-between"><dt className="text-slate-500">Total Labour</dt><dd className="font-mono text-slate-950">{quote.labourPerDay}</dd></div>
-            <div className="rounded-lg bg-[var(--primary-soft)] px-4 py-3">
-              <dt className="text-xs font-bold uppercase text-[var(--primary)]">Final subtotal ex GST</dt>
-              <dd className="mt-1 font-mono text-3xl font-bold text-slate-950">${areaBreakdown.finalSubtotal.toFixed(2)}</dd>
-              <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
-                <div className="flex justify-between gap-2">
-                  <span className="text-slate-500">Interior</span>
-                  <span className="font-mono font-semibold text-slate-900">${areaBreakdown.interior.subtotal.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between gap-2">
-                  <span className="text-slate-500">Exterior</span>
-                  <span className="font-mono font-semibold text-slate-900">${areaBreakdown.exterior.subtotal.toFixed(2)}</span>
-                </div>
+              <div className="flex justify-between gap-2">
+                <span className="text-[var(--muted)]">Exterior</span>
+                <span className="mono font-semibold">${areaBreakdown.exterior.subtotal.toFixed(2)}</span>
               </div>
             </div>
-          </dl>
-        </section>
+          </Card>
 
-        <section className="rounded-lg border border-white bg-white/90 p-5 shadow-[var(--shadow-soft)]">
-          <h2 className="text-sm font-bold uppercase text-slate-400">Formula Results</h2>
-          <dl className="mt-4 space-y-3 text-sm">
-            {[
-              ['F1', quote.formula1Total],
-              ['F2', quote.formula2Total],
-              ['F3', quote.formula3Total],
-              ['F4', quote.formula4Total],
-              ['F5', quote.formula5Total],
-            ].map(([label, total], index) => {
-              const num = index + 1
-              const marker = quote.selectedMin === num ? 'MIN' : quote.selectedMax === num ? 'MAX' : ''
-              return (
-                <div key={label} className={`flex justify-between rounded-lg px-3 py-2 ${marker === 'MIN' ? 'bg-emerald-50' : marker === 'MAX' ? 'bg-rose-50' : 'bg-slate-50'}`}>
-                  <dt className="font-semibold text-slate-600">{label} {marker ? `- ${marker}` : ''}</dt>
-                  <dd className="font-mono font-semibold text-slate-950">${total}</dd>
-                </div>
-              )
-            })}
-          </dl>
-        </section>
-
-        {quote.jobberSnapshot ? (
-          <section className="rounded-lg border border-white bg-white/90 p-5 shadow-[var(--shadow-soft)] lg:col-span-2">
-            <h2 className="mb-4 text-sm font-bold uppercase text-slate-400">Jobber Data</h2>
-            <JobberQuoteSummary quote={quote.jobberSnapshot} />
-          </section>
-        ) : null}
-
-        <section className="rounded-lg border border-white bg-white/90 p-5 shadow-[var(--shadow-soft)] lg:col-span-2">
-          <h2 className="text-sm font-bold uppercase text-slate-400">Internal Memos</h2>
-          <div className="mt-4 space-y-3">
-            {quote.memos.length === 0 ? <p className="text-sm text-slate-500">No internal memos saved.</p> : null}
-            {quote.memos.map((memo, index) => (
-              <article key={memo.id} className="rounded-lg border border-slate-100 bg-slate-50 px-4 py-3">
-                <h3 className="text-xs font-bold uppercase text-slate-400">Memo {index + 1}</h3>
-                <p className="mt-2 whitespace-pre-line text-sm leading-6 text-slate-700">{memo.body}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="rounded-lg border border-white bg-white/90 p-5 shadow-[var(--shadow-soft)] lg:col-span-2">
-          <h2 className="text-sm font-bold uppercase text-slate-400">App Product / Service</h2>
-          <div className="mt-4 divide-y divide-slate-100">
-            {quote.jobberQuoteLines.length === 0 ? <p className="text-sm text-slate-500">No product or service lines saved.</p> : null}
-            {quote.jobberQuoteLines.map((line) => {
-              const total = jobberLineTotal(line)
-              return (
-                <div key={line.id} className="grid gap-3 py-4 text-sm md:grid-cols-[minmax(0,1fr)_8rem]">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="font-bold text-slate-950">{line.name}</h3>
-                      <span className="rounded-full bg-slate-50 px-2 py-0.5 text-xs font-semibold text-slate-500">
-                        {line.kind === 'text' ? 'Text' : 'Line item'}
-                      </span>
-                    </div>
-                    {line.description ? <p className="mt-2 whitespace-pre-line text-slate-600">{line.description}</p> : null}
-                  </div>
-                  <div className="font-mono text-slate-500 md:text-right">
-                    {line.kind === 'line_item' && total ? (
-                      <>
-                        <div>{line.quantity ?? '1'} x ${line.unitPrice ?? '0.00'}</div>
-                        <div className="mt-1 font-semibold text-slate-950">${total}</div>
-                      </>
+          {/* Formula results */}
+          <Card>
+            <SectionLabel
+              icon={Icons.layers({ size: 16 })}
+              aside={<span className="pbc-chip">Range F{quote.selectedMin}–F{quote.selectedMax}</span>}
+            >
+              Formula results
+            </SectionLabel>
+            <div className="pbc-dformulas">
+              {formulaRows.map((row) => {
+                const mark = quote.selectedMin === row.num ? 'lo' : quote.selectedMax === row.num ? 'hi' : ''
+                return (
+                  <div key={row.label} className={`pbc-dformula ${mark ? 'pbc-dformula--' + mark : ''}`}>
+                    <span className="pbc-dformula__code">{row.label}</span>
+                    <span className="pbc-dformula__short">{row.name}</span>
+                    {mark ? (
+                      <span className={`pbc-dformula__mark pbc-dformula__mark--${mark}`}>{mark === 'lo' ? 'LOW' : 'HIGH'}</span>
                     ) : (
-                      <span className="text-xs font-sans font-semibold text-slate-400">Description only</span>
+                      <span />
                     )}
+                    <span className="mono pbc-dformula__amt">${row.total}</span>
                   </div>
+                )
+              })}
+              {quote.jobberQuoteLines.length > 0 ? (
+                <div className="pbc-dlines__total">
+                  <span>Line items subtotal</span>
+                  <b className="mono">${lineItemsTotal.toFixed(2)}</b>
                 </div>
-              )
-            })}
-          </div>
-        </section>
+              ) : null}
+            </div>
+          </Card>
 
-        <section className="rounded-lg border border-white bg-white/90 p-5 shadow-[var(--shadow-soft)] lg:col-span-2">
-          <h2 className="text-sm font-bold uppercase text-slate-400">Materials</h2>
-          <div className="mt-4 divide-y divide-slate-100">
-            {quote.items.length === 0 ? <p className="text-sm text-slate-500">No materials saved.</p> : null}
-            {quote.items.map((item) => (
-              <div key={item.id} className="flex justify-between py-3 text-sm">
-                <span className="text-slate-950">
-                  {item.productNameSnapshot}
-                  {item.areaNameSnapshot ? <span className="ml-2 text-xs text-slate-500">{item.areaNameSnapshot}</span> : null}
-                  {item.workingDays && item.labourPerDay ? (
-                    <span className="ml-2 text-xs text-slate-500">{item.workingDays} days x {item.labourPerDay} labour</span>
-                  ) : null}
-                </span>
-                <span className="font-mono text-slate-500">{item.quantity} x ${item.marketPriceSnapshot}</span>
+          {/* Jobber data */}
+          {quote.jobberSnapshot ? (
+            <Card className="pbc-dspan">
+              <SectionLabel icon={Icons.template({ size: 16 })}>Jobber Data</SectionLabel>
+              <JobberQuoteSummary quote={quote.jobberSnapshot} />
+            </Card>
+          ) : null}
+
+          {/* Internal memos */}
+          <Card className="pbc-dspan">
+            <SectionLabel
+              icon={Icons.edit({ size: 16 })}
+              aside={quote.memos.length ? <span className="pbc-chip">{quote.memos.length} memos</span> : undefined}
+            >
+              Internal Memos
+            </SectionLabel>
+            <div className="space-y-3">
+              {quote.memos.length === 0 ? <p className="pbc-empty">No internal memos saved.</p> : null}
+              {quote.memos.map((memo, index) => (
+                <article key={memo.id} className="pbc-dmemo">
+                  <h3>Memo {index + 1}</h3>
+                  <p>{memo.body}</p>
+                </article>
+              ))}
+            </div>
+          </Card>
+
+          {/* Product / service lines */}
+          <Card className="pbc-dspan">
+            <SectionLabel
+              icon={Icons.template({ size: 16 })}
+              aside={<span className="pbc-chip">{quote.jobberQuoteLines.length} items</span>}
+            >
+              App Product / Service
+            </SectionLabel>
+            <div className="pbc-dlines">
+              {quote.jobberQuoteLines.length === 0 ? <p className="pbc-empty">No product or service lines saved.</p> : null}
+              {quote.jobberQuoteLines.map((line) => {
+                const total = jobberLineTotal(line)
+                return (
+                  <div className="pbc-dline" key={line.id}>
+                    <div className="min-w-0">
+                      <span className="pbc-dline__name">
+                        {line.name}
+                        <span className={`pbc-titem__tag ${line.kind === 'text' ? 'pbc-titem__tag--text' : ''}`}>
+                          {line.kind === 'text' ? 'TEXT' : 'LINE'}
+                        </span>
+                      </span>
+                      {line.description ? <p className="pbc-dline__desc">{line.description}</p> : null}
+                    </div>
+                    <div className="pbc-dline__price mono">
+                      {line.kind === 'line_item' && total ? (
+                        <>
+                          <span>{line.quantity ?? '1'} x ${line.unitPrice ?? '0.00'}</span>
+                          <b>${total}</b>
+                        </>
+                      ) : (
+                        <i>Description only</i>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </Card>
+
+          {/* Materials */}
+          <Card className="pbc-dspan">
+            <SectionLabel
+              icon={Icons.palette({ size: 16 })}
+              aside={<span className="pbc-chip">{quote.items.length} materials</span>}
+            >
+              Materials
+            </SectionLabel>
+            <div className="pbc-dmats">
+              {quote.items.length === 0 ? <p className="pbc-empty">No materials saved.</p> : null}
+              {quote.items.map((item) => (
+                <div className="pbc-dmat" key={item.id}>
+                  <span className="pbc-swatch pbc-swatch--sm" data-base={item.productNameSnapshot} />
+                  <span className="pbc-dmat__main">
+                    <span className="pbc-dmat__name">{item.productNameSnapshot}</span>
+                    <span className="pbc-dmat__meta">
+                      {item.areaNameSnapshot ?? 'No area'}
+                      {item.workingDays && item.labourPerDay ? ` - ${item.workingDays} days x ${item.labourPerDay} labour` : ''}
+                    </span>
+                  </span>
+                  <span className="pbc-dmat__qty mono">{item.quantity} x ${item.marketPriceSnapshot}</span>
+                  <span className="pbc-dmat__line mono">${new Decimal(item.marketPriceSnapshot).mul(item.quantity).toFixed(2)}</span>
+                </div>
+              ))}
+              <div className="pbc-dlines__total">
+                <span>Material total (RRP)</span>
+                <b className="mono">${materialTotal.toFixed(2)}</b>
               </div>
-            ))}
-          </div>
-        </section>
+            </div>
+          </Card>
 
-        <section className="rounded-lg border border-white bg-white/90 p-5 shadow-[var(--shadow-soft)] lg:col-span-2">
+          {/* Final summary */}
           <FinalSummary
             labourTotal={labourTotal}
             materialTotal={materialTotal}
             areaBreakdown={areaBreakdown}
             jobberFinancialSummary={jobberFinancialSummary}
+            className="pbc-dspan"
           />
-          <OptionTotalsSummary options={optionSummaries} />
-        </section>
+
+          {optionSummaries.length ? (
+            <Card className="pbc-dspan">
+              <OptionTotalsSummary options={optionSummaries} />
+            </Card>
+          ) : null}
+        </div>
       </div>
     </main>
   )
