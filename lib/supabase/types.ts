@@ -279,6 +279,32 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['quote_memos']['Insert']>
         Relationships: []
       }
+      quote_price_revisions: {
+        Row: {
+          id: string
+          quote_id: string
+          revision_number: number
+          event_type: 'created' | 'updated'
+          previous_subtotal: string | null
+          previous_final_total: string | null
+          new_subtotal: string
+          new_final_total: string
+          previous_jobber_lines_total: string | null
+          new_jobber_lines_total: string | null
+          previous_options_subtotal: string | null
+          new_options_subtotal: string | null
+          previous_options_final_total: string | null
+          new_options_final_total: string | null
+          changed_by: string | null
+          changed_at: string
+        }
+        Insert: Omit<Database['public']['Tables']['quote_price_revisions']['Row'], 'id' | 'changed_at'> & {
+          id?: string
+          changed_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['quote_price_revisions']['Insert']>
+        Relationships: []
+      }
       jobber_quote_lines: {
         Row: {
           id: string

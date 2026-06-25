@@ -33,6 +33,26 @@ describe('Jobber quote line validators', () => {
     expect(parsed.unitPrice).toBeUndefined()
   })
 
+  it('accepts public line descriptions up to the Product Service catalog limit', () => {
+    const parsed = jobberQuoteLineSchema.parse({
+      kind: 'text',
+      name: 'Long public terms',
+      description: 'a'.repeat(4000),
+    })
+
+    expect(parsed.description).toHaveLength(4000)
+  })
+
+  it('rejects public line descriptions over the Product Service catalog limit', () => {
+    const parsed = jobberQuoteLineSchema.safeParse({
+      kind: 'text',
+      name: 'Too long public terms',
+      description: 'a'.repeat(4001),
+    })
+
+    expect(parsed).toMatchObject({ success: false })
+  })
+
   it('rejects invalid save modes and negative public prices', () => {
     expect(jobberSaveModeSchema.safeParse('material_breakdown')).toMatchObject({ success: false })
     expect(jobberQuoteLineSchema.safeParse({

@@ -7,6 +7,7 @@ import {
 } from '@/lib/dev-data'
 import {
   calculateAllFormulas,
+  DEFAULT_PRICING_SETTINGS,
   calculateFinal,
   calculateRoofFormulaResults,
   calculateRoofSubtotal,
@@ -40,6 +41,7 @@ type QuoteItemRow = Database['public']['Tables']['quote_items']['Row']
 type QuoteOptionRow = Database['public']['Tables']['quote_options']['Row']
 type QuoteOptionItemRow = Database['public']['Tables']['quote_option_items']['Row']
 type QuoteMemoRow = Database['public']['Tables']['quote_memos']['Row']
+type QuotePriceRevisionRow = Database['public']['Tables']['quote_price_revisions']['Row']
 type JobberQuoteLineRow = {
   id: string
   quote_id: string
@@ -65,7 +67,22 @@ type QuoteWithItemsRow = QuoteRow & {
   jobber_quote_lines?: JobberQuoteLineRow[]
   quote_options?: QuoteOptionWithItemsRow[]
   quote_memos?: QuoteMemoRow[]
+  quote_price_revisions?: QuotePriceRevisionRow[]
 }
+type QuoteListRow = Pick<
+  QuoteRow,
+  | 'id'
+  | 'customer_name'
+  | 'customer_address'
+  | 'jobber_quote_id'
+  | 'work_type'
+  | 'working_days'
+  | 'labour_per_day'
+  | 'subtotal'
+  | 'final_total'
+  | 'created_by'
+  | 'created_at'
+> & Partial<Pick<QuoteRow, 'jobber_save_mode' | 'jobber_sync_status' | 'jobber_last_synced_at' | 'jobber_sync_error'>>
 
 function money(value: { toFixed(decimalPlaces: number): string } | number): string {
   return typeof value === 'number' ? value.toFixed(2) : value.toFixed(2)
@@ -150,9 +167,56 @@ function parseJobberSnapshot(value: unknown): JobberQuoteDraft | null {
   return parsed.success ? parsed.data : null
 }
 
-function parsePricingSettingsSnapshot(value: unknown): PricingSettings | null {
+function normalizePricingSettingsSnapshot(
+  value: unknown,
+  fallback: PricingSettings = DEFAULT_PRICING_SETTINGS
+): PricingSettings {
   const parsed = pricingSettingsSchema.safeParse(value)
-  return parsed.success ? parsed.data : null
+  if (parsed.success) return parsed.data
+
+  const partialParsed = pricingSettingsSchema.partial().safeParse(value)
+  if (!partialParsed.success) return fallback
+
+  return {
+    ...fallback,
+    ...partialParsed.data,
+  }
+}
+
+function calculateJobberQuoteLinesTotal(lines: JobberQuoteLineInput[]): Decimal | null {
+  if (lines.length === 0) return null
+
+  return lines.reduce((total, line) => {
+    const lineTotal = calculateJobberLineTotal(line)
+    return lineTotal === undefined ? total : total.add(lineTotal)
+  }, new Decimal(0))
+}
+
+function calculateQuoteOptionsTotal(
+  options: QuoteInput['options'],
+  settings: PricingSettings,
+  field: 'subtotal' | 'finalTotal'
+): Decimal | null {
+  if (options.length === 0) return null
+
+  return options.reduce((total, option) => {
+    const calculated = calculateOption(option, settings)
+    return total.add(field === 'subtotal' ? calculated.subtotal : calculated.finalTotal)
+  }, new Decimal(0))
+}
+
+function sumSavedQuoteOptionsTotal(
+  options: unknown,
+  column: 'subtotal' | 'final_total'
+): string | null {
+  if (!Array.isArray(options) || options.length === 0) return null
+
+  return options.reduce((sum, row) => {
+    const value = typeof row === 'object' && row !== null && column in row
+      ? (row as Record<string, unknown>)[column]
+      : 0
+    return sum.add(decimalText(value))
+  }, new Decimal(0)).toFixed(2)
 }
 
 function isMissingRelationError(error: { message?: string } | null, relationNames: string[]): boolean {
@@ -174,11 +238,13 @@ function isMissingLegacyDetailRelationError(error: { message?: string } | null):
   return isMissingRelationError(error, ['quote_options', 'quote_option_items', 'jobber_quote_lines'])
 }
 
-function toQuoteRecord(row: QuoteWithItemsRow, creatorProfile?: UserProfile): QuoteRecord {
+function toQuoteRecord(row: QuoteWithItemsRow, userProfiles: Map<string, UserProfile> = new Map()): QuoteRecord {
   const quoteItems = [...(row.quote_items ?? [])].sort((a, b) => a.position - b.position)
   const jobberQuoteLines = [...(row.jobber_quote_lines ?? [])].sort((a, b) => a.position - b.position)
   const quoteOptions = [...(row.quote_options ?? [])].sort((a, b) => a.position - b.position)
   const quoteMemos = [...(row.quote_memos ?? [])].sort((a, b) => a.position - b.position)
+  const priceRevisions = [...(row.quote_price_revisions ?? [])].sort((a, b) => a.revision_number - b.revision_number)
+  const creatorProfile = userProfiles.get(row.created_by)
   const displayLabour = calculateDisplayLabourTotals(
     row.working_days,
     row.labour_per_day,
@@ -214,7 +280,7 @@ function toQuoteRecord(row: QuoteWithItemsRow, creatorProfile?: UserProfile): Qu
     exteriorSelectedMax: formulaNumber(row.exterior_selected_max, selectedMax),
     subtotal: decimalText(row.subtotal),
     finalTotal: decimalText(row.final_total),
-    pricingSettingsSnapshot: row.pricing_settings_snapshot as never,
+    pricingSettingsSnapshot: normalizePricingSettingsSnapshot(row.pricing_settings_snapshot),
     createdAt: row.created_at,
     createdBy: row.created_by,
     createdByName: creatorProfile?.displayName ?? null,
@@ -305,6 +371,67 @@ function toQuoteRecord(row: QuoteWithItemsRow, creatorProfile?: UserProfile): Qu
       updatedAt: memo.updated_at,
       createdBy: memo.created_by,
     })),
+    priceRevisions: priceRevisions.map((revision) => {
+      const changedByProfile = revision.changed_by ? userProfiles.get(revision.changed_by) : undefined
+
+      return {
+        id: revision.id,
+        quoteId: revision.quote_id,
+        revisionNumber: revision.revision_number,
+        eventType: revision.event_type,
+        previousSubtotal: optionalDecimalText(revision.previous_subtotal),
+        previousFinalTotal: optionalDecimalText(revision.previous_final_total),
+        newSubtotal: decimalText(revision.new_subtotal),
+        newFinalTotal: decimalText(revision.new_final_total),
+        previousJobberLinesTotal: optionalDecimalText(revision.previous_jobber_lines_total),
+        newJobberLinesTotal: optionalDecimalText(revision.new_jobber_lines_total),
+        previousOptionsSubtotal: optionalDecimalText(revision.previous_options_subtotal),
+        newOptionsSubtotal: optionalDecimalText(revision.new_options_subtotal),
+        previousOptionsFinalTotal: optionalDecimalText(revision.previous_options_final_total),
+        newOptionsFinalTotal: optionalDecimalText(revision.new_options_final_total),
+        changedBy: revision.changed_by,
+        changedByName: changedByProfile?.displayName ?? null,
+        changedByEmail: changedByProfile?.email ?? null,
+        changedAt: revision.changed_at,
+      }
+    }),
+  }
+}
+
+function toQuoteListRecord(row: QuoteListRow): QuoteRecord {
+  return {
+    id: row.id,
+    customerName: row.customer_name,
+    customerAddress: row.customer_address,
+    jobberQuoteId: row.jobber_quote_id,
+    jobberSnapshot: null,
+    jobberSaveMode: row.jobber_save_mode ?? null,
+    jobberSyncStatus: row.jobber_sync_status ?? 'not_synced',
+    jobberLastSyncedAt: row.jobber_last_synced_at ?? null,
+    jobberSyncError: row.jobber_sync_error ?? null,
+    areaSqft: null,
+    workType: row.work_type,
+    workingDays: decimalText(row.working_days),
+    labourPerDay: decimalText(row.labour_per_day),
+    formula1Total: '0.00',
+    formula2Total: '0.00',
+    formula3Total: '0.00',
+    formula4Total: '0.00',
+    formula5Total: '0.00',
+    selectedMin: 1,
+    selectedMax: 1,
+    subtotal: decimalText(row.subtotal),
+    finalTotal: decimalText(row.final_total),
+    pricingSettingsSnapshot: DEFAULT_PRICING_SETTINGS,
+    createdAt: row.created_at,
+    createdBy: row.created_by,
+    createdByName: null,
+    createdByEmail: null,
+    items: [],
+    jobberQuoteLines: [],
+    options: [],
+    memos: [],
+    priceRevisions: [],
   }
 }
 
@@ -465,6 +592,33 @@ async function deleteCreatedQuote(
   await supabase.from('quotes').delete().eq('id', quoteId)
 }
 
+async function insertQuotePriceRevision(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  row: Database['public']['Tables']['quote_price_revisions']['Insert']
+): Promise<string | null> {
+  const { error } = await supabase
+    .from('quote_price_revisions')
+    .insert(row)
+
+  return error?.message ?? null
+}
+
+async function getNextQuotePriceRevisionNumber(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  quoteId: string
+): Promise<ActionResult<number>> {
+  const { data, error } = await supabase
+    .from('quote_price_revisions')
+    .select('revision_number')
+    .eq('quote_id', quoteId)
+    .order('revision_number', { ascending: false })
+    .limit(1)
+
+  if (error) return { ok: false, error: error.message }
+  const latest = Array.isArray(data) ? data[0]?.revision_number : undefined
+  return { ok: true, data: typeof latest === 'number' ? latest + 1 : 1 }
+}
+
 async function scheduleSavedQuoteToJobber(
   params: Parameters<typeof syncSavedQuoteToJobber>[0],
   revalidatePaths: string[]
@@ -562,6 +716,27 @@ export async function createQuote(input: unknown): Promise<ActionResult<{ id: st
 
   if (quoteError) return { ok: false, error: quoteError.message }
 
+  const createdRevisionError = await insertQuotePriceRevision(supabase, {
+    quote_id: quote.id,
+    revision_number: 1,
+    event_type: 'created',
+    previous_subtotal: null,
+    previous_final_total: null,
+    new_subtotal: money(subtotal),
+    new_final_total: money(finalTotal),
+    previous_jobber_lines_total: null,
+    new_jobber_lines_total: optionalMoney(calculateJobberQuoteLinesTotal(parsed.data.jobberQuoteLines) ?? undefined),
+    previous_options_subtotal: null,
+    new_options_subtotal: optionalMoney(calculateQuoteOptionsTotal(parsed.data.options, settingsResult.data, 'subtotal') ?? undefined),
+    previous_options_final_total: null,
+    new_options_final_total: optionalMoney(calculateQuoteOptionsTotal(parsed.data.options, settingsResult.data, 'finalTotal') ?? undefined),
+    changed_by: userData.user.id,
+  })
+  if (createdRevisionError) {
+    await deleteCreatedQuote(supabase, quote.id)
+    return { ok: false, error: createdRevisionError }
+  }
+
   const items = parsed.data.items.map((item, index) => ({
     quote_id: quote.id,
     product_id: item.productId ?? null,
@@ -646,14 +821,20 @@ export async function updateQuote(input: unknown): Promise<ActionResult<{ id: st
 
   const { data: existingQuote, error: existingQuoteError } = await supabase
     .from('quotes')
-    .select('pricing_settings_snapshot')
+    .select('pricing_settings_snapshot, subtotal, final_total, quote_options(subtotal, final_total)')
     .eq('id', id)
     .single()
   if (existingQuoteError) return { ok: false, error: existingQuoteError.message }
+  const existingQuoteRow = existingQuote as unknown as {
+    pricing_settings_snapshot: unknown
+    subtotal: unknown
+    final_total: unknown
+    quote_options?: unknown
+  }
 
   const fallbackSettings = await getPricingSettings()
   if (!fallbackSettings.ok) return fallbackSettings
-  const settings = parsePricingSettingsSnapshot(existingQuote.pricing_settings_snapshot) ?? fallbackSettings.data
+  const settings = normalizePricingSettingsSnapshot(existingQuoteRow.pricing_settings_snapshot, fallbackSettings.data)
 
   const formulas = calculateAllFormulas(
     {
@@ -668,6 +849,16 @@ export async function updateQuote(input: unknown): Promise<ActionResult<{ id: st
   const subtotal = calculateMainQuoteSubtotal(parsed.data, formulas, settings)
   const finalTotal = calculateFinal(subtotal)
   const displayLabour = calculateDisplayLabourTotals(parsed.data.workingDays, parsed.data.labourPerDay, parsed.data.items)
+  const previousOptionsSubtotal = sumSavedQuoteOptionsTotal(
+    existingQuoteRow.quote_options,
+    'subtotal'
+  )
+  const previousOptionsFinalTotal = sumSavedQuoteOptionsTotal(
+    existingQuoteRow.quote_options,
+    'final_total'
+  )
+  const newOptionsSubtotal = optionalMoney(calculateQuoteOptionsTotal(parsed.data.options, settings, 'subtotal') ?? undefined)
+  const newOptionsFinalTotal = optionalMoney(calculateQuoteOptionsTotal(parsed.data.options, settings, 'finalTotal') ?? undefined)
 
   const { error: quoteError } = await supabase
     .from('quotes')
@@ -703,6 +894,38 @@ export async function updateQuote(input: unknown): Promise<ActionResult<{ id: st
     .eq('id', id)
 
   if (quoteError) return { ok: false, error: quoteError.message }
+
+  const previousSubtotal = decimalText(existingQuoteRow.subtotal)
+  const previousFinalTotal = decimalText(existingQuoteRow.final_total)
+  const newSubtotal = money(subtotal)
+  const newFinalTotal = money(finalTotal)
+  if (
+    previousSubtotal !== newSubtotal ||
+    previousFinalTotal !== newFinalTotal ||
+    previousOptionsSubtotal !== newOptionsSubtotal ||
+    previousOptionsFinalTotal !== newOptionsFinalTotal
+  ) {
+    const nextRevisionNumber = await getNextQuotePriceRevisionNumber(supabase, id)
+    if (!nextRevisionNumber.ok) return nextRevisionNumber
+
+    const revisionError = await insertQuotePriceRevision(supabase, {
+      quote_id: id,
+      revision_number: nextRevisionNumber.data,
+      event_type: 'updated',
+      previous_subtotal: previousSubtotal,
+      previous_final_total: previousFinalTotal,
+      new_subtotal: newSubtotal,
+      new_final_total: newFinalTotal,
+      previous_jobber_lines_total: null,
+      new_jobber_lines_total: optionalMoney(calculateJobberQuoteLinesTotal(parsed.data.jobberQuoteLines) ?? undefined),
+      previous_options_subtotal: previousOptionsSubtotal,
+      new_options_subtotal: newOptionsSubtotal,
+      previous_options_final_total: previousOptionsFinalTotal,
+      new_options_final_total: newOptionsFinalTotal,
+      changed_by: userData.user.id,
+    })
+    if (revisionError) return { ok: false, error: revisionError }
+  }
 
   const { error: deleteItemsError } = await supabase.from('quote_items').delete().eq('quote_id', id)
   if (deleteItemsError) return { ok: false, error: deleteItemsError.message }
@@ -794,7 +1017,6 @@ export async function searchQuotes(query = ''): Promise<ActionResult<QuoteRecord
     .from('quotes')
     .select(QUOTES_LIST_SELECT)
     .order('created_at', { ascending: false })
-    .limit(20)
 
   if (query.trim()) {
     request = request.ilike('customer_name', `%${query.trim()}%`)
@@ -802,13 +1024,12 @@ export async function searchQuotes(query = ''): Promise<ActionResult<QuoteRecord
 
   const { data, error } = await request
   if (error) return { ok: false, error: error.message }
-  const rows = data as unknown as QuoteWithItemsRow[] | null
+  const rows = data as unknown as QuoteListRow[] | null
   const quoteRows = rows ?? []
-  const creatorProfiles = await getAuthUserProfilesById(quoteRows.map((row) => row.created_by))
 
   return {
     ok: true,
-    data: quoteRows.map((row) => toQuoteRecord(row, creatorProfiles.get(row.created_by))),
+    data: quoteRows.map(toQuoteListRecord),
   }
 }
 
@@ -1011,8 +1232,16 @@ export async function getQuote(id: string): Promise<ActionResult<QuoteRecord | n
     }
   }
 
+  const profileIds = row
+    ? [
+        row.created_by,
+        ...(row.quote_price_revisions ?? []).map((revision) => revision.changed_by).filter((id): id is string => typeof id === 'string'),
+      ]
+    : []
+  const profiles = await getAuthUserProfilesById(profileIds)
+
   return {
     ok: true,
-    data: row ? toQuoteRecord(row, (await getAuthUserProfilesById([row.created_by])).get(row.created_by)) : null,
+    data: row ? toQuoteRecord(row, profiles) : null,
   }
 }

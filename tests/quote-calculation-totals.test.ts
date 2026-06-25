@@ -87,8 +87,8 @@ describe('quote calculation totals', () => {
     expect(breakdown.roof.results).toHaveLength(5)
     expect(breakdown.roof.selectedMin).toBe(1)
     expect(breakdown.roof.selectedMax).toBe(3)
-    expect(breakdown.roof.subtotal.toFixed(2)).toBe('1725.00')
-    expect(breakdown.finalSubtotal.toFixed(2)).toBe('4525.00')
+    expect(breakdown.roof.subtotal.toFixed(2)).toBe('1821.43')
+    expect(breakdown.finalSubtotal.toFixed(2)).toBe('4621.43')
     expect(breakdown.unassigned.count).toBe(1)
   })
 
@@ -107,9 +107,9 @@ describe('quote calculation totals', () => {
 
     expect(totals.areaBreakdown.interior.selectedMin).toBe(5)
     expect(totals.areaBreakdown.interior.selectedMax).toBe(5)
-    expect(totals.areaBreakdown.interior.subtotal.toFixed(2)).toBe('1118.00')
+    expect(totals.areaBreakdown.interior.subtotal.toFixed(2)).toBe('1228.57')
     expect(totals.areaBreakdown.exterior.subtotal.toFixed(2)).toBe('1700.00')
-    expect(totals.areaBreakdown.finalSubtotal.toFixed(2)).toBe('2818.00')
+    expect(totals.areaBreakdown.finalSubtotal.toFixed(2)).toBe('2928.57')
   })
 
   it('keeps the existing overall main subtotal and includes area breakdown', () => {

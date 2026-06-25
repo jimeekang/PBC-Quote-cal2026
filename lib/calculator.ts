@@ -74,31 +74,37 @@ function validateInput(input: CalculatorInput): void {
   if (ma.lt(0)) throw new ValidationError('Material actual price cannot be negative')
 }
 
+function applyMargin(amount: Decimal, marginValue: Decimal | number): Decimal {
+  const margin = toDecimal(marginValue)
+  if (margin.gte(1)) throw new ValidationError('Margin must be less than 100%')
+  return amount.div(new Decimal(1).sub(margin))
+}
+
 // formula_1 = f1_labour_rate × D + material_market
 function formula1(D: Decimal, mm: Decimal, s: PricingSettings): Decimal {
   return toDecimal(s.f1LabourRate).mul(D).add(mm)
 }
 
-// formula_2 = (f2_labour_rate × D × (1 + f2_margin)) + material_market
+// formula_2 = (f2_labour_rate × D / (1 - f2_margin)) + material_market
 function formula2(D: Decimal, mm: Decimal, s: PricingSettings): Decimal {
-  const labour = toDecimal(s.f2LabourRate).mul(D).mul(toDecimal(s.f2Margin).add(1))
+  const labour = applyMargin(toDecimal(s.f2LabourRate).mul(D), s.f2Margin)
   return labour.add(mm)
 }
 
-// formula_3 = (f3_labour_rate × D + material_market) × (1 + f3_margin)
+// formula_3 = (f3_labour_rate × D + material_market) / (1 - f3_margin)
 function formula3(D: Decimal, mm: Decimal, s: PricingSettings): Decimal {
-  return toDecimal(s.f3LabourRate).mul(D).add(mm).mul(toDecimal(s.f3Margin).add(1))
+  return applyMargin(toDecimal(s.f3LabourRate).mul(D).add(mm), s.f3Margin)
 }
 
-// formula_4 = (f4_labour_rate × D × (1 + f4_margin)) + material_market
+// formula_4 = (f4_labour_rate × D / (1 - f4_margin)) + material_market
 function formula4(D: Decimal, mm: Decimal, s: PricingSettings): Decimal {
-  const labour = toDecimal(s.f4LabourRate).mul(D).mul(toDecimal(s.f4Margin).add(1))
+  const labour = applyMargin(toDecimal(s.f4LabourRate).mul(D), s.f4Margin)
   return labour.add(mm)
 }
 
-// formula_5 = (f5_labour_rate × D + material_market) × (1 + f5_margin)
+// formula_5 = (f5_labour_rate × D + material_market) / (1 - f5_margin)
 function formula5(D: Decimal, mm: Decimal, s: PricingSettings): Decimal {
-  return toDecimal(s.f5LabourRate).mul(D).add(mm).mul(toDecimal(s.f5Margin).add(1))
+  return applyMargin(toDecimal(s.f5LabourRate).mul(D).add(mm), s.f5Margin)
 }
 
 export function calculateAllFormulas(

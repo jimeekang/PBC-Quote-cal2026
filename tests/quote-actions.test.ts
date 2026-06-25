@@ -153,8 +153,8 @@ describe('quote actions', () => {
       expect(fetched.data.interiorSelectedMax).toBe(5)
       expect(fetched.data.exteriorSelectedMin).toBe(1)
       expect(fetched.data.exteriorSelectedMax).toBe(1)
-      expect(fetched.data.subtotal).toBe('2818.00')
-      expect(fetched.data.finalTotal).toBe('3099.80')
+      expect(fetched.data.subtotal).toBe('2928.57')
+      expect(fetched.data.finalTotal).toBe('3221.43')
     }
   })
 

@@ -49,33 +49,28 @@ describe('calculateAllFormulas', () => {
     expect(f1.total.toFixed(2)).toBe('2842.50')
   })
 
-  it('formula2: (f2_rate × D × 1.30) + material_market', () => {
+  it('formula2: (f2_rate × D / 0.70) + material_market', () => {
     const results = calculateAllFormulas(base, s)
     const f2 = results[1]
-    // (460 × 5 × 1.30) + 342.50 = 2990 + 342.50 = 3332.50... wait
-    // 460 × 5 = 2300, × 1.30 = 2990, + 342.50 = 3332.50
-    expect(f2.total.toFixed(2)).toBe('3332.50')
+    expect(f2.total.toFixed(2)).toBe('3628.21')
   })
 
-  it('formula3: (f3_rate × D + material_market) × 1.30', () => {
+  it('formula3: (f3_rate × D + material_market) / 0.70', () => {
     const results = calculateAllFormulas(base, s)
     const f3 = results[2]
-    // (460 × 5 + 342.50) × 1.30 = (2300 + 342.50) × 1.30 = 2642.50 × 1.30 = 3435.25
-    expect(f3.total.toFixed(2)).toBe('3435.25')
+    expect(f3.total.toFixed(2)).toBe('3775.00')
   })
 
-  it('formula4: (f4_rate × D × 1.25) + material_market', () => {
+  it('formula4: (f4_rate × D / 0.75) + material_market', () => {
     const results = calculateAllFormulas(base, s)
     const f4 = results[3]
-    // (380 × 5 × 1.25) + 342.50 = 2375 + 342.50 = 2717.50
-    expect(f4.total.toFixed(2)).toBe('2717.50')
+    expect(f4.total.toFixed(2)).toBe('2875.83')
   })
 
-  it('formula5: (f5_rate × D + material_market) × 1.30', () => {
+  it('formula5: (f5_rate × D + material_market) / 0.70', () => {
     const results = calculateAllFormulas(base, s)
     const f5 = results[4]
-    // (380 × 5 + 342.50) × 1.30 = 2242.50 × 1.30 = 2915.25
-    expect(f5.total.toFixed(2)).toBe('2915.25')
+    expect(f5.total.toFixed(2)).toBe('3203.57')
   })
 
   it('accepts Decimal inputs', () => {
@@ -115,7 +110,7 @@ describe('calculateAllFormulas', () => {
   it('multiplies working days by labour per day before applying formula rates', () => {
     const results = calculateAllFormulas({ ...base, labourPerDay: 2 }, s)
     expect(results[0].total.toFixed(2)).toBe('5342.50')
-    expect(results[3].total.toFixed(2)).toBe('5092.50')
+    expect(results[3].total.toFixed(2)).toBe('5409.17')
   })
 
   it('works with zero material', () => {
@@ -140,6 +135,15 @@ describe('calculateAllFormulas', () => {
     expect(() => calculateAllFormulas({ ...base, materialActual: -1 }, s)).toThrow(ValidationError)
   })
 
+  it('throws ValidationError when a margin is 100% or higher', () => {
+    expect(() => calculateAllFormulas({
+      ...base,
+    }, {
+      ...s,
+      f2Margin: 1,
+    })).toThrow(ValidationError)
+  })
+
 })
 
 describe('calculateSubtotal', () => {
@@ -153,7 +157,7 @@ describe('calculateSubtotal', () => {
   it('averages min and max formula', () => {
     const subtotal = calculateSubtotal(results, 4, 1)
     // (2717.50 + 2842.50) / 2 = 2780.00
-    expect(subtotal.toFixed(2)).toBe('2780.00')
+    expect(subtotal.toFixed(2)).toBe('2859.17')
   })
 
   it('returns single value when min === max', () => {
@@ -194,10 +198,10 @@ describe('calculateRoofSubtotal', () => {
 
     expect(results.map((result) => result.total.toFixed(2))).toEqual([
       '1500.00',
-      '1920.00',
-      '1950.00',
-      '1850.00',
-      '1950.00',
+      '2100.00',
+      '2142.86',
+      '1966.67',
+      '2142.86',
     ])
   })
 
@@ -210,7 +214,7 @@ describe('calculateRoofSubtotal', () => {
       roofLabourRate: 700,
     }, 1, 3)
 
-    expect(subtotal.toFixed(2)).toBe('1725.00')
+    expect(subtotal.toFixed(2)).toBe('1821.43')
   })
 
   it('throws ValidationError for negative roof labour days', () => {

@@ -51,8 +51,8 @@ formula_1 = f1_labour_rate × D + material_market
 ### 공식 2: L460 / 인건비 30% Margin / Market
 
 ```
-formula_2 = (f2_labour_rate × D × (1 + f2_margin)) + material_market
-         = (460 × D × 1.30) + material_market
+formula_2 = (f2_labour_rate × D / (1 - f2_margin)) + material_market
+         = (460 × D / 0.70) + material_market
 ```
 
 **의도:** 인건비에만 마진을 얹는 전략. 자재가가 이미 충분히 높을 때.
@@ -62,8 +62,8 @@ formula_2 = (f2_labour_rate × D × (1 + f2_margin)) + material_market
 ### 공식 3: L460 & Market / 총액 30% Margin
 
 ```
-formula_3 = (f3_labour_rate × D + material_market) × (1 + f3_margin)
-         = (460 × D + material_market) × 1.30
+formula_3 = (f3_labour_rate × D + material_market) / (1 - f3_margin)
+         = (460 × D + material_market) / 0.70
 ```
 
 **의도:** 총액 기반 마진. 공식 2와 일당 같지만 적용 방식이 다름 (인건비만 vs 총액).
@@ -71,8 +71,8 @@ formula_3 = (f3_labour_rate × D + material_market) × (1 + f3_margin)
 ### 공식 4: L380 / 인건비 25% Margin / Market
 
 ```
-formula_4 = (f4_labour_rate × D × (1 + f4_margin)) + material_market
-         = (380 × D × 1.25) + material_market
+formula_4 = (f4_labour_rate × D / (1 - f4_margin)) + material_market
+         = (380 × D / 0.75) + material_market
 ```
 
 **의도:** 공식 2와 같은 인건비 마진 방식. 공식 2와 별도 일당·마진율을 설정할 수 있음.
@@ -80,8 +80,8 @@ formula_4 = (f4_labour_rate × D × (1 + f4_margin)) + material_market
 ### 공식 5: L380 & Market / 총액 30% Margin
 
 ```
-formula_5 = (f5_labour_rate × D + material_market) × (1 + f5_margin)
-         = (380 × D + material_market) × 1.30
+formula_5 = (f5_labour_rate × D + material_market) / (1 - f5_margin)
+         = (380 × D + material_market) / 0.70
 ```
 
 **의도:** 공식 3과 같은 총액 마진 방식. 공식 3과 별도 일당·마진율을 설정할 수 있음.
@@ -130,13 +130,13 @@ final_total = subtotal × 1.10   -- GST 10% 가산
 
 ```typescript
 // ❌ 잘못된 예
-const total = 380 * 5 + 280.50 * 1.25;  // 2725.6249999999995?
+const total = (380 * 5 + 280.50) / 0.75;  // floating-point precision risk
 
 // ✅ 올바른 예
 import Decimal from 'decimal.js';
 const labour = new Decimal(380).mul(5);
-const total = labour.add(new Decimal(280.50)).mul(1.25);
-const display = total.toFixed(2);  // "2725.63"
+const total = labour.add(new Decimal(280.50)).div(0.75);
+const display = total.toFixed(2);  // "2907.33"
 ```
 
 **반올림 규칙:**

@@ -137,9 +137,9 @@ describe('dev data store', () => {
 
     expect(quote.labourPerDay).toBe('10.00')
     expect(quote.formula1Total).toBe('5342.50')
-    expect(quote.formula4Total).toBe('5092.50')
-    expect(quote.subtotal).toBe('5217.50')
-    expect(quote.finalTotal).toBe('5739.25')
+    expect(quote.formula4Total).toBe('5409.17')
+    expect(quote.subtotal).toBe('5375.83')
+    expect(quote.finalTotal).toBe('5913.42')
     expect(quote.pricingSettingsSnapshot).toEqual(DEFAULT_PRICING_SETTINGS)
     expect(getDevQuote(quote.id)?.items[0].productNameSnapshot).toBe('Dulux Exterior')
     expect(getDevQuote(quote.id)?.items[0].areaNameSnapshot).toBe('Eaves')

@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+const PUBLIC_LINE_DESCRIPTION_MAX_LENGTH = 4000
+
 export const jobberQuoteSnapshotSchema = z.object({
   jobberQuoteId: z.string(),
   sourceType: z.enum(['quote', 'job']),
@@ -92,7 +94,7 @@ export const jobberSaveModeSchema = z.enum(['priced_line_items', 'description_to
 export const jobberQuoteLineSchema = z.object({
   kind: z.enum(['line_item', 'text']),
   name: z.string().trim().min(1).max(200),
-  description: z.string().trim().max(2000).optional(),
+  description: z.string().trim().max(PUBLIC_LINE_DESCRIPTION_MAX_LENGTH).optional(),
   quantity: z.number().nonnegative().optional(),
   unitPrice: z.number().nonnegative().optional(),
   totalPrice: z.number().nonnegative().optional(),
@@ -150,7 +152,7 @@ export type JobberQuoteLineInput = z.infer<typeof jobberQuoteLineSchema>
 export const quoteLineTemplateItemSchema = z.object({
   kind: z.enum(['line_item', 'text']),
   name: z.string().trim().min(1).max(200),
-  description: z.string().trim().max(4000).nullable().optional(),
+  description: z.string().trim().max(PUBLIC_LINE_DESCRIPTION_MAX_LENGTH).nullable().optional(),
   quantity: z.number().nonnegative().optional(),
   unitPrice: z.number().nonnegative().optional(),
   taxable: z.boolean().default(true),
@@ -254,7 +256,7 @@ export const productServiceSearchSchema = z.object({
 
 export const productServiceCreateSchema = z.object({
   name: z.string().trim().min(1).max(200),
-  description: z.string().trim().max(4000).nullable().optional(),
+  description: z.string().trim().max(PUBLIC_LINE_DESCRIPTION_MAX_LENGTH).nullable().optional(),
   category: z.string().trim().max(120).nullable().optional(),
   unitPrice: z.coerce.number().nonnegative(),
   unitCost: z.coerce.number().nonnegative().nullable().optional(),
@@ -270,7 +272,7 @@ export const productServiceCreateSchema = z.object({
 export const productServiceUpdateSchema = z.object({
   id: z.string().uuid(),
   name: z.string().trim().min(1).max(200).optional(),
-  description: z.string().trim().max(4000).nullable().optional(),
+  description: z.string().trim().max(PUBLIC_LINE_DESCRIPTION_MAX_LENGTH).nullable().optional(),
   category: z.string().trim().max(120).nullable().optional(),
   unitPrice: z.coerce.number().nonnegative().optional(),
   unitCost: z.coerce.number().nonnegative().nullable().optional(),

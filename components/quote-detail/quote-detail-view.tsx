@@ -49,6 +49,16 @@ function formatQuoteDate(value: string): string {
   }).format(new Date(value))
 }
 
+function formatQuoteDateTime(value: string): string {
+  return new Intl.DateTimeFormat('en-AU', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value))
+}
+
 function DRow({ label, mono, children }: { label: string; mono?: boolean; children: React.ReactNode }) {
   return (
     <div className="pbc-drow">
@@ -94,6 +104,60 @@ function JobberLineDetail({ line }: { line: QuoteRecord['jobberQuoteLines'][numb
         ) : (
           <i>Description only</i>
         )}
+      </div>
+    </div>
+  )
+}
+
+function PriceRevisionDetail({ revision }: { revision: QuoteRecord['priceRevisions'][number] }) {
+  const actor = revision.changedByName ?? revision.changedByEmail ?? 'Unknown user'
+  const eventLabel = revision.eventType === 'created' ? 'Created' : 'Updated'
+  const delta = revision.previousSubtotal
+    ? new Decimal(revision.newSubtotal).sub(revision.previousSubtotal)
+    : null
+  const optionsDelta = revision.previousOptionsSubtotal && revision.newOptionsSubtotal
+    ? new Decimal(revision.newOptionsSubtotal).sub(revision.previousOptionsSubtotal)
+    : null
+  const hasOptionsTotal = revision.newOptionsSubtotal !== null || revision.previousOptionsSubtotal !== null
+
+  return (
+    <div className="pbc-dline">
+      <div className="min-w-0">
+        <span className="pbc-dline__name">
+          Revision {revision.revisionNumber}
+          <span className={`pbc-titem__tag ${revision.eventType === 'updated' ? 'pbc-titem__tag--text' : ''}`}>
+            {eventLabel}
+          </span>
+        </span>
+        <p className="pbc-dline__desc">
+          {actor} - {formatQuoteDateTime(revision.changedAt)}
+        </p>
+      </div>
+      <div className="pbc-dline__price mono">
+        {revision.previousSubtotal ? (
+          <>
+            <span>{`Main quote $${revision.previousSubtotal} -> $${revision.newSubtotal}`}</span>
+            <b>{delta && delta.gte(0) ? '+' : ''}${delta?.toFixed(2)}</b>
+          </>
+        ) : (
+          <>
+            <span>Main quote initial amount</span>
+            <b>${revision.newSubtotal}</b>
+          </>
+        )}
+        {hasOptionsTotal ? (
+          revision.previousOptionsSubtotal && revision.newOptionsSubtotal ? (
+            <>
+              <span>{`Options $${revision.previousOptionsSubtotal} -> $${revision.newOptionsSubtotal}`}</span>
+              <b>{optionsDelta && optionsDelta.gte(0) ? '+' : ''}${optionsDelta?.toFixed(2)}</b>
+            </>
+          ) : (
+            <>
+              <span>Options initial amount</span>
+              <b>${revision.newOptionsSubtotal ?? revision.previousOptionsSubtotal}</b>
+            </>
+          )
+        ) : null}
       </div>
     </div>
   )
@@ -319,6 +383,22 @@ export function QuoteDetailView({ quote }: QuoteDetailViewProps) {
             jobberFinancialSummary={jobberFinancialSummary}
             className="pbc-dspan"
           />
+
+          {quote.priceRevisions.length > 0 ? (
+            <Card className="pbc-dspan">
+              <SectionLabel
+                icon={Icons.dollar({ size: 16 })}
+                aside={<span className="pbc-chip">{quote.priceRevisions.length} revisions</span>}
+              >
+                Price History
+              </SectionLabel>
+              <div className="pbc-dlines">
+                {quote.priceRevisions.map((revision) => (
+                  <PriceRevisionDetail key={revision.id} revision={revision} />
+                ))}
+              </div>
+            </Card>
+          ) : null}
 
           {/* Jobber data */}
           {quote.jobberSnapshot ? (

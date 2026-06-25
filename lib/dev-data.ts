@@ -62,6 +62,7 @@ export interface QuoteRecord {
   jobberQuoteLines: JobberQuoteLineRecord[]
   options: QuoteOptionRecord[]
   memos: QuoteMemoRecord[]
+  priceRevisions: QuotePriceRevisionRecord[]
 }
 
 export interface QuoteItemRecord {
@@ -114,6 +115,27 @@ export interface QuoteMemoRecord {
   createdAt: string
   updatedAt: string
   createdBy: string | null
+}
+
+export interface QuotePriceRevisionRecord {
+  id: string
+  quoteId: string
+  revisionNumber: number
+  eventType: 'created' | 'updated'
+  previousSubtotal: string | null
+  previousFinalTotal: string | null
+  newSubtotal: string
+  newFinalTotal: string
+  previousJobberLinesTotal: string | null
+  newJobberLinesTotal: string | null
+  previousOptionsSubtotal: string | null
+  newOptionsSubtotal: string | null
+  previousOptionsFinalTotal: string | null
+  newOptionsFinalTotal: string | null
+  changedBy: string | null
+  changedByName: string | null
+  changedByEmail: string | null
+  changedAt: string
 }
 
 export type JobberSyncStatus = 'not_synced' | 'synced' | 'failed'
@@ -706,7 +728,53 @@ function buildDevQuoteRecord(id: string, createdAt: string, input: DevQuoteInput
     memos: (input.memos ?? [])
       .map((memo, memoIndex) => buildDevQuoteMemoRecord(id, memo, memo.position ?? memoIndex))
       .sort((a, b) => a.position - b.position),
+    priceRevisions: [
+      {
+        id: nextId('price-revision'),
+        quoteId: id,
+        revisionNumber: 1,
+        eventType: 'created',
+        previousSubtotal: null,
+        previousFinalTotal: null,
+        newSubtotal: money(subtotal),
+        newFinalTotal: money(finalTotal),
+        previousJobberLinesTotal: null,
+        newJobberLinesTotal: optionalPublicMoney(calculateDevJobberLinesTotal(input.jobberQuoteLines ?? [])),
+        previousOptionsSubtotal: null,
+        newOptionsSubtotal: optionalPublicMoney(calculateDevQuoteOptionsTotal(input.options ?? [], settings, 'subtotal')),
+        previousOptionsFinalTotal: null,
+        newOptionsFinalTotal: optionalPublicMoney(calculateDevQuoteOptionsTotal(input.options ?? [], settings, 'finalTotal')),
+        changedBy: 'dev-user',
+        changedByName: 'Dev User',
+        changedByEmail: 'dev@example.com',
+        changedAt: createdAt,
+      },
+    ],
   }
+}
+
+function calculateDevJobberLinesTotal(lines: JobberQuoteLineInput[]): Decimal | undefined {
+  if (lines.length === 0) return undefined
+
+  return lines.reduce((total, line) => {
+    const lineTotal = line.totalPrice === undefined && line.quantity !== undefined && line.unitPrice !== undefined
+      ? new Decimal(line.quantity).mul(line.unitPrice)
+      : line.totalPrice
+    return lineTotal === undefined ? total : total.add(lineTotal)
+  }, new Decimal(0))
+}
+
+function calculateDevQuoteOptionsTotal(
+  options: QuoteInput['options'],
+  settings: PricingSettings,
+  field: 'subtotal' | 'finalTotal'
+): Decimal | undefined {
+  if (options.length === 0) return undefined
+
+  return options.reduce((total, option) => {
+    const calculated = buildDevQuoteOptionRecord('quote-total', option, 0, settings)
+    return total.add(field === 'subtotal' ? calculated.subtotal : calculated.finalTotal)
+  }, new Decimal(0))
 }
 
 function buildDevQuoteMemoRecord(
@@ -843,9 +911,53 @@ export function updateDevQuote(id: string, input: DevQuoteInput): QuoteRecord | 
 
   const current = store.quotes[index]
   const quote = buildDevQuoteRecord(id, current.createdAt, input, current.pricingSettingsSnapshot)
+  const previousOptionsSubtotal = sumDevQuoteOptionTotals(current.options, 'subtotal')
+  const previousOptionsFinalTotal = sumDevQuoteOptionTotals(current.options, 'finalTotal')
+  const newOptionsSubtotal = sumDevQuoteOptionTotals(quote.options, 'subtotal')
+  const newOptionsFinalTotal = sumDevQuoteOptionTotals(quote.options, 'finalTotal')
+  const priceChanged = current.subtotal !== quote.subtotal ||
+    current.finalTotal !== quote.finalTotal ||
+    previousOptionsSubtotal !== newOptionsSubtotal ||
+    previousOptionsFinalTotal !== newOptionsFinalTotal
+  quote.priceRevisions = priceChanged
+    ? [
+        ...current.priceRevisions,
+        {
+          id: nextId('price-revision'),
+          quoteId: id,
+          revisionNumber: current.priceRevisions.length + 1,
+          eventType: 'updated',
+          previousSubtotal: current.subtotal,
+          previousFinalTotal: current.finalTotal,
+          newSubtotal: quote.subtotal,
+          newFinalTotal: quote.finalTotal,
+          previousJobberLinesTotal: current.priceRevisions.at(-1)?.newJobberLinesTotal ?? null,
+          newJobberLinesTotal: optionalPublicMoney(calculateDevJobberLinesTotal(input.jobberQuoteLines ?? [])),
+          previousOptionsSubtotal,
+          newOptionsSubtotal,
+          previousOptionsFinalTotal,
+          newOptionsFinalTotal,
+          changedBy: 'dev-user',
+          changedByName: 'Dev User',
+          changedByEmail: 'dev@example.com',
+          changedAt: new Date().toISOString(),
+        },
+      ]
+    : current.priceRevisions
   store.quotes = [...store.quotes]
   store.quotes[index] = quote
   return quote
+}
+
+function sumDevQuoteOptionTotals(
+  options: QuoteOptionRecord[],
+  field: 'subtotal' | 'finalTotal'
+): string | null {
+  if (options.length === 0) return null
+
+  return options
+    .reduce((total, option) => total.add(option[field]), new Decimal(0))
+    .toFixed(2)
 }
 
 export function deleteDevQuote(id: string): boolean {

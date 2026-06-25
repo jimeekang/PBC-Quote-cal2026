@@ -43,14 +43,14 @@ function calculateFormula4(
   return new Decimal(settings.f4LabourRate)
     .mul(D)
     .add(materialActual)
-    .mul(new Decimal(1).plus(settings.f4Margin));
+    .div(new Decimal(1).minus(settings.f4Margin));
 }
 
 // UI 표시 직전에만 변환
 const displayValue = formula4Result.toFixed(2);
 
 // ❌ 절대 금지 (부동소수점 오차 발생)
-const total = 380 * D + material * 1.25;
+const total = (380 * D + material) / 0.75;
 ```
 
 ---

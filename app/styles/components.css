@@ -311,12 +311,23 @@
 
 .pbc-listcard { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow); }
 .pbc-listbar { display: flex; align-items: center; gap: 14px; padding: 16px 18px; border-bottom: 1px solid var(--border-soft); }
+.pbc-monthselect { display: flex; align-items: center; gap: 9px; margin-left: auto; white-space: nowrap; }
+.pbc-monthselect span { font-size: 12px; font-weight: 800; color: var(--muted-2); }
+.pbc-monthselect select { min-width: 190px; height: 46px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--foreground); padding: 0 38px 0 12px; font-size: 13px; font-weight: 750; }
+.pbc-monthselect select:focus { outline: 3px solid var(--focus); border-color: color-mix(in srgb, var(--primary) 50%, var(--border)); }
 
 .pbc-qhead, .pbc-qrow { display: grid; grid-template-columns: 40px minmax(0, 1fr) 92px 116px 124px 116px 24px; gap: 14px; align-items: center; }
 .pbc-qhead { padding: 12px 18px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted-2); border-bottom: 1px solid var(--border-soft); }
 .pbc-qlist { display: flex; flex-direction: column; }
+.pbc-qyear { display: flex; flex-direction: column; }
+.pbc-qyear__title { margin: 0; padding: 14px 18px 8px; font-size: 12px; font-weight: 800; color: var(--foreground); background: var(--surface); border-bottom: 1px solid var(--border-soft); }
+.pbc-qmonth { display: flex; flex-direction: column; content-visibility: auto; contain-intrinsic-size: 420px; }
+.pbc-qmonth__head { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 12px; padding: 14px 18px; background: var(--surface-soft); border-bottom: 1px solid var(--border-soft); }
+.pbc-qmonth__head h3 { grid-column: 2; margin: 0; text-align: center; font-size: 20px; line-height: 1.15; font-weight: 850; color: var(--foreground); }
+.pbc-qmonth__head span { grid-column: 3; justify-self: end; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 750; color: var(--muted-2); white-space: nowrap; }
+.pbc-qmonth__head strong { font-size: 18px; font-weight: 850; color: var(--foreground); }
 .pbc-qrow { padding: 13px 18px; border-bottom: 1px solid var(--border-soft); transition: 0.13s; cursor: pointer; }
-.pbc-qrow:last-child { border-bottom: none; }
+.pbc-qyear:last-child .pbc-qmonth:last-child .pbc-qrow:last-child { border-bottom: none; }
 .pbc-qrow:hover { background: var(--surface-soft); }
 .pbc-qrow__av { width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center; font-size: 13px; font-weight: 800; color: #fff; }
 .pbc-qrow__av--int { background: linear-gradient(150deg, #0b66d8, #0a4fad); }

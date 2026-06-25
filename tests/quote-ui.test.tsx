@@ -18,6 +18,8 @@ import {
 import type { AreaSubtotalBreakdown } from '@/components/quote-form/quote-calculation-totals'
 import { QuoteDetailView } from '@/components/quote-detail/quote-detail-view'
 import { QuoteCard } from '@/components/quote-list/quote-card'
+import { MonthFilterSelect } from '@/components/quote-list/month-filter-select'
+import { getMonthFilterHref, groupQuotesByYearMonth, filterQuotesByMonth } from '@/app/(app)/quotes/page'
 import type { QuoteRecord } from '@/lib/dev-data'
 import { createQuote } from '@/lib/actions/quotes'
 
@@ -77,6 +79,7 @@ describe('quote form pricing UI', () => {
     jobberQuoteLines: [],
     options: [],
     memos: [],
+    priceRevisions: [],
     jobberSnapshot: null,
   }
 
@@ -166,6 +169,117 @@ describe('quote form pricing UI', () => {
     expect(markup).toContain('Edit')
     expect(markup).toContain(`/quotes/${quoteRecord.id}/edit`)
     expect(markup).toContain('Delete')
+  })
+
+  it('uses an app confirmation dialog before deleting a quote', () => {
+    const source = readFileSync('components/quote-list/quote-delete-button.tsx', 'utf8')
+
+    expect(source).not.toContain('window.confirm')
+    expect(source).toContain('pbc-dialogbackdrop')
+    expect(source).toContain('role="dialog"')
+    expect(source).toContain('Cancel')
+    expect(source).toContain('Delete quote')
+  })
+
+  it('groups overview quotes by created year and month', () => {
+    const groups = groupQuotesByYearMonth([
+      { ...quoteRecord, id: 'quote-june-1', createdAt: '2026-06-21T00:00:00.000Z' },
+      { ...quoteRecord, id: 'quote-june-2', createdAt: '2026-06-02T00:00:00.000Z' },
+      { ...quoteRecord, id: 'quote-may-1', createdAt: '2026-05-14T00:00:00.000Z' },
+      { ...quoteRecord, id: 'quote-previous-year', createdAt: '2025-12-31T00:00:00.000Z' },
+    ])
+
+    expect(groups).toEqual([
+      {
+        year: '2026',
+        months: [
+          {
+            key: '2026-06',
+            label: 'June',
+            quotes: [
+              expect.objectContaining({ id: 'quote-june-1' }),
+              expect.objectContaining({ id: 'quote-june-2' }),
+            ],
+          },
+          {
+            key: '2026-05',
+            label: 'May',
+            quotes: [expect.objectContaining({ id: 'quote-may-1' })],
+          },
+        ],
+      },
+      {
+        year: '2025',
+        months: [
+          {
+            key: '2025-12',
+            label: 'December',
+            quotes: [expect.objectContaining({ id: 'quote-previous-year' })],
+          },
+        ],
+      },
+    ])
+  })
+
+  it('filters overview quotes by selected month and keeps search params in filter links', () => {
+    const quotes = [
+      { ...quoteRecord, id: 'quote-june-1', createdAt: '2026-06-21T00:00:00.000Z' },
+      { ...quoteRecord, id: 'quote-may-1', createdAt: '2026-05-14T00:00:00.000Z' },
+    ]
+
+    expect(filterQuotesByMonth(quotes, '2026-05')).toEqual([
+      expect.objectContaining({ id: 'quote-may-1' }),
+    ])
+    expect(filterQuotesByMonth(quotes, '')).toHaveLength(2)
+    expect(getMonthFilterHref('2026-05', 'q=Daniel')).toBe('/quotes?q=Daniel&month=2026-05')
+    expect(getMonthFilterHref(null, 'q=Daniel&month=2026-05')).toBe('/quotes?q=Daniel')
+  })
+
+  it('groups overview quotes in one pass without repeated array searches', () => {
+    const source = readFileSync('app/(app)/quotes/page.tsx', 'utf8')
+    const functionStart = source.indexOf('export function groupQuotesByYearMonth')
+    const functionEnd = source.indexOf('export default async function QuotesPage')
+    const functionSource = source.slice(functionStart, functionEnd)
+
+    expect(functionStart).toBeGreaterThan(-1)
+    expect(functionSource).toContain('new Map<string, QuoteYearGroup>()')
+    expect(functionSource).not.toContain('.find(')
+  })
+
+  it('renders quote month filtering as a dropdown select', () => {
+    const markup = renderToStaticMarkup(createElement(MonthFilterSelect, {
+      currentMonth: '2026-06',
+      currentSearch: 'q=Daniel&month=2026-06',
+      totalCount: 30,
+      options: [
+        { key: '2026-06', label: 'June', year: '2026', count: 21 },
+        { key: '2026-05', label: 'May', year: '2026', count: 9 },
+      ],
+    }))
+
+    expect(markup).toContain('<select')
+    expect(markup).toContain('value="2026-06"')
+    expect(markup).toContain('All months (30)')
+    expect(markup).toContain('2026 - June (21)')
+    expect(markup).toContain('2026 - May (9)')
+    expect(markup).not.toContain('pbc-monthfilter ')
+  })
+
+  it('defers off-screen month group rendering on the quote overview', () => {
+    const css = readFileSync('app/styles/components.css', 'utf8')
+    const monthBlockIndex = css.indexOf('.pbc-qmonth {')
+
+    expect(monthBlockIndex).toBeGreaterThan(-1)
+    expect(css.slice(monthBlockIndex, monthBlockIndex + 180)).toContain('content-visibility: auto')
+    expect(css.slice(monthBlockIndex, monthBlockIndex + 180)).toContain('contain-intrinsic-size')
+  })
+
+  it('reuses quote list date formatters across overview rows', () => {
+    const source = readFileSync('components/quote-list/quote-card.tsx', 'utf8')
+
+    expect(source).toContain('const OVERVIEW_DATE_FORMATTER = new Intl.DateTimeFormat')
+    expect(source).toContain('OVERVIEW_DATE_FORMATTER.format')
+    expect(source).not.toContain('const savedDate = new Intl.DateTimeFormat')
   })
 
   it('does not use structural overflow hidden on shared page containers', () => {
@@ -399,11 +513,11 @@ describe('quote form pricing UI', () => {
     )
 
     expect(markup).toContain('Interior subtotal')
-    expect(markup).toContain('$1188.00')
+    expect(markup).toContain('$1285.24')
     expect(markup).toContain('Exterior subtotal')
-    expect(markup).toContain('$1839.50')
+    expect(markup).toContain('$1988.57')
     expect(markup).toContain('Final subtotal')
-    expect(markup).toContain('$3027.50')
+    expect(markup).toContain('$3273.81')
     expect(markup).toContain('Ex GST')
   })
 
@@ -462,8 +576,8 @@ describe('quote form pricing UI', () => {
 
     expect(markup).toContain('Interior Formula Results')
     expect(markup).not.toContain('Exterior Formula Results')
-    expect(markup).toContain('$1118.00')
-    expect(markup).toContain('$2818.00')
+    expect(markup).toContain('$1228.57')
+    expect(markup).toContain('$2928.57')
   })
 
   it('saves material actual price snapshots from actual price, not RRP', async () => {
@@ -1618,6 +1732,72 @@ describe('quote form pricing UI', () => {
     expect(markup).toContain('Memo 1')
     expect(markup).toContain('Call before arriving.')
     expect(markup).toContain('Use the side gate.')
+  })
+
+  it('shows price history on quote detail pages when revisions exist', () => {
+    const markup = renderToStaticMarkup(
+      createElement(QuoteDetailView, {
+        quote: {
+          ...quoteRecord,
+          priceRevisions: [
+            {
+              id: 'revision-1',
+              quoteId: quoteRecord.id,
+              revisionNumber: 1,
+              eventType: 'created',
+              previousSubtotal: null,
+              previousFinalTotal: null,
+              newSubtotal: '2550.00',
+              newFinalTotal: '2805.00',
+              previousJobberLinesTotal: null,
+              newJobberLinesTotal: null,
+              previousOptionsSubtotal: null,
+              newOptionsSubtotal: '500.00',
+              previousOptionsFinalTotal: null,
+              newOptionsFinalTotal: '550.00',
+              changedBy: 'user-1',
+              changedByName: 'Mia Kang',
+              changedByEmail: 'mia@example.com',
+              changedAt: '2026-06-20T01:00:00.000Z',
+            },
+            {
+              id: 'revision-2',
+              quoteId: quoteRecord.id,
+              revisionNumber: 2,
+              eventType: 'updated',
+              previousSubtotal: '2550.00',
+              previousFinalTotal: '2805.00',
+              newSubtotal: '3000.00',
+              newFinalTotal: '3300.00',
+              previousJobberLinesTotal: null,
+              newJobberLinesTotal: null,
+              previousOptionsSubtotal: '500.00',
+              newOptionsSubtotal: '700.00',
+              previousOptionsFinalTotal: '550.00',
+              newOptionsFinalTotal: '770.00',
+              changedBy: 'user-2',
+              changedByName: null,
+              changedByEmail: 'estimator@example.com',
+              changedAt: '2026-06-21T02:30:00.000Z',
+            },
+          ],
+        },
+      })
+    )
+
+    expect(markup).toContain('Price History')
+    expect(markup).toContain('Revision 1')
+    expect(markup).toContain('Created')
+    expect(markup).toContain('$2550.00')
+    expect(markup).toContain('$3000.00')
+    expect(markup).toContain('+$450.00')
+    expect(markup).toContain('Options')
+    expect(markup).toContain('Options $500.00')
+    expect(markup).toContain('$700.00')
+    expect(markup).toContain('+$200.00')
+    expect(markup).not.toContain('$2805.00')
+    expect(markup).not.toContain('$3300.00')
+    expect(markup).toContain('estimator@example.com')
   })
 
   it('shows saved option totals on quote detail pages without changing the main final total', () => {

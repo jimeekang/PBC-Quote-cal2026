@@ -132,6 +132,22 @@ const quoteRow = {
   ],
   quote_options: [],
   quote_memos: [],
+  quote_price_revisions: [
+    {
+      id: '00000000-0000-4000-8000-000000000601',
+      quote_id: quoteId,
+      revision_number: 1,
+      event_type: 'created',
+      previous_subtotal: null,
+      previous_final_total: null,
+      new_subtotal: '510.00',
+      new_final_total: '561.00',
+      previous_jobber_lines_total: null,
+      new_jobber_lines_total: '2500.00',
+      changed_by: 'user-1',
+      changed_at: '2026-05-15T00:00:00.000Z',
+    },
+  ],
 }
 
 const quoteInput = {
@@ -322,9 +338,11 @@ describe('quote actions against Supabase', () => {
   it('creates a quote and item rows through Supabase', async () => {
     const quoteInsert = createInsertSingleBuilder({ data: { id: quoteId }, error: null })
     const itemInsert = createInsertOnlyBuilder({ error: null })
+    const priceRevisionInsert = createInsertOnlyBuilder({ error: null })
     const from = vi.fn((table: string) => {
       if (table === 'quotes') return quoteInsert
       if (table === 'quote_items') return itemInsert
+      if (table === 'quote_price_revisions') return priceRevisionInsert
       throw new Error(`unexpected table ${table}`)
     })
     mocks.createClient.mockResolvedValueOnce({ auth: createAuthUser(), from })
@@ -343,17 +361,192 @@ describe('quote actions against Supabase', () => {
         product_name_snapshot: 'Brush',
       }),
     ])
+    expect(priceRevisionInsert.insert).toHaveBeenCalledWith(expect.objectContaining({
+      quote_id: quoteId,
+      revision_number: 1,
+      event_type: 'created',
+      previous_final_total: null,
+      new_final_total: '561.00',
+      changed_by: 'user-1',
+    }))
     expect(mocks.revalidatePath).toHaveBeenCalledWith('/quotes')
+  })
+
+  it('records a price revision when an update changes the quote total', async () => {
+    const existingQuote = createSelectSingleBuilder({
+      data: {
+        pricing_settings_snapshot: DEFAULT_PRICING_SETTINGS,
+        subtotal: '510.00',
+        final_total: '561.00',
+      },
+      error: null,
+    })
+    const latestRevision = createThenableBuilder({
+      data: [{ revision_number: 1 }],
+      error: null,
+    })
+    const quoteUpdate = createThenableBuilder({ error: null })
+    const priceRevisionInsert = createInsertOnlyBuilder({ error: null })
+    const itemDelete = createThenableBuilder({ error: null })
+    const optionDelete = createThenableBuilder({ error: null })
+    const jobberLineDelete = createThenableBuilder({ error: null })
+    const memoDelete = createThenableBuilder({ error: null })
+    const itemInsert = createInsertOnlyBuilder({ error: null })
+    const builders: Record<string, unknown[]> = {
+      quotes: [existingQuote, quoteUpdate],
+      quote_price_revisions: [latestRevision, priceRevisionInsert],
+      quote_items: [itemDelete, itemInsert],
+      quote_options: [optionDelete],
+      jobber_quote_lines: [jobberLineDelete],
+      quote_memos: [memoDelete],
+    }
+    const from = vi.fn((table: string) => {
+      const builder = builders[table]?.shift()
+      if (!builder) throw new Error(`unexpected table ${table}`)
+      return builder
+    })
+    mocks.createClient.mockResolvedValueOnce({ auth: createAuthUser(), from })
+
+    const result = await updateQuote({
+      id: quoteId,
+      ...quoteInput,
+      workingDays: 2,
+      labourPerDay: 1,
+      materialMarket: 10,
+      materialActual: 10,
+    })
+
+    expect(result).toEqual({ ok: true, data: { id: quoteId } })
+    expect(priceRevisionInsert.insert).toHaveBeenCalledWith(expect.objectContaining({
+      quote_id: quoteId,
+      revision_number: 2,
+      event_type: 'updated',
+      previous_final_total: '561.00',
+      new_final_total: '1111.00',
+      previous_options_subtotal: null,
+      new_options_subtotal: null,
+      changed_by: 'user-1',
+    }))
+  })
+
+  it('records option subtotal changes in the price revision', async () => {
+    const existingQuote = createSelectSingleBuilder({
+      data: {
+        pricing_settings_snapshot: DEFAULT_PRICING_SETTINGS,
+        subtotal: '510.00',
+        final_total: '561.00',
+        quote_options: [{ subtotal: '300.00', final_total: '330.00' }],
+      },
+      error: null,
+    })
+    const latestRevision = createThenableBuilder({ data: [], error: null })
+    const quoteUpdate = createThenableBuilder({ error: null })
+    const priceRevisionInsert = createInsertOnlyBuilder({ error: null })
+    const itemDelete = createThenableBuilder({ error: null })
+    const optionDelete = createThenableBuilder({ error: null })
+    const jobberLineDelete = createThenableBuilder({ error: null })
+    const memoDelete = createThenableBuilder({ error: null })
+    const itemInsert = createInsertOnlyBuilder({ error: null })
+    const optionInsert = createInsertSingleBuilder({ data: { id: '00000000-0000-4000-8000-000000000401' }, error: null })
+    const optionItemInsert = createInsertOnlyBuilder({ error: null })
+    const builders: Record<string, unknown[]> = {
+      quotes: [existingQuote, quoteUpdate],
+      quote_options: [optionDelete, optionInsert],
+      quote_price_revisions: [latestRevision, priceRevisionInsert],
+      quote_items: [itemDelete, itemInsert],
+      jobber_quote_lines: [jobberLineDelete],
+      quote_memos: [memoDelete],
+      quote_option_items: [optionItemInsert],
+    }
+    const from = vi.fn((table: string) => {
+      const builder = builders[table]?.shift()
+      if (!builder) throw new Error(`unexpected table ${table}`)
+      return builder
+    })
+    mocks.createClient.mockResolvedValueOnce({ auth: createAuthUser(), from })
+
+    const result = await updateQuote({
+      id: quoteId,
+      ...quoteInput,
+      options: [
+        {
+          id: 'option-input-1',
+          title: 'Option 1',
+          selectedMin: 1,
+          selectedMax: 1,
+          items: [
+            {
+              ...quoteInput.items[0],
+              marketPriceSnapshot: 100,
+              actualPriceSnapshot: 100,
+              quantity: 1,
+              workingDays: 1,
+              labourPerDay: 1,
+            },
+          ],
+        },
+      ],
+    })
+
+    expect(result).toEqual({ ok: true, data: { id: quoteId } })
+    expect(priceRevisionInsert.insert).toHaveBeenCalledWith(expect.objectContaining({
+      quote_id: quoteId,
+      revision_number: 1,
+      previous_options_subtotal: '300.00',
+      new_options_subtotal: '600.00',
+      previous_options_final_total: '330.00',
+      new_options_final_total: '660.00',
+    }))
+  })
+
+  it('does not record a price revision when an update leaves the quote total unchanged', async () => {
+    const existingQuote = createSelectSingleBuilder({
+      data: {
+        pricing_settings_snapshot: DEFAULT_PRICING_SETTINGS,
+        subtotal: '510.00',
+        final_total: '561.00',
+      },
+      error: null,
+    })
+    const quoteUpdate = createThenableBuilder({ error: null })
+    const itemDelete = createThenableBuilder({ error: null })
+    const optionDelete = createThenableBuilder({ error: null })
+    const jobberLineDelete = createThenableBuilder({ error: null })
+    const memoDelete = createThenableBuilder({ error: null })
+    const itemInsert = createInsertOnlyBuilder({ error: null })
+    const priceRevisionInsert = createInsertOnlyBuilder({ error: null })
+    const builders: Record<string, unknown[]> = {
+      quotes: [existingQuote, quoteUpdate],
+      quote_items: [itemDelete, itemInsert],
+      quote_options: [optionDelete],
+      jobber_quote_lines: [jobberLineDelete],
+      quote_memos: [memoDelete],
+      quote_price_revisions: [priceRevisionInsert],
+    }
+    const from = vi.fn((table: string) => {
+      const builder = builders[table]?.shift()
+      if (!builder) throw new Error(`unexpected table ${table}`)
+      return builder
+    })
+    mocks.createClient.mockResolvedValueOnce({ auth: createAuthUser(), from })
+
+    const result = await updateQuote({ id: quoteId, ...quoteInput, customerName: 'Same Price Customer' })
+
+    expect(result).toEqual({ ok: true, data: { id: quoteId } })
+    expect(priceRevisionInsert.insert).not.toHaveBeenCalled()
+    expect(from).not.toHaveBeenCalledWith('quote_price_revisions')
   })
 
   it('creates public Jobber rows separately from internal material rows through Supabase', async () => {
     const quoteInsert = createInsertSingleBuilder({ data: { id: quoteId }, error: null })
     const itemInsert = createInsertOnlyBuilder({ error: null })
     const jobberLineInsert = createInsertOnlyBuilder({ error: null })
+    const priceRevisionInsert = createInsertOnlyBuilder({ error: null })
     const from = vi.fn((table: string) => {
       if (table === 'quotes') return quoteInsert
       if (table === 'quote_items') return itemInsert
       if (table === 'jobber_quote_lines') return jobberLineInsert
+      if (table === 'quote_price_revisions') return priceRevisionInsert
       throw new Error(`unexpected table ${table}`)
     })
     mocks.createClient.mockResolvedValueOnce({ auth: createAuthUser(), from })
@@ -394,6 +587,7 @@ describe('quote actions against Supabase', () => {
   it('creates app-only memo rows through Supabase without adding Jobber lines', async () => {
     const quoteInsert = createInsertSingleBuilder({ data: { id: quoteId }, error: null })
     const itemInsert = createInsertOnlyBuilder({ error: null })
+    const priceRevisionInsert = createInsertOnlyBuilder({ error: null })
     const memoInsert = createInsertSelectBuilder({
       data: [
         { id: '00000000-0000-4000-8000-000000000501' },
@@ -405,6 +599,7 @@ describe('quote actions against Supabase', () => {
       if (table === 'quotes') return quoteInsert
       if (table === 'quote_items') return itemInsert
       if (table === 'quote_memos') return memoInsert
+      if (table === 'quote_price_revisions') return priceRevisionInsert
       throw new Error(`unexpected table ${table}`)
     })
     mocks.createClient.mockResolvedValueOnce({ auth: createAuthUser(), from })
@@ -440,10 +635,12 @@ describe('quote actions against Supabase', () => {
     const quoteInsert = createInsertSingleBuilder({ data: { id: quoteId }, error: null })
     const quoteDelete = createThenableBuilder({ error: null })
     const itemInsert = createInsertOnlyBuilder({ error: null })
+    const priceRevisionInsert = createInsertOnlyBuilder({ error: null })
     const memoInsert = createInsertSelectBuilder({ data: null, error: new Error('memo insert failed') })
     const builders: Record<string, unknown[]> = {
       quotes: [quoteInsert, quoteDelete],
       quote_items: [itemInsert],
+      quote_price_revisions: [priceRevisionInsert],
       quote_memos: [memoInsert],
     }
     const from = vi.fn((table: string) => {
@@ -473,7 +670,11 @@ describe('quote actions against Supabase', () => {
 
   it('updates a quote through Supabase and replaces child rows', async () => {
     const existingQuote = createSelectSingleBuilder({
-      data: { pricing_settings_snapshot: DEFAULT_PRICING_SETTINGS },
+      data: {
+        pricing_settings_snapshot: DEFAULT_PRICING_SETTINGS,
+        subtotal: '510.00',
+        final_total: '561.00',
+      },
       error: null,
     })
     const quoteUpdate = createThenableBuilder({ error: null })
@@ -509,7 +710,11 @@ describe('quote actions against Supabase', () => {
 
   it('does not delete existing memos before replacement memo rows insert successfully', async () => {
     const existingQuote = createSelectSingleBuilder({
-      data: { pricing_settings_snapshot: DEFAULT_PRICING_SETTINGS },
+      data: {
+        pricing_settings_snapshot: DEFAULT_PRICING_SETTINGS,
+        subtotal: '510.00',
+        final_total: '561.00',
+      },
       error: null,
     })
     const quoteUpdate = createThenableBuilder({ error: null })
@@ -547,7 +752,11 @@ describe('quote actions against Supabase', () => {
 
   it('updates public Jobber rows by replacing the saved ordered set', async () => {
     const existingQuote = createSelectSingleBuilder({
-      data: { pricing_settings_snapshot: DEFAULT_PRICING_SETTINGS },
+      data: {
+        pricing_settings_snapshot: DEFAULT_PRICING_SETTINGS,
+        subtotal: '510.00',
+        final_total: '561.00',
+      },
       error: null,
     })
     const quoteUpdate = createThenableBuilder({ error: null })
@@ -603,7 +812,11 @@ describe('quote actions against Supabase', () => {
 
   it('syncs saved public quote lines to the matching Jobber quote and marks the quote synced', async () => {
     const existingQuote = createSelectSingleBuilder({
-      data: { pricing_settings_snapshot: DEFAULT_PRICING_SETTINGS },
+      data: {
+        pricing_settings_snapshot: DEFAULT_PRICING_SETTINGS,
+        subtotal: '510.00',
+        final_total: '561.00',
+      },
       error: null,
     })
     const quoteUpdate = createThenableBuilder({ error: null })
@@ -664,7 +877,11 @@ describe('quote actions against Supabase', () => {
 
   it('keeps successful Jobber line sync when only the post-write snapshot refresh is throttled', async () => {
     const existingQuote = createSelectSingleBuilder({
-      data: { pricing_settings_snapshot: DEFAULT_PRICING_SETTINGS },
+      data: {
+        pricing_settings_snapshot: DEFAULT_PRICING_SETTINGS,
+        subtotal: '510.00',
+        final_total: '561.00',
+      },
       error: null,
     })
     const quoteUpdate = createThenableBuilder({ error: null })
@@ -750,7 +967,7 @@ describe('quote actions against Supabase', () => {
     expect(result).toEqual({ ok: false, error: 'Authentication required' })
   })
 
-  it('searches quotes and maps joined item rows', async () => {
+  it('searches quotes using the lightweight overview shape', async () => {
     const searchBuilder = createThenableBuilder({ data: [quoteRow], error: null })
     mocks.createClient.mockResolvedValueOnce({
       from: vi.fn(() => searchBuilder),
@@ -760,12 +977,16 @@ describe('quote actions against Supabase', () => {
 
     expect(result.ok).toBe(true)
     if (result.ok) {
-      expect(result.data[0].items[0].productNameSnapshot).toBe('Brush')
+      expect(result.data[0].items).toEqual([])
+      expect(result.data[0].options).toEqual([])
+      expect(result.data[0].priceRevisions).toEqual([])
       expect(result.data[0].jobberSaveMode).toBe('priced_line_items')
-      expect(result.data[0].createdByName).toBe('Mia Kang')
-      expect(result.data[0].createdByEmail).toBe('owner@example.com')
+      expect(result.data[0].createdByName).toBeNull()
+      expect(result.data[0].createdByEmail).toBeNull()
     }
     expect(searchBuilder.ilike).toHaveBeenCalledWith('customer_name', '%Supabase%')
+    expect(searchBuilder.limit).not.toHaveBeenCalled()
+    expect(mocks.createServiceClient).not.toHaveBeenCalled()
   })
 
   it('returns Supabase errors when quote search fails', async () => {
@@ -797,6 +1018,14 @@ describe('quote actions against Supabase', () => {
       expect(result.data?.items).toHaveLength(1)
       expect(result.data?.jobberQuoteLines[0].name).toBe('Public painting service')
       expect(result.data?.createdByName).toBe('Mia Kang')
+      expect(result.data?.priceRevisions?.[0]).toEqual(expect.objectContaining({
+        revisionNumber: 1,
+        eventType: 'created',
+        previousFinalTotal: null,
+        newFinalTotal: '561.00',
+        changedByName: 'Mia Kang',
+        changedByEmail: 'owner@example.com',
+      }))
     }
   })
 
@@ -880,6 +1109,39 @@ describe('quote actions against Supabase', () => {
     }
   })
 
+  it('fills missing pricing snapshot fields for legacy quotes', async () => {
+    const legacyPricingSettingsSnapshot = {
+      f1LabourRate: 500,
+      f2LabourRate: 460,
+      f3LabourRate: 460,
+      f4LabourRate: 380,
+      f5LabourRate: 380,
+      f2Margin: 0.3,
+      f3Margin: 0.3,
+      f4Margin: 0.25,
+      f5Margin: 0.25,
+    }
+    const detailBuilder = createSelectSingleBuilder({
+      data: {
+        ...quoteRow,
+        pricing_settings_snapshot: legacyPricingSettingsSnapshot,
+      },
+      error: null,
+    })
+
+    mocks.createClient.mockResolvedValueOnce({ from: vi.fn(() => detailBuilder) })
+
+    const result = await getQuote(quoteId)
+
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.data?.pricingSettingsSnapshot).toEqual({
+        ...legacyPricingSettingsSnapshot,
+        roofLabourRate: 700,
+      })
+    }
+  })
+
   it('falls back without memos while preserving detail child relations when quote memos are not migrated yet', async () => {
     const detailBuilder = createSelectSingleBuilder({
       data: null,
@@ -895,7 +1157,7 @@ describe('quote actions against Supabase', () => {
     const result = await getQuote(quoteId)
 
     expect(result.ok).toBe(true)
-    expect(fallbackBuilder.select).toHaveBeenCalledWith('*, quote_items(*), quote_options(*, quote_option_items(*)), jobber_quote_lines(*)')
+    expect(fallbackBuilder.select).toHaveBeenCalledWith('*, quote_items(*), quote_options(*, quote_option_items(*)), jobber_quote_lines(*), quote_price_revisions(*)')
     if (result.ok) {
       expect(result.data?.jobberQuoteLines[0].name).toBe('Public painting service')
       expect(result.data?.memos).toEqual([])

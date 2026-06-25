@@ -1,8 +1,10 @@
 import Link from 'next/link'
 import { OverviewQuoteRow } from '@/components/quote-list/quote-card'
+import { MonthFilterSelect, type MonthFilterOption } from '@/components/quote-list/month-filter-select'
 import { SearchInput } from '@/components/quote-list/search-input'
 import { Icons } from '@/components/ui/icons'
 import { searchQuotes } from '@/lib/actions/quotes'
+import type { QuoteRecord } from '@/lib/dev-data'
 
 interface QuotesPageProps {
   searchParams?: Promise<Record<string, string | string[] | undefined>>
@@ -12,14 +14,96 @@ function money0(value: number): string {
   return value.toLocaleString('en-AU', { maximumFractionDigits: 0 })
 }
 
+interface QuoteMonthGroup {
+  key: string
+  label: string
+  quotes: QuoteRecord[]
+}
+
+interface QuoteYearGroup {
+  year: string
+  months: QuoteMonthGroup[]
+}
+
+function getQuoteMonthKey(quote: QuoteRecord): string {
+  const created = new Date(quote.createdAt)
+  return `${created.getFullYear()}-${String(created.getMonth() + 1).padStart(2, '0')}`
+}
+
+export function filterQuotesByMonth(quotes: QuoteRecord[], monthKey: string): QuoteRecord[] {
+  if (!monthKey) return quotes
+  return quotes.filter((quote) => getQuoteMonthKey(quote) === monthKey)
+}
+
+export function getMonthFilterHref(monthKey: string | null, currentSearch: string): string {
+  const params = new URLSearchParams(currentSearch)
+
+  if (monthKey) {
+    params.set('month', monthKey)
+  } else {
+    params.delete('month')
+  }
+
+  const nextSearch = params.toString()
+  return `/quotes${nextSearch ? `?${nextSearch}` : ''}`
+}
+
+export function groupQuotesByYearMonth(quotes: QuoteRecord[]): QuoteYearGroup[] {
+  const groups: QuoteYearGroup[] = []
+  const yearGroups = new Map<string, QuoteYearGroup>()
+  const monthGroups = new Map<string, QuoteMonthGroup>()
+
+  for (const quote of quotes) {
+    const created = new Date(quote.createdAt)
+    const year = String(created.getFullYear())
+    const monthKey = getQuoteMonthKey(quote)
+    const monthLabel = created.toLocaleDateString('en-AU', { month: 'long' })
+    let yearGroup = yearGroups.get(year)
+
+    if (!yearGroup) {
+      yearGroup = { year, months: [] }
+      yearGroups.set(year, yearGroup)
+      groups.push(yearGroup)
+    }
+
+    let monthGroup = monthGroups.get(monthKey)
+
+    if (!monthGroup) {
+      monthGroup = { key: monthKey, label: monthLabel, quotes: [] }
+      monthGroups.set(monthKey, monthGroup)
+      yearGroup.months.push(monthGroup)
+    }
+
+    monthGroup.quotes.push(quote)
+  }
+
+  return groups
+}
+
 export default async function QuotesPage({ searchParams }: QuotesPageProps) {
   const params = await searchParams
   const q = typeof params?.q === 'string' ? params.q : ''
+  const selectedMonth = typeof params?.month === 'string' ? params.month : ''
+  const currentSearchParams = new URLSearchParams()
+  if (q) currentSearchParams.set('q', q)
+  if (selectedMonth) currentSearchParams.set('month', selectedMonth)
+  const currentSearch = currentSearchParams.toString()
   const result = await searchQuotes(q)
   const quotes = result.ok ? result.data : []
+  const allQuoteGroups = groupQuotesByYearMonth(quotes)
+  const monthFilterOptions: MonthFilterOption[] = allQuoteGroups.flatMap((yearGroup) =>
+    yearGroup.months.map((monthGroup) => ({
+      key: monthGroup.key,
+      label: monthGroup.label,
+      year: yearGroup.year,
+      count: monthGroup.quotes.length,
+    }))
+  )
+  const visibleQuotes = filterQuotesByMonth(quotes, selectedMonth)
+  const quoteGroups = groupQuotesByYearMonth(visibleQuotes)
 
-  const pipeline = quotes.reduce((sum, quote) => sum + Number(quote.finalTotal || 0), 0)
-  const avg = quotes.length ? pipeline / quotes.length : 0
+  const pipeline = visibleQuotes.reduce((sum, quote) => sum + Number(quote.finalTotal || 0), 0)
+  const avg = visibleQuotes.length ? pipeline / visibleQuotes.length : 0
   const now = new Date()
   const thisMonth = quotes.filter((quote) => {
     const created = new Date(quote.createdAt)
@@ -45,8 +129,8 @@ export default async function QuotesPage({ searchParams }: QuotesPageProps) {
         <div className="pbc-stats">
           <div className="pbc-stat">
             <span className="pbc-stat__label">Total quotes</span>
-            <span className="pbc-stat__value mono">{quotes.length}</span>
-            <span className="pbc-stat__sub">all time</span>
+            <span className="pbc-stat__value mono">{visibleQuotes.length}</span>
+            <span className="pbc-stat__sub">{selectedMonth ? 'selected month' : 'all time'}</span>
           </div>
           <div className="pbc-stat">
             <span className="pbc-stat__label">Pipeline value</span>
@@ -68,16 +152,35 @@ export default async function QuotesPage({ searchParams }: QuotesPageProps) {
         <div className="pbc-listcard">
           <div className="pbc-listbar">
             <SearchInput />
+            <MonthFilterSelect
+              currentMonth={selectedMonth}
+              currentSearch={currentSearch}
+              totalCount={quotes.length}
+              options={monthFilterOptions}
+            />
           </div>
 
           <div className="pbc-qhead">
             <span /><span>Customer</span><span>Type</span><span>Labour</span><span>Created</span><span>Total</span><span />
           </div>
           <div className="pbc-qlist">
-            {quotes.length === 0 ? (
+            {visibleQuotes.length === 0 ? (
               <p className="pbc-empty m-4">No quotes match your search.</p>
             ) : (
-              quotes.map((quote) => <OverviewQuoteRow key={quote.id} quote={quote} />)
+              quoteGroups.map((yearGroup) => (
+                <section key={yearGroup.year} className="pbc-qyear" aria-labelledby={`quote-year-${yearGroup.year}`}>
+                  <h2 id={`quote-year-${yearGroup.year}`} className="pbc-qyear__title">{yearGroup.year}</h2>
+                  {yearGroup.months.map((monthGroup) => (
+                    <section key={monthGroup.key} className="pbc-qmonth" aria-labelledby={`quote-month-${monthGroup.key}`}>
+                      <div className="pbc-qmonth__head">
+                        <h3 id={`quote-month-${monthGroup.key}`}>{monthGroup.label}</h3>
+                        <span><strong>{monthGroup.quotes.length}</strong> quotes</span>
+                      </div>
+                      {monthGroup.quotes.map((quote) => <OverviewQuoteRow key={quote.id} quote={quote} />)}
+                    </section>
+                  ))}
+                </section>
+              ))
             )}
           </div>
         </div>

@@ -4,6 +4,9 @@ import { buttonClassName } from '@/components/ui/card'
 import { Icons } from '@/components/ui/icons'
 import { QuoteDeleteButton } from './quote-delete-button'
 
+const OVERVIEW_DATE_FORMATTER = new Intl.DateTimeFormat('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })
+const CARD_DATE_FORMATTER = new Intl.DateTimeFormat('en-AU', { dateStyle: 'medium' })
+
 function initials(name: string): string {
   return name
     .split(/\s+/)
@@ -22,9 +25,7 @@ function isExterior(workType: string | null): boolean {
 export function OverviewQuoteRow({ quote }: { quote: QuoteRecord }) {
   const title = quote.customerName || 'Untitled Quote'
   const tone = isExterior(quote.workType) ? 'ext' : 'int'
-  const savedDate = new Intl.DateTimeFormat('en-AU', { day: '2-digit', month: 'short', year: 'numeric' }).format(
-    new Date(quote.createdAt)
-  )
+  const savedDate = OVERVIEW_DATE_FORMATTER.format(new Date(quote.createdAt))
 
   return (
     <Link className="pbc-qrow" href={`/quotes/${quote.id}`}>
@@ -47,7 +48,7 @@ export function OverviewQuoteRow({ quote }: { quote: QuoteRecord }) {
 /** 카드형 (보존용) */
 export function QuoteCard({ quote }: { quote: QuoteRecord }) {
   const title = quote.customerName || 'Untitled Quote'
-  const savedDate = new Intl.DateTimeFormat('en-AU', { dateStyle: 'medium' }).format(new Date(quote.createdAt))
+  const savedDate = CARD_DATE_FORMATTER.format(new Date(quote.createdAt))
   const creatorName = quote.createdByName ?? quote.createdByEmail ?? 'Unknown user'
 
   return (
