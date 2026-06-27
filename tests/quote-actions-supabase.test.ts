@@ -249,6 +249,18 @@ function createSelectSingleBuilder(response: unknown) {
   return builder
 }
 
+function createFindExistingJobberQuoteBuilder(response: unknown) {
+  const builder = {
+    select: vi.fn(() => builder),
+    in: vi.fn(() => builder),
+    contains: vi.fn(() => builder),
+    order: vi.fn(() => builder),
+    limit: vi.fn(() => builder),
+    maybeSingle: vi.fn(async () => response),
+  }
+  return builder
+}
+
 function createThenableBuilder(response: unknown) {
   const builder = {
     select: vi.fn(() => builder),
@@ -384,6 +396,155 @@ describe('quote actions against Supabase', () => {
       changed_by: 'user-1',
     }))
     expect(mocks.revalidatePath).toHaveBeenCalledWith('/quotes')
+  })
+
+  it('updates the existing quote when a new Jobber fetch is saved for a previously saved Jobber quote', async () => {
+    const existingJobberQuote = createFindExistingJobberQuoteBuilder({
+      data: { id: quoteId },
+      error: null,
+    })
+    const existingQuote = createSelectSingleBuilder({
+      data: {
+        pricing_settings_snapshot: DEFAULT_PRICING_SETTINGS,
+        subtotal: '510.00',
+        final_total: '561.00',
+      },
+      error: null,
+    })
+    const quoteUpdate = createThenableBuilder({ error: null })
+    const itemDelete = createThenableBuilder({ error: null })
+    const optionDelete = createThenableBuilder({ error: null })
+    const jobberLineDelete = createThenableBuilder({ error: null })
+    const memoDelete = createThenableBuilder({ error: null })
+    const itemInsert = createInsertOnlyBuilder({ error: null })
+    const firstFrom = vi.fn((table: string) => {
+      if (table === 'quotes') return existingJobberQuote
+      throw new Error(`unexpected initial table ${table}`)
+    })
+    const updateFrom = vi.fn((table: string) => {
+      if (table === 'quotes') return updateFrom.mock.calls.filter(([name]) => name === 'quotes').length === 1 ? existingQuote : quoteUpdate
+      if (table === 'quote_items') return updateFrom.mock.calls.filter(([name]) => name === 'quote_items').length === 1 ? itemDelete : itemInsert
+      if (table === 'quote_options') return optionDelete
+      if (table === 'jobber_quote_lines') return jobberLineDelete
+      if (table === 'quote_memos') return memoDelete
+      throw new Error(`unexpected update table ${table}`)
+    })
+    mocks.createClient
+      .mockResolvedValueOnce({ auth: createAuthUser(), from: firstFrom })
+      .mockResolvedValueOnce({ auth: createAuthUser(), from: updateFrom })
+
+    const result = await createQuote({
+      ...quoteInput,
+      jobberQuoteId: 'encoded-jobber-quote-id',
+      jobberSnapshot: {
+        jobberQuoteId: 'encoded-jobber-quote-id',
+        sourceType: 'quote',
+        quoteNumber: '3535',
+        createdAt: '2026-05-19T00:00:00Z',
+        customerName: 'Supabase Customer',
+        customerAddress: '1 Paint St',
+        workType: 'Exterior',
+        areaSqft: null,
+        customerType: 'Residential',
+        sourceUrl: 'https://secure.getjobber.com/quotes/3535',
+        productsAndServices: [],
+        jobExpenses: [],
+        jobExpensesError: null,
+        financialSummary: {
+          quoteTotal: 0,
+          expensesTotal: 0,
+          profit: 0,
+          profitMarginPercent: null,
+        },
+      },
+    })
+
+    expect(result).toEqual({ ok: true, data: { id: quoteId } })
+    expect(existingJobberQuote.in).toHaveBeenCalledWith('jobber_quote_id', ['encoded-jobber-quote-id', '3535'])
+    expect(existingJobberQuote.order).toHaveBeenCalledWith('created_at', { ascending: true })
+    expect(quoteUpdate.update).toHaveBeenCalledWith(expect.objectContaining({
+      jobber_quote_id: 'encoded-jobber-quote-id',
+      customer_name: 'Supabase Customer',
+    }))
+    expect(firstFrom).toHaveBeenCalledWith('quotes')
+    expect(updateFrom).not.toHaveBeenCalledWith('quote_price_revisions')
+  })
+
+  it('matches an existing quote by saved Jobber snapshot quote number before inserting', async () => {
+    const jobberIdLookup = createFindExistingJobberQuoteBuilder({
+      data: null,
+      error: null,
+    })
+    const quoteNumberLookup = createFindExistingJobberQuoteBuilder({
+      data: { id: quoteId },
+      error: null,
+    })
+    const existingQuote = createSelectSingleBuilder({
+      data: {
+        pricing_settings_snapshot: DEFAULT_PRICING_SETTINGS,
+        subtotal: '510.00',
+        final_total: '561.00',
+      },
+      error: null,
+    })
+    const quoteUpdate = createThenableBuilder({ error: null })
+    const itemDelete = createThenableBuilder({ error: null })
+    const optionDelete = createThenableBuilder({ error: null })
+    const jobberLineDelete = createThenableBuilder({ error: null })
+    const memoDelete = createThenableBuilder({ error: null })
+    const itemInsert = createInsertOnlyBuilder({ error: null })
+    const firstBuilders: Record<string, unknown[]> = {
+      quotes: [jobberIdLookup, quoteNumberLookup],
+    }
+    const firstFrom = vi.fn((table: string) => {
+      const builder = firstBuilders[table]?.shift()
+      if (!builder) throw new Error(`unexpected initial table ${table}`)
+      return builder
+    })
+    const updateFrom = vi.fn((table: string) => {
+      if (table === 'quotes') return updateFrom.mock.calls.filter(([name]) => name === 'quotes').length === 1 ? existingQuote : quoteUpdate
+      if (table === 'quote_items') return updateFrom.mock.calls.filter(([name]) => name === 'quote_items').length === 1 ? itemDelete : itemInsert
+      if (table === 'quote_options') return optionDelete
+      if (table === 'jobber_quote_lines') return jobberLineDelete
+      if (table === 'quote_memos') return memoDelete
+      throw new Error(`unexpected update table ${table}`)
+    })
+    mocks.createClient
+      .mockResolvedValueOnce({ auth: createAuthUser(), from: firstFrom })
+      .mockResolvedValueOnce({ auth: createAuthUser(), from: updateFrom })
+
+    const result = await createQuote({
+      ...quoteInput,
+      jobberQuoteId: 'encoded-jobber-quote-id',
+      jobberSnapshot: {
+        jobberQuoteId: 'encoded-jobber-quote-id',
+        sourceType: 'quote',
+        quoteNumber: '3535',
+        createdAt: '2026-05-19T00:00:00Z',
+        customerName: 'Supabase Customer',
+        customerAddress: '1 Paint St',
+        workType: 'Exterior',
+        areaSqft: null,
+        customerType: 'Residential',
+        sourceUrl: 'https://secure.getjobber.com/quotes/3535',
+        productsAndServices: [],
+        jobExpenses: [],
+        jobExpensesError: null,
+        financialSummary: {
+          quoteTotal: 0,
+          expensesTotal: 0,
+          profit: 0,
+          profitMarginPercent: null,
+        },
+      },
+    })
+
+    expect(result).toEqual({ ok: true, data: { id: quoteId } })
+    expect(jobberIdLookup.in).toHaveBeenCalledWith('jobber_quote_id', ['encoded-jobber-quote-id', '3535'])
+    expect(quoteNumberLookup.contains).toHaveBeenCalledWith('jobber_snapshot', { quoteNumber: '3535' })
+    expect(quoteUpdate.update).toHaveBeenCalledWith(expect.objectContaining({
+      jobber_quote_id: 'encoded-jobber-quote-id',
+    }))
   })
 
   it('records a price revision when an update changes the quote total', async () => {

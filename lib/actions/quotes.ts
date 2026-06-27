@@ -77,6 +77,7 @@ type QuoteWithItemsRow = QuoteRow & {
   quote_memos?: QuoteMemoRow[]
   quote_price_revisions?: QuotePriceRevisionRow[]
 }
+type ExistingJobberQuoteRow = Pick<QuoteRow, 'id'>
 type QuoteListRow = Pick<
   QuoteRow,
   | 'id'
@@ -806,6 +807,48 @@ async function scheduleSavedQuoteToJobber(
   }
 }
 
+function getJobberQuoteIdentityCandidates(input: QuoteInput): string[] {
+  return Array.from(new Set([
+    input.jobberQuoteId?.trim(),
+    input.jobberSnapshot?.quoteNumber?.trim(),
+  ].filter((value): value is string => typeof value === 'string' && value.length > 0)))
+}
+
+async function findExistingQuoteIdForJobberQuote(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  input: QuoteInput
+): Promise<ActionResult<{ id: string | null }>> {
+  const candidates = getJobberQuoteIdentityCandidates(input)
+  if (candidates.length === 0) return { ok: true, data: { id: null } }
+
+  const { data, error } = await supabase
+    .from('quotes')
+    .select('id')
+    .in('jobber_quote_id', candidates)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) return { ok: false, error: error.message }
+  const row = data as unknown as ExistingJobberQuoteRow | null
+  if (row?.id) return { ok: true, data: { id: row.id } }
+
+  const quoteNumber = input.jobberSnapshot?.quoteNumber?.trim()
+  if (!quoteNumber) return { ok: true, data: { id: null } }
+
+  const { data: snapshotData, error: snapshotError } = await supabase
+    .from('quotes')
+    .select('id')
+    .contains('jobber_snapshot', { quoteNumber })
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+
+  if (snapshotError) return { ok: false, error: snapshotError.message }
+  const snapshotRow = snapshotData as unknown as ExistingJobberQuoteRow | null
+  return { ok: true, data: { id: snapshotRow?.id ?? null } }
+}
+
 export async function createQuote(input: unknown): Promise<ActionResult<{ id: string }>> {
   const parsed = quoteSchema.safeParse(input)
   if (!parsed.success) {
@@ -818,14 +861,20 @@ export async function createQuote(input: unknown): Promise<ActionResult<{ id: st
     return { ok: true, data: { id: quote.id } }
   }
 
-  const settingsResult = await getPricingSettings()
-  if (!settingsResult.ok) return settingsResult
-
   const supabase = await createClient()
   const { data: userData, error: userError } = await supabase.auth.getUser()
   if (userError || !userData.user) {
     return { ok: false, error: 'Authentication required' }
   }
+
+  const existingQuoteIdResult = await findExistingQuoteIdForJobberQuote(supabase, parsed.data)
+  if (!existingQuoteIdResult.ok) return existingQuoteIdResult
+  if (existingQuoteIdResult.data.id) {
+    return updateQuote({ ...parsed.data, id: existingQuoteIdResult.data.id })
+  }
+
+  const settingsResult = await getPricingSettings()
+  if (!settingsResult.ok) return settingsResult
 
   const formulas = calculateAllFormulas(
     {
