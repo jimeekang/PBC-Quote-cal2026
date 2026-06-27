@@ -12,20 +12,30 @@ Excel 2개 + Jobber를 오가던 견적 작업을 **한 페이지**에서 끝낸
 
 ## 빠른 시작
 
-(v1.0 구현 후 채울 예정)
+Windows `cmd` 기준:
 
-```bash
+```cmd
 # 환경 변수 셋업
-cp .env.example .env.local
+copy .env.example .env.local
 # .env.local 값 채우기
 
 # 의존성 설치 및 실행
-npm install
-npm run dev
+npm.cmd install
+npm.cmd run dev
 
 # 테스트
-npm test
+npm.cmd run test:run
 ```
+
+CLI 계정 상태 확인:
+
+```cmd
+scripts\check-cli-context.cmd
+vercel.cmd whoami
+git ls-remote origin main
+```
+
+프로젝트별 GitHub/Vercel/Supabase 접근 기준은 [docs/CLI-ACCESS.md](./docs/CLI-ACCESS.md)를 따른다.
 
 ---
 
@@ -41,6 +51,7 @@ npm test
 | **[docs/AGENT-MAP.md](./docs/AGENT-MAP.md)** | 작업 유형별 필독 문서 매트릭스 |
 | **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)** | 시스템 구조, DB 스키마, RLS 정책, 환경 변수 |
 | **[docs/CALCULATION.md](./docs/CALCULATION.md)** | 5가지 견적 공식 정확한 명세, 정밀도 규칙, 검증 |
+| **[docs/CLI-ACCESS.md](./docs/CLI-ACCESS.md)** | 프로젝트별 GitHub SSH, Vercel CLI, Supabase CLI 접근 기준 |
 | **[docs/UI-UX-REVIEW.md](./docs/UI-UX-REVIEW.md)** | v1.0 UI/UX 정적 리뷰, 접근성·시각 위계·quick win 개선안 |
 | **[docs/WORKFLOW.md](./docs/WORKFLOW.md)** | Claude ↔ Codex 협업 흐름, 작업 분담, 충돌 처리 |
 | **[TODOS.md](./TODOS.md)** | v1.1+ 작업 목록 (Jobber 연동, 자동 백업 등) |

@@ -14,6 +14,7 @@
 | **현재 버전** | v1.0 핵심 플로우 완성, v1.0+ 옵션·Jobber fetch/write-back·QA 완료, 2026-06-26 upgrade direction repo 구현 완료. Production Supabase `0019` 적용은 사용자 승인 필요 |
 | **배포 URL** | https://pbc-quote-cal2026-v2.vercel.app |
 | **GitHub Repo** | pbcjimee-jimee/PBC-Quote-cal2026 (branch: main) |
+| **CLI 접근 기준** | Git remote `git@github-pbc-quote-cal:pbcjimee-jimee/PBC-Quote-cal2026.git`, Vercel `jimee-s-projects/pbc-quote-cal2026-v2`, Supabase `ojcrfgguhbxhtlgdflzp` |
 
 ---
 
@@ -34,6 +35,7 @@
 - [x] 핵심 의존성 설치: `decimal.js`, `zod`, `@supabase/supabase-js`, `@supabase/ssr`, `vitest`, `@vitest/coverage-v8`
 - [x] Vercel 배포 설정 (`vercel.json`, 프로젝트 연결, main 브랜치 push 자동 배포)
 - [x] `.env.example` 작성, `.env.local` gitignore 등록
+- [x] 프로젝트별 CLI 접근 설정 (2026-06-27): GitHub SSH alias `github-pbc-quote-cal`, local git email `pbcjimee@gmail.com`, Vercel CLI login/link, Supabase CLI `supabase@2.108.0` repo-local devDependency/link, `scripts/check-cli-context.cmd` 검증 스크립트
 
 ### DB 마이그레이션
 
@@ -173,7 +175,7 @@
 - [x] 프로덕션 Supabase 0009 preflight 및 적용/검증(MCP, 2026-05-15): `quotes`/`products`/`quote_areas` 및 `gen_random_uuid()` 존재, `quote_options`/`quote_option_items`·관련 index·policy 이름 충돌 없음 확인. 사용자 승인 후 `add_quote_options` migration 적용 완료, `quote_options`/`quote_option_items` 테이블 존재, RLS enabled, `authenticated_all` ALL policy, 관련 index 3개, FK 4개 확인
 - [x] Supabase MCP RLS CRUD 대체 검증(2026-05-15, 사용자 지시): `anon` role은 `products` select 0 rows + insert RLS denied, `authenticated` role은 트랜잭션/ROLLBACK 안에서 `pricing_settings` read/update, `products`/`quote_areas`/`quotes`/`quote_items` create/read/update/delete 모두 affected=1, 테스트 marker 잔여 0건 확인
 - [x] 프로덕션 Supabase anon Data API smoke: `products`/`pricing_settings`/`quotes`/`quote_items`/`quote_areas`/`jobber_tokens` 모두 200 + 0 rows로 미인증 데이터 노출 없음 확인
-- [x] 완료 감사(2026-05-15): `supabase`, `docker`, `pg_dump`, `vercel` 로컬 명령 모두 미설치 확인, Jobber GraphQL 호출 경로가 `postJobberGraphql` 단일 read-only 가드를 통과하는지 정적 확인, OAuth/저장/dev token read·refresh write scope 거부 및 route-level GraphQL 호출 차단 테스트, `tests/jobber-readonly-regression.test.ts`로 회귀 방지
+- [x] 완료 감사(2026-05-15 당시 기준): `supabase`, `docker`, `pg_dump`, `vercel` 로컬 명령 모두 미설치 확인, Jobber GraphQL 호출 경로가 `postJobberGraphql` 단일 read-only 가드를 통과하는지 정적 확인, OAuth/저장/dev token read·refresh write scope 거부 및 route-level GraphQL 호출 차단 테스트, `tests/jobber-readonly-regression.test.ts`로 회귀 방지
 - [x] Jobber dev token 보안 확인: `.jobber.local.json`은 `.gitignore`에 포함되어 로컬 OAuth token 파일 commit 방지
 - [x] 보안 정적 검색/회귀 테스트: `.env*`/`.jobber.local.json` ignore, `console.log`/`dangerouslySetInnerHTML` 없음, `SUPABASE_SERVICE_ROLE_KEY`는 `lib/supabase/server.ts` 경계에만 존재, `tests/security-static.test.ts`로 재발 방지, `actual_price`는 DB 필드·테스트 데이터 경로에서만 확인
 - [x] 충돌/디버그 잔여 확인: unmerged 파일 및 conflict marker 없음, `console.log`/`debugger` 없음, TODO는 실제 PBC 과거 견적 3건 대기 fixture placeholder에만 존재
@@ -286,6 +288,7 @@
 
 | 날짜 | 작업 | 담당 |
 |---|---|---|
+| 2026-06-27 | GitHub/Vercel/Supabase CLI 접근 기준을 repo-local로 정리. Git remote를 `git@github-pbc-quote-cal:pbcjimee-jimee/PBC-Quote-cal2026.git`로 전환하고 SSH 인증·`git ls-remote origin main` 검증 통과. Vercel CLI는 `pbcjimee-4854` / `jimee-s-projects (PBC)`로 로그인 확인, Supabase CLI는 repo devDependency `supabase@2.108.0`와 project ref `ojcrfgguhbxhtlgdflzp` link 확인. `docs/CLI-ACCESS.md`와 `scripts/check-cli-context.cmd`/`scripts/supabase-login-link.cmd` 추가. 검증: typecheck, lint, test:run(50 passed / 1 skipped files, 385 passed / 2 skipped tests), build, audit, diff check 통과. | Codex |
 | 2026-06-27 | Thread `019f013a-6cbb-7d50-ac67-bdbddaf2bbb1` 기준으로 남은 업데이트를 재점검. `0019_add_roof_formula_selections.sql`은 repo에 있으나 production Supabase 미적용 시 `roof_selected_max` 저장 오류가 발생함을 문서화하고, stale Roof planned 문구와 Jobber callback 운영 문서를 갱신. | Codex |
 | 2026-06-27 | GitHub/Vercel 운영 기준을 `pbcjimee-jimee/PBC-Quote-cal2026` 및 Vercel `jimee-s-projects/pbc-quote-cal2026-v2`로 전환. 로컬 `origin` 일치 확인, `.vercel/project.json`을 새 team/project ID로 갱신, production domain health check 통과. | Codex |
 | 2026-06-26 | Upgrade direction revised per user and documented first: no `ADMIN_EMAILS` admin split, no material actual-cost/RRP split, no extra pricing-info panel. Remaining scope is Roof formula persistence, local draft privacy/expiry, Jobber sync preview/retry, duplicate quote, and backup operations. Model routing added for planning/implementation/simple work. | Codex |

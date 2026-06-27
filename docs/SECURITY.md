@@ -11,6 +11,7 @@
 - `.env*` 파일은 `.gitignore`에 등록
 - `.env.example`만 commit (placeholder 값으로)
 - 비밀번호·API 키 절대 commit 금지
+- Supabase Personal Access Token(`sbp_...`), Vercel token, SSH private key는 채팅·문서·git 파일에 남기지 않고 로컬 CLI 인증 저장소에만 둔다.
 
 ### 2. `SUPABASE_SERVICE_ROLE_KEY` 사용 제한
 
@@ -113,6 +114,7 @@ PR 머지 전 다음을 반드시 확인:
 | "이거 보안에 영향 있을까?" | 사용자에게 물어보고 진행 |
 | RLS 정책 변경 필요 | 사용자 승인 + `tests/rls.test.ts` 통과 후 머지 |
 | 새 외부 API 키 필요 | 사용자에게 키 발급·저장 방법 문의 |
+| CLI access token 입력 필요 | 사용자가 로컬 `cmd` 창에 직접 입력. 채팅에 붙여넣지 않음 |
 | 동일 버그 3회 시도 실패 | 중단, `gstack-investigate` 또는 사용자 문의 |
 
 ---

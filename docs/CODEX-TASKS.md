@@ -194,7 +194,7 @@ components/quote-form/
 
 **Pre-requisite:** 사용자가 Excel 견적 3건 데이터 제공.
 
-**Acceptance:** `npm run test:run`에서 fixture 3건 모두 통과.
+**Acceptance:** `npm.cmd run test:run`에서 fixture 3건 모두 통과.
 
 ---
 

@@ -174,13 +174,17 @@ DB 마이그레이션 SQL 작성, 계산기 구현, Server Actions, UI 컴포넌
 
 ## 테스트 명령
 
-```bash
-npm test                # Vitest watch
-npm run test:run        # 1회 실행
-npm run test:coverage   # 커버리지
-npm run typecheck       # 타입 체크
-npm run lint            # 린트
+Windows `cmd` 기준:
+
+```cmd
+npm.cmd test                # Vitest watch
+npm.cmd run test:run        # 1회 실행
+npm.cmd run test:coverage   # 커버리지
+npm.cmd run typecheck       # 타입 체크
+npm.cmd run lint            # 린트
 ```
+
+프로젝트별 GitHub/Vercel/Supabase CLI 접근 기준은 `docs/CLI-ACCESS.md`를 따른다.
 
 ---
 

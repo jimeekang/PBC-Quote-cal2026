@@ -45,7 +45,7 @@ Codex는 정해진 사양을 충실히 코드로 옮기는 데 집중한다.
 | Server Actions | `docs/ARCHITECTURE.md` → `docs/CODING-STYLE.md` |
 | UI 컴포넌트 | `docs/UI-DESIGN.md` → `docs/CODING-STYLE.md` |
 | 테스트 작성 | `docs/CALCULATION.md` → `PROGRESS.md` |
-| 배포 | `docs/DEPLOY.md` → `docs/SECURITY.md` |
+| 배포 | `docs/DEPLOY.md` → `docs/CLI-ACCESS.md` → `docs/SECURITY.md` |
 
 전체 매트릭스: `docs/AGENT-MAP.md`.
 

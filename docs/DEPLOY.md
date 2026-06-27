@@ -15,6 +15,7 @@
 | **Deploy workflow** | main 브랜치 push 시 자동 배포 |
 | **Merge method** | merge |
 | **Project type** | web app (Next.js 16) |
+| **Local Git remote** | `git@github-pbc-quote-cal:pbcjimee-jimee/PBC-Quote-cal2026.git` |
 
 ---
 
@@ -26,6 +27,27 @@
 | **Team ID** | `team_cO066nzzS97DRZaz03MQWRMD` |
 | **Project ID** | `prj_KMdOHSdwcmSxiypj1yvNqj4zM6Pp` |
 | **Supabase Project ID** | `ojcrfgguhbxhtlgdflzp` |
+
+---
+
+## 로컬 CLI 접근 기준
+
+프로젝트별 계정 혼선을 줄이기 위해 GitHub/Vercel/Supabase 접근은 CLI 설정을 기준으로 확인한다.
+상세 기준은 `docs/CLI-ACCESS.md` 참조.
+
+```cmd
+scripts\check-cli-context.cmd
+vercel.cmd whoami
+git ls-remote origin main
+```
+
+현재 기준:
+
+- GitHub SSH alias: `github-pbc-quote-cal`
+- Git local email: `pbcjimee@gmail.com`
+- Vercel user/team: `pbcjimee-4854` / `jimee-s-projects (PBC)`
+- Supabase linked project-ref: `ojcrfgguhbxhtlgdflzp`
+- Supabase CLI: repo-local `supabase@2.108.0`
 
 ---
 
@@ -48,9 +70,10 @@
 
 ### Pre-merge 체크
 
-- **`npm run test:run`** 통과 필수 (22개 단위 테스트)
-- **`npm run typecheck`** 통과 필수
-- **`npm run lint`** 통과 필수
+- **`npm.cmd run typecheck`** 통과 필수
+- **`npm.cmd run lint`** 통과 필수
+- **`npm.cmd run test:run`** 통과 필수
+- **`npm.cmd run build`** 통과 필수
 
 ### Deploy trigger
 
@@ -70,11 +93,11 @@ https://pbc-quote-cal2026-v2.vercel.app
 ## 배포 프로세스 (표준)
 
 1. **로컬 검증**
-   ```bash
-   npm run typecheck
-   npm run lint
-   npm run test:run
-   npm run build
+   ```cmd
+   npm.cmd run typecheck
+   npm.cmd run lint
+   npm.cmd run test:run
+   npm.cmd run build
    ```
 2. **PR 생성** (`gstack-ship` 스킬 사용)
 3. **PR 리뷰** (`gstack-review` 스킬 사용)
@@ -112,7 +135,7 @@ https://pbc-quote-cal2026-v2.vercel.app
 
 ### 빌드 실패 시
 1. Vercel 대시보드에서 빌드 로그 확인
-2. 로컬에서 `npm run build` 재현
+2. 로컬에서 `npm.cmd run build` 재현
 3. TypeScript/ESLint 에러부터 해결
 
 ### 환경 변수 누락 시

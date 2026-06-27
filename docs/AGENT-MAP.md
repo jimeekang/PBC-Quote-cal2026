@@ -39,6 +39,7 @@
 | `docs/CODING-STYLE.md` | TypeScript·명명·금액·에러 패턴 | 거의 없음 |
 | `docs/SECURITY.md` | 보안 규칙·위험 작업 승인 정책 | 거의 없음 |
 | `docs/DEPLOY.md` | Vercel 배포 설정 | 환경 변경 시 |
+| `docs/CLI-ACCESS.md` | 프로젝트별 GitHub/Vercel/Supabase CLI 접근 기준 | 계정·remote·CLI 변경 시 |
 | `TODOS.md` | v1.1+ 작업 목록 | 분기당 1회 |
 
 ### 아키텍처
@@ -112,7 +113,7 @@ from `docs/UI-DESIGN-SYSTEM.md`.
 | **UI 컴포넌트** (Codex) | `AGENTS.md` → `docs/UI-DESIGN.md` → (페이지별: `UI-QUOTE-FORM.md` 또는 `UI-PAGES.md`) → `docs/UI-UX-REVIEW.md` → `docs/CODING-STYLE.md` |
 | **테스트 작성** (Codex) | `AGENTS.md` → `docs/CALCULATION.md` → `docs/CALCULATION-API.md` → `PROGRESS.md` |
 | **코드 리뷰** (Claude) | `CLAUDE.md` → `docs/DECISIONS.md` → `docs/CODING-STYLE.md` → `docs/SECURITY.md` |
-| **배포** (Codex) | `AGENTS.md` → `docs/DEPLOY.md` → `docs/SECURITY.md` |
+| **배포** (Codex) | `AGENTS.md` → `docs/DEPLOY.md` → `docs/CLI-ACCESS.md` → `docs/SECURITY.md` |
 
 ---
 
