@@ -61,6 +61,7 @@ export interface QuoteOptionItem {
   selectedMin: FormulaNumber
   selectedMax: FormulaNumber
   isExpanded: boolean
+  sourceJobberLineItemIds?: string[]
 }
 
 export interface QuoteMemoItem {

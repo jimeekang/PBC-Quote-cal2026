@@ -4,6 +4,9 @@ import type {
   JobberQuoteDraftJobExpenses,
   JobberQuoteDraftLineItem,
 } from '@/lib/jobber/mapper'
+import type { JobberSnapshotChangeStatus } from '@/lib/jobber/snapshot-diff'
+import type { JobberSnapshotChangeSummaryItem } from '@/lib/dev-data'
+import { formatJobberRefreshTime } from '@/components/quote-detail/jobber-refresh-time'
 
 interface CustomerPanelProps {
   customerName: string
@@ -17,10 +20,20 @@ interface CustomerPanelProps {
   onJobberLookupTypeChange: (value: 'quote' | 'job') => void
   onJobberQuoteIdChange: (value: string) => void
   onFetchJobberQuote: () => void
+  onApplyJobberRefreshChanges?: () => void
+  onKeepCurrentJobberQuote?: () => void
   onWorkTypeChange: (value: string) => void
   isFetchingJobberQuote: boolean
   jobberFetchError: string | null
   jobberQuoteDraft: JobberQuoteDraft | null
+  jobberActionMode?: 'fetch' | 'refresh'
+  jobberRefreshPreview?: JobberRefreshPreview | null
+}
+
+export interface JobberRefreshPreview {
+  status: JobberSnapshotChangeStatus
+  summary: JobberSnapshotChangeSummaryItem[]
+  refreshedAt: string
 }
 
 function formatDate(value: string): string {
@@ -207,10 +220,88 @@ export function JobberQuoteSummary({ quote }: { quote: JobberQuoteDraft }) {
   )
 }
 
+function JobberQuoteSnapshotDetails({ quote }: { quote: JobberQuoteDraft }) {
+  const sourceLabel = quote.sourceType === 'job' ? 'Jobber job' : 'Jobber quote'
+
+  return (
+    <details className="pbc-jobbersnapshot">
+      <summary>
+        <span className="pbc-titletext">Original Jobber detail</span>
+        <span className="pbc-listitem__meta">
+          {sourceLabel} {quote.quoteNumber} | {formatDate(quote.createdAt)} | {quote.customerAddress || '-'}
+        </span>
+      </summary>
+      <div className="mt-3">
+        <JobberQuoteSummary quote={quote} />
+      </div>
+    </details>
+  )
+}
+
+function JobberRefreshPreviewPanel({
+  preview,
+  onApply,
+  onKeep,
+}: {
+  preview: JobberRefreshPreview
+  onApply?: () => void
+  onKeep?: () => void
+}) {
+  if (preview.status === 'unchanged') {
+    return (
+      <div className="pbc-alert pbc-alert--success">
+        No changes since last refresh - {formatJobberRefreshTime(preview.refreshedAt)}
+      </div>
+    )
+  }
+
+  if (preview.status !== 'changed') {
+    return (
+      <div className="pbc-alert pbc-alert--warning pbc-alert--stack">
+        <span>Jobber refreshed - {formatJobberRefreshTime(preview.refreshedAt)}. Review before applying changes.</span>
+        <span className="pbc-alert__actions">
+          <button type="button" onClick={onApply} className="pbc-btn pbc-btn--primary pbc-btn--sm">
+            Apply Jobber changes
+          </button>
+          <button type="button" onClick={onKeep} className="pbc-btn pbc-btn--ghost pbc-btn--sm">
+            Keep current quote
+          </button>
+        </span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="pbc-alert pbc-alert--warning pbc-alert--stack">
+      <div>
+        <b>Jobber changes detected</b>
+        <ul className="mt-2 space-y-1">
+          {preview.summary.map((item, index) => (
+            <li key={`${item.field}-${index}`}>
+              {item.label}: {item.before} -&gt; {item.after}
+            </li>
+          ))}
+        </ul>
+      </div>
+      <span className="pbc-alert__actions">
+        <button type="button" onClick={onApply} className="pbc-btn pbc-btn--primary pbc-btn--sm">
+          Apply Jobber changes
+        </button>
+        <button type="button" onClick={onKeep} className="pbc-btn pbc-btn--ghost pbc-btn--sm">
+          Keep current quote
+        </button>
+      </span>
+    </div>
+  )
+}
+
 export function CustomerPanel(props: CustomerPanelProps) {
   const lookupLabel = props.jobberLookupType === 'job'
     ? 'Jobber Job Number or URL'
     : 'Jobber Quote Number or URL'
+  const actionMode = props.jobberActionMode ?? 'fetch'
+  const actionLabel = actionMode === 'refresh' ? 'Refresh from Jobber' : 'Fetch'
+  const loadingLabel = actionMode === 'refresh' ? 'Refreshing' : 'Loading'
 
   return (
     <section className="space-y-4">
@@ -243,9 +334,14 @@ export function CustomerPanel(props: CustomerPanelProps) {
           <div className="flex min-w-0 gap-2">
             <input value={props.jobberQuoteId} onChange={(event) => props.onJobberQuoteIdChange(event.target.value)} className="pbc-input min-w-0 flex-1" />
             <button type="button" onClick={props.onFetchJobberQuote} disabled={props.isFetchingJobberQuote} className="pbc-btn pbc-btn--ghost shrink-0">
-              {props.isFetchingJobberQuote ? 'Loading' : 'Fetch'}
+              {props.isFetchingJobberQuote ? loadingLabel : actionLabel}
             </button>
           </div>
+          {actionMode === 'refresh' ? (
+            <span className="pbc-field__hint mt-1 block">
+              Preview Jobber changes before applying them to this saved quote.
+            </span>
+          ) : null}
           {props.jobberFetchError ? (
             <span className="pbc-alert pbc-alert--danger mt-2">
               {props.jobberFetchError}
@@ -262,7 +358,14 @@ export function CustomerPanel(props: CustomerPanelProps) {
         <span className="pbc-field__label">Address</span>
         <input value={props.customerAddress} onChange={(event) => props.onCustomerAddressChange(event.target.value)} className="pbc-input" />
       </label>
-      {props.jobberQuoteDraft ? <JobberQuoteSummary quote={props.jobberQuoteDraft} /> : null}
+      {props.jobberRefreshPreview ? (
+        <JobberRefreshPreviewPanel
+          preview={props.jobberRefreshPreview}
+          onApply={props.onApplyJobberRefreshChanges}
+          onKeep={props.onKeepCurrentJobberQuote}
+        />
+      ) : null}
+      {props.jobberQuoteDraft ? <JobberQuoteSnapshotDetails quote={props.jobberQuoteDraft} /> : null}
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="pbc-field">
           <span className="pbc-field__label">Work Type</span>

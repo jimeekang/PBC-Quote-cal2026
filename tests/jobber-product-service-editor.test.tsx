@@ -120,10 +120,14 @@ describe('JobberProductServiceEditor', () => {
     }))
 
     expect(markup).toContain('Template')
+    expect(markup).toContain('sr-only')
+    expect(markup).toContain('pbc-publiclines__toolbar')
+    expect(markup).toContain('pbc-publiclines__select')
+    expect(markup).toContain('pbc-publiclines__button')
     expect(markup).toContain('Standard terms')
     expect(markup).toContain('Add Line Item')
     expect(markup).toContain('Add Text')
-    expect(markup).toContain('Add the public Jobber-facing product and service lines for this quote.')
+    expect(markup).toContain('These are the public Jobber-facing lines that will be updated from this quote.')
   })
 
   it('renders drag handles for reordering line items', () => {

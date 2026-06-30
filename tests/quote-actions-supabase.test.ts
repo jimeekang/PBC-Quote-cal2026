@@ -61,9 +61,59 @@ vi.mock('@/lib/jobber/mapper', () => ({
   mapJobberQuoteToDraft: mocks.mapJobberQuoteToDraft,
 }))
 
-import { createQuote, deleteQuote, duplicateQuote, getQuote, retryJobberQuoteSync, searchQuotes, updateQuote } from '@/lib/actions/quotes'
+import type { JobberQuoteDraft } from '@/lib/jobber/mapper'
+import { createQuote, deleteQuote, duplicateQuote, getQuote, refreshJobberQuoteSnapshot, retryJobberQuoteSync, searchQuotes, updateQuote } from '@/lib/actions/quotes'
 
 const quoteId = '00000000-0000-4000-8000-000000000101'
+
+const previousJobberSnapshot: JobberQuoteDraft = {
+  jobberQuoteId: 'jobber-quote-id',
+  sourceType: 'quote',
+  quoteNumber: '3535',
+  createdAt: '2026-05-19T00:00:00Z',
+  customerName: 'Supabase Customer',
+  customerAddress: '1 Paint St',
+  workType: 'Interior',
+  areaSqft: null,
+  customerType: 'Residential',
+  sourceUrl: 'https://secure.getjobber.com/quotes/3535',
+  productsAndServices: [
+    {
+      id: 'line-1',
+      name: 'Interior repaint',
+      category: 'SERVICE',
+      description: 'Walls',
+      quantity: 1,
+      unitPrice: 100,
+      totalPrice: 100,
+      linkedName: null,
+    },
+  ],
+  jobExpenses: [],
+  jobExpensesError: null,
+  financialSummary: {
+    quoteTotal: 100,
+    expensesTotal: 0,
+    profit: 100,
+    profitMarginPercent: 100,
+  },
+}
+
+const changedJobberSnapshot: JobberQuoteDraft = {
+  ...previousJobberSnapshot,
+  productsAndServices: [
+    {
+      ...previousJobberSnapshot.productsAndServices[0],
+      unitPrice: 180,
+      totalPrice: 180,
+    },
+  ],
+  financialSummary: {
+    ...previousJobberSnapshot.financialSummary,
+    quoteTotal: 180,
+    profit: 180,
+  },
+}
 
 const quoteRow = {
   id: quoteId,
@@ -1052,6 +1102,68 @@ describe('quote actions against Supabase', () => {
     expect(syncStatusUpdate.eq).toHaveBeenCalledWith('id', quoteId)
   })
 
+  it('persists applied edit-form Jobber refresh metadata when updating a quote', async () => {
+    const existingQuote = createSelectSingleBuilder({
+      data: {
+        pricing_settings_snapshot: DEFAULT_PRICING_SETTINGS,
+        subtotal: '510.00',
+        final_total: '561.00',
+      },
+      error: null,
+    })
+    const quoteUpdate = createThenableBuilder({ error: null })
+    const itemDelete = createThenableBuilder({ error: null })
+    const optionDelete = createThenableBuilder({ error: null })
+    const jobberLineDelete = createThenableBuilder({ error: null })
+    const itemInsert = createInsertOnlyBuilder({ error: null })
+    const builders: Record<string, unknown[]> = {
+      quotes: [existingQuote, quoteUpdate],
+      quote_items: [itemDelete, itemInsert],
+      quote_options: [optionDelete],
+      jobber_quote_lines: [jobberLineDelete],
+      quote_memos: [createThenableBuilder({ error: null })],
+    }
+    const from = vi.fn((table: string) => {
+      const builder = builders[table]?.shift()
+      if (!builder) throw new Error(`unexpected table ${table}`)
+      return builder
+    })
+    mocks.createClient.mockResolvedValueOnce({ auth: createAuthUser(), from })
+
+    const result = await updateQuote({
+      id: quoteId,
+      ...quoteInput,
+      jobberQuoteId: 'jobber-quote-id',
+      jobberSnapshot: changedJobberSnapshot,
+      jobberSnapshotRefreshedAt: '2026-06-30T00:53:00.000Z',
+      jobberSnapshotChangeStatus: 'changed',
+      jobberSnapshotChangeSummary: [
+        {
+          field: 'financialSummary',
+          label: 'Jobber quote total changed',
+          before: '$100.00',
+          after: '$180.00',
+        },
+      ],
+    })
+
+    expect(result).toEqual({ ok: true, data: { id: quoteId } })
+    expect(quoteUpdate.update).toHaveBeenCalledWith(expect.objectContaining({
+      jobber_snapshot: changedJobberSnapshot,
+      jobber_snapshot_refreshed_at: '2026-06-30T00:53:00.000Z',
+      jobber_snapshot_change_status: 'changed',
+      jobber_snapshot_change_summary: [
+        {
+          field: 'financialSummary',
+          label: 'Jobber quote total changed',
+          before: '$100.00',
+          after: '$180.00',
+        },
+      ],
+      jobber_snapshot_refresh_error: null,
+    }))
+  })
+
   it('keeps successful Jobber line sync when only the post-write snapshot refresh is throttled', async () => {
     const existingQuote = createSelectSingleBuilder({
       data: {
@@ -1475,6 +1587,132 @@ describe('quote actions against Supabase', () => {
 
     expect(result).toEqual({ ok: false, error: 'Quote id is required' })
     expect(mocks.createClient).not.toHaveBeenCalled()
+  })
+
+  it('rejects Jobber snapshot refresh without an id before touching Supabase', async () => {
+    const result = await refreshJobberQuoteSnapshot(' ')
+
+    expect(result).toEqual({ ok: false, error: 'Quote id is required' })
+    expect(mocks.createClient).not.toHaveBeenCalled()
+  })
+
+  it('rejects Jobber snapshot refresh for quotes without a linked Jobber quote', async () => {
+    const quoteSelect = createSelectSingleBuilder({
+      data: { id: quoteId, jobber_quote_id: null, jobber_snapshot: previousJobberSnapshot },
+      error: null,
+    })
+    mocks.createClient.mockResolvedValueOnce({
+      auth: createAuthUser(),
+      from: vi.fn((table: string) => {
+        if (table === 'quotes') return quoteSelect
+        throw new Error(`unexpected refresh table ${table}`)
+      }),
+    })
+
+    const result = await refreshJobberQuoteSnapshot(quoteId)
+
+    expect(result).toEqual({ ok: false, error: 'Saved quote is not linked to Jobber' })
+    expect(quoteSelect.select).toHaveBeenCalledWith('id, jobber_quote_id, jobber_snapshot')
+    expect(mocks.fetchJobberQuote).not.toHaveBeenCalled()
+  })
+
+  it('refreshes a linked Jobber quote snapshot and stores changed diff metadata', async () => {
+    const quoteSelect = createSelectSingleBuilder({
+      data: { id: quoteId, jobber_quote_id: 'jobber-quote-id', jobber_snapshot: previousJobberSnapshot },
+      error: null,
+    })
+    const quoteUpdate = createThenableBuilder({ error: null })
+    const builders: Record<string, unknown[]> = {
+      quotes: [quoteSelect, quoteUpdate],
+    }
+    const from = vi.fn((table: string) => {
+      const builder = builders[table]?.shift()
+      if (!builder) throw new Error(`unexpected refresh table ${table}`)
+      return builder
+    })
+    mocks.mapJobberQuoteToDraft.mockReturnValueOnce(changedJobberSnapshot)
+    mocks.createClient.mockResolvedValueOnce({ auth: createAuthUser(), from })
+
+    const result = await refreshJobberQuoteSnapshot(quoteId)
+
+    expect(result).toEqual({ ok: true, data: { id: quoteId, status: 'changed' } })
+    expect(mocks.fetchJobberQuote).toHaveBeenCalledWith('jobber-quote-id', expect.objectContaining({
+      accessToken: 'access-token',
+      graphqlVersion: '2025-04-16',
+    }))
+    expect(quoteUpdate.update).toHaveBeenCalledWith(expect.objectContaining({
+      jobber_snapshot: changedJobberSnapshot,
+      jobber_snapshot_refreshed_at: expect.any(String),
+      jobber_snapshot_change_status: 'changed',
+      jobber_snapshot_change_summary: expect.arrayContaining([
+        expect.objectContaining({
+          field: 'financialSummary',
+          label: 'Jobber quote total changed',
+          before: '$100.00',
+          after: '$180.00',
+        }),
+      ]),
+      jobber_snapshot_refresh_error: null,
+    }))
+    expect(mocks.revalidatePath).toHaveBeenCalledWith('/quotes')
+    expect(mocks.revalidatePath).toHaveBeenCalledWith(`/quotes/${quoteId}`)
+    expect(mocks.revalidatePath).toHaveBeenCalledWith(`/quotes/${quoteId}/edit`)
+  })
+
+  it('stores unchanged refresh status with an empty summary when the Jobber snapshot matches', async () => {
+    const quoteSelect = createSelectSingleBuilder({
+      data: { id: quoteId, jobber_quote_id: 'jobber-quote-id', jobber_snapshot: previousJobberSnapshot },
+      error: null,
+    })
+    const quoteUpdate = createThenableBuilder({ error: null })
+    const builders: Record<string, unknown[]> = {
+      quotes: [quoteSelect, quoteUpdate],
+    }
+    const from = vi.fn((table: string) => {
+      const builder = builders[table]?.shift()
+      if (!builder) throw new Error(`unexpected refresh table ${table}`)
+      return builder
+    })
+    mocks.mapJobberQuoteToDraft.mockReturnValueOnce(previousJobberSnapshot)
+    mocks.createClient.mockResolvedValueOnce({ auth: createAuthUser(), from })
+
+    const result = await refreshJobberQuoteSnapshot(quoteId)
+
+    expect(result).toEqual({ ok: true, data: { id: quoteId, status: 'unchanged' } })
+    expect(quoteUpdate.update).toHaveBeenCalledWith(expect.objectContaining({
+      jobber_snapshot: previousJobberSnapshot,
+      jobber_snapshot_change_status: 'unchanged',
+      jobber_snapshot_change_summary: [],
+      jobber_snapshot_refresh_error: null,
+    }))
+  })
+
+  it('stores Jobber snapshot refresh errors when fetching the linked quote fails', async () => {
+    const quoteSelect = createSelectSingleBuilder({
+      data: { id: quoteId, jobber_quote_id: 'jobber-quote-id', jobber_snapshot: previousJobberSnapshot },
+      error: null,
+    })
+    const quoteUpdate = createThenableBuilder({ error: null })
+    const builders: Record<string, unknown[]> = {
+      quotes: [quoteSelect, quoteUpdate],
+    }
+    const from = vi.fn((table: string) => {
+      const builder = builders[table]?.shift()
+      if (!builder) throw new Error(`unexpected refresh table ${table}`)
+      return builder
+    })
+    mocks.fetchJobberQuote.mockRejectedValueOnce(new Error('Jobber timeout while refreshing snapshot'))
+    mocks.createClient.mockResolvedValueOnce({ auth: createAuthUser(), from })
+
+    const result = await refreshJobberQuoteSnapshot(quoteId)
+
+    expect(result).toEqual({ ok: false, error: 'Jobber timeout while refreshing snapshot' })
+    expect(quoteUpdate.update).toHaveBeenCalledWith({
+      jobber_snapshot_refresh_error: 'Jobber timeout while refreshing snapshot',
+    })
+    expect(quoteUpdate.eq).toHaveBeenCalledWith('id', quoteId)
+    expect(mocks.revalidatePath).toHaveBeenCalledWith(`/quotes/${quoteId}`)
+    expect(mocks.revalidatePath).not.toHaveBeenCalledWith(`/quotes/${quoteId}/edit`)
   })
 
   it('deletes a quote through Supabase after authentication', async () => {

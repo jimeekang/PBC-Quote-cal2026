@@ -158,6 +158,10 @@ export interface Database {
           jobber_sync_status: 'not_synced' | 'synced' | 'failed'
           jobber_last_synced_at: string | null
           jobber_sync_error: string | null
+          jobber_snapshot_refreshed_at: string | null
+          jobber_snapshot_change_status: 'unknown' | 'unchanged' | 'changed'
+          jobber_snapshot_change_summary: Json
+          jobber_snapshot_refresh_error: string | null
           area_sqft: number | null
           work_type: string | null
           working_days: string
@@ -183,8 +187,21 @@ export interface Database {
           updated_by: string | null
           updated_at: string
         }
-        Insert: Omit<Database['public']['Tables']['quotes']['Row'], 'id' | 'created_at' | 'updated_at'> & {
+        Insert: Omit<
+          Database['public']['Tables']['quotes']['Row'],
+          | 'id'
+          | 'created_at'
+          | 'updated_at'
+          | 'jobber_snapshot_refreshed_at'
+          | 'jobber_snapshot_change_status'
+          | 'jobber_snapshot_change_summary'
+          | 'jobber_snapshot_refresh_error'
+        > & {
           id?: string
+          jobber_snapshot_refreshed_at?: string | null
+          jobber_snapshot_change_status?: 'unknown' | 'unchanged' | 'changed'
+          jobber_snapshot_change_summary?: Json
+          jobber_snapshot_refresh_error?: string | null
           created_at?: string
           updated_at?: string
         }

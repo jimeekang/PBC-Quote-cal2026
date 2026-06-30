@@ -3,6 +3,8 @@ import type { PricingSettings } from '@/lib/calculator'
 import Decimal from 'decimal.js'
 import { decimalFromInput } from '@/lib/quote-labour'
 import type { JobberQuoteDraft } from '@/lib/jobber/mapper'
+import type { JobberSnapshotChangeStatus } from '@/lib/jobber/snapshot-diff'
+import type { JobberSnapshotChangeSummaryItem } from '@/lib/dev-data'
 import { calculateMainQuoteTotals } from './quote-calculation-totals'
 import { isLocalDraftJobberQuoteDraft } from './quote-draft'
 import type { AreaFormulaSelections, FormulaNumber, JobberQuoteLineItemDraft, MaterialItem, QuoteMemoItem, QuoteOptionItem } from './types'
@@ -15,6 +17,9 @@ export interface QuoteFormSavePayloadInput {
   jobberQuoteId: string
   jobberQuoteLookup: string
   jobberQuoteDraft: JobberQuoteDraft | null
+  jobberSnapshotRefreshedAt?: string | null
+  jobberSnapshotChangeStatus?: JobberSnapshotChangeStatus
+  jobberSnapshotChangeSummary?: JobberSnapshotChangeSummaryItem[]
   deletedJobberLineItemIds: string[]
   jobberQuoteLines: JobberQuoteLineItemDraft[]
   workType: string
@@ -68,6 +73,9 @@ export function buildQuoteSavePayload({
   jobberQuoteId,
   jobberQuoteLookup,
   jobberQuoteDraft,
+  jobberSnapshotRefreshedAt,
+  jobberSnapshotChangeStatus,
+  jobberSnapshotChangeSummary,
   deletedJobberLineItemIds,
   jobberQuoteLines,
   workType,
@@ -99,6 +107,9 @@ export function buildQuoteSavePayload({
     customerAddress,
     jobberQuoteId: jobberQuoteId || jobberQuoteLookup,
     jobberSnapshot,
+    jobberSnapshotRefreshedAt: jobberSnapshot ? jobberSnapshotRefreshedAt ?? undefined : undefined,
+    jobberSnapshotChangeStatus: jobberSnapshot ? jobberSnapshotChangeStatus : undefined,
+    jobberSnapshotChangeSummary: jobberSnapshot ? jobberSnapshotChangeSummary : undefined,
     jobberSaveMode: 'priced_line_items',
     deletedJobberLineItemIds,
     jobberQuoteLines: jobberQuoteLines.map((line, index) => ({

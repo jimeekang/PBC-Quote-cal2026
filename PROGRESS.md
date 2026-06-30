@@ -1,6 +1,6 @@
 # PROGRESS.md — PBC 견적 계산기 진행 현황
 
-> **이 파일은 Claude Code와 Codex 모두 읽는 공용 진행 현황 문서다.**
+> **이 파일은 Codex가 읽는 공용 진행 현황 문서다.**
 > 새 세션 시작 시 이 파일을 먼저 읽고 "이미 된 것"과 "남은 것"을 파악한다.
 
 ---
@@ -11,7 +11,7 @@
 |---|---|
 | **앱** | PBC 견적 계산기 — 페인팅 회사 PBC 사내 도구 |
 | **스택** | Next.js 16 (App Router) + React 19 + TypeScript + Tailwind CSS 4 + Supabase + Vercel |
-| **현재 버전** | v1.0 핵심 플로우 완성, v1.0+ 옵션·Jobber fetch/write-back·QA 완료, 2026-06-26 upgrade direction repo 구현 및 Production Supabase `0019` 적용 확인 완료 |
+| **현재 버전** | v1.0 핵심 플로우 완성, v1.0+ 옵션·Jobber fetch/write-back·QA 완료, 2026-06-26 upgrade direction repo 구현 및 Production Supabase `0019`/`0020` 적용 확인 완료 |
 | **배포 URL** | https://pbc-quote-cal2026-v2.vercel.app |
 | **GitHub Repo** | pbcjimee-jimee/PBC-Quote-cal2026 (branch: main) |
 | **CLI 접근 기준** | Git remote `git@github-pbc-quote-cal:pbcjimee-jimee/PBC-Quote-cal2026.git`, Vercel `jimee-s-projects/pbc-quote-cal2026-v2`, Supabase `ojcrfgguhbxhtlgdflzp` |
@@ -21,7 +21,7 @@
 ## v1.0 전체 진행 현황
 
 ```
-[███████████████████░] 97% — 핵심 플로우/Auth/Jobber 읽기 전용/옵션/QA 완료, Jobber controlled write-back 로컬 편집·저장 및 실제 quote line item mutation 구현, ProductOrService search 잔여
+[완료] 핵심 플로우/Auth/옵션/QA, Jobber fetch/write-back, Product & Service catalog/template, 2026-06-26 보완 범위 구현 및 운영 확인 완료
 ```
 
 ---
@@ -218,7 +218,7 @@
 | Jobber controlled write-back으로 결정 변경 | 기존 read-only fetch는 유지하되, 같은 Jobber quote에 공개 Product / Service line item만 write-back. material 가격은 Jobber에 저장하지 않음 |
 | 모든 오류 제거 | typecheck, lint, 신규/전체 unit test 통과. `npm.cmd run verify` 전체 통과 여부는 이번 구현 최종 검증 기록 참조 |
 | 완료되면 파일 업데이트 | `PROGRESS.md`에 검증 결과, 남은 차단 항목, 승인 후 실행 작업 기록 |
-| 백업 방식은 진행하지 않기 | 백업 관련 항목을 제외 완료로 표시하고 실행하지 않음 |
+| Supabase 실제 데이터 백업 | 운영 결정 대기. 코드/마이그레이션 변경 이력은 Git으로 보존하지만, 실제 견적 데이터 백업 정책은 별도 결정 필요 |
 
 ### 완료 감사 증거 매핑 (2026-05-15)
 
@@ -232,11 +232,14 @@
 | 회귀 fixture | `tests/calculator.test.ts`는 `HISTORICAL_FIXTURES`를 실행하며 현재 샘플 1건 fixture를 유지 | 완료 |
 | `/gstack-qa` 전체 플로우 QA | 승인 후 Codex 변경분 커밋 `6d7e286`, 사용자 미추적 문서 임시 stash 보호, gstack browse 런타임 복구(`playwright`/`diff`/Chromium). `localhost:3300`에서 로그인 화면 desktop/mobile, invalid login, 보호 라우트 리다이렉트, 임시 Auth 사용자 로그인, 견적 목록, 신규 견적 생성, 상세, 편집, Settings 화면 확인. 전체 console error 없음, QA marker quote/auth user 정리 완료 | 완료 |
 | 프로덕션 Supabase 0009 적용 | 사용자 승인 후 MCP로 `add_quote_options` migration 적용 완료. `quote_options`/`quote_option_items` 테이블 존재, RLS enabled, `authenticated_all` ALL policy, 관련 index 3개, FK 4개 확인 | 완료 |
-| 백업 방식 | Git 이력으로 코드/마이그레이션 변경 이력 보존 | 완료 |
+| 코드/마이그레이션 백업 | Git 이력으로 변경 이력 보존. Supabase 실제 데이터 백업은 운영 결정 대기 | 완료 |
 
-### 사용자 입력/승인 필요
+### Jobber 후속 작업 상태
 
-- Jobber ProductOrService search query shape 확인 및 import/link UI 연결 필요
+- [x] Jobber snapshot 수동 refresh: Quote detail에서 최신 Jobber snapshot을 다시 fetch하고 마지막 refresh 시간을 별도 저장/표시
+- [x] Refresh 기반 변경 감지: 이전 snapshot과 새 snapshot의 고객/주소/work type/customer type/Product-Service line/Jobber total compact diff를 저장하고 알림 표시
+- [x] Jobber option line item preview/manual import: 보수적 후보 감지 후 사용자가 선택한 항목만 PBC 옵션 state로 가져오며, 실제 DB 저장은 기존 quote save/update 경로 사용
+- [x] Production Supabase `0020_add_jobber_snapshot_refresh_metadata.sql` 적용: 2026-06-30 사용자 승인 후 적용 및 컬럼/제약조건 검증 완료
 
 ### 2026-06-26 업데이트 방향 (코드 구현 완료)
 
@@ -262,26 +265,30 @@
 - 기존 quote 30건의 `roof_selected_min`/`roof_selected_max` 누락 0건 확인
 - Git 백업 브랜치 `codex/backup-pre-0019-roof-migration-20260629` 생성
 
+2026-06-30 운영 확인:
+- Production Supabase migration history에 `add_jobber_snapshot_refresh_metadata` 적용 이력 확인
+- `quotes.jobber_snapshot_refreshed_at`, `jobber_snapshot_change_status`, `jobber_snapshot_change_summary`, `jobber_snapshot_refresh_error` 컬럼 존재 확인
+- `jobber_snapshot_change_status` CHECK 제약이 `unknown`, `unchanged`, `changed`만 허용함을 확인
+
 ### 승인 후 실행 작업
 
 | 승인/입력 | 바로 실행할 작업 |
 |---|---|
-| Jobber ProductOrService schema 확인 | 실제 Jobber ProductOrService search route 및 link UI 구현 시작 |
-| 백업 방식 | Git 이력으로 코드/마이그레이션 변경 이력 보존 |
+| Supabase 실제 데이터 백업 정책 | Pro/PITR 또는 restore 검증이 포함된 cron export 중 선택 후 운영 적용 |
 
 ### UX 잔여 (v1.0 완료 차단 아님, v1.1+로 이관 — `docs/DECISIONS.md` #1 기준)
 
 - [ ] `docs/UI-UX-REVIEW.md` P0 quick win 검토: 전역 focus-visible, 삭제 버튼 아이콘화, contrast 보정, draft 이탈 모달 a11y
-- [x] 과거 견적 복제(Duplicate) 기능 (`TODOS.md` #4)
-- [ ] 페인트 DB 관리 UI 정식판 (`TODOS.md` #3)
+- [ ] Settings 기반 Paint Product 및 Product & Service 관리가 운영량을 감당하는지 관찰. 독립 `/products` 관리 페이지는 현재 불필요하다.
+- [ ] CRUD 화면은 Settings 범위를 넘을 때만 재검토
 
 ---
 
 ## 🚫 v1.0 스코프 밖 (v1.5+)
 
-- 페인트 DB 관리 UI 정식판 (`/products` CRUD, 일괄 가격 인상)
 - 자동 견적가 추산(ML), 분석 대시보드 (v2)
 - Jobber 전체 쓰기 동기화 — 같은 quote number의 공개 Product / Service line item write-back만 허용하고 나머지는 제외
+- 독립 `/products` 관리 페이지 — 현재 Settings의 Paint Product 및 Product & Service 관리로 충분하므로 운영량이 Settings 범위를 넘을 때만 재검토
 
 ---
 
@@ -291,9 +298,13 @@
 
 | 날짜 | 작업 | 담당 |
 |---|---|---|
+| 2026-06-30 | Production Supabase에 `add_jobber_snapshot_refresh_metadata` migration 적용 완료. `quotes`의 Jobber snapshot refresh metadata 4개 컬럼과 change status CHECK 제약조건을 검증했다. | Codex |
+| 2026-06-29 | Jobber 후속 repo 구현 완료. Quote detail에 Jobber snapshot 수동 refresh, 마지막 refresh 시간, refresh 기반 변경 감지 알림을 추가했고, Jobber option line item은 보수적 후보 감지 후 preview/manual import로만 PBC 옵션 state에 반영되도록 구현했다. `0020_add_jobber_snapshot_refresh_metadata.sql`은 repo에 추가했고, 2026-06-30 사용자 승인 후 Production Supabase 적용까지 완료했다. 검증: typecheck, targeted tests, lint 통과. | Codex |
+| 2026-06-29 | 문서 일관성 정리와 UI/UX quick wins 반영. 2026-06-26 보완 항목을 완료 상태로 통일하고, 남은 Jobber 후속을 option line item 자동 매핑, webhook/cache refresh, quote 변경 감지 알림으로 좁혔다. 별도 `/products` 관리 페이지는 현재 불필요하며 Settings 관리로 충분하다는 결정과 Supabase 실제 데이터 백업 운영 결정 대기 상태를 반영했다. focus-visible, 대비/위험 액션 명확성, draft leave dialog a11y를 보강했다. | Codex |
+| 2026-06-29 | 운영 문서를 Codex 단독 기준으로 정리. Claude Code는 deprecated로 표시하고, 결정·설계·구현·검증 책임을 Codex로 통합했으며 모든 주요 작업 모델 기준을 `codex 5.5 extra high`로 갱신. | Codex |
 | 2026-06-27 | GitHub/Vercel/Supabase CLI 접근 기준을 repo-local로 정리. Git remote를 `git@github-pbc-quote-cal:pbcjimee-jimee/PBC-Quote-cal2026.git`로 전환하고 SSH 인증·`git ls-remote origin main` 검증 통과. Vercel CLI는 `pbcjimee-4854` / `jimee-s-projects (PBC)`로 로그인 확인, Supabase CLI는 repo devDependency `supabase@2.108.0`와 project ref `ojcrfgguhbxhtlgdflzp` link 확인. `docs/CLI-ACCESS.md`와 `scripts/check-cli-context.cmd`/`scripts/supabase-login-link.cmd` 추가. 검증: typecheck, lint, test:run(50 passed / 1 skipped files, 385 passed / 2 skipped tests), build, audit, diff check 통과. | Codex |
 | 2026-06-29 | fixture 제공 대기 항목을 문서에서 제거. Production Supabase `add_roof_formula_selections` migration 적용 이력과 `quotes.roof_selected_min/max` 컬럼 존재를 확인했고, Git 백업 브랜치 `codex/backup-pre-0019-roof-migration-20260629`를 생성. | Codex |
-| 2026-06-27 | Thread `019f013a-6cbb-7d50-ac67-bdbddaf2bbb1` 기준으로 남은 업데이트를 재점검. `0019_add_roof_formula_selections.sql`은 repo에 있으나 production Supabase 미적용 시 `roof_selected_max` 저장 오류가 발생함을 문서화하고, stale Roof planned 문구와 Jobber callback 운영 문서를 갱신. | Codex |
+| 2026-06-27 | Thread `019f013a-6cbb-7d50-ac67-bdbddaf2bbb1` 기준으로 남은 업데이트를 재점검. `0019_add_roof_formula_selections.sql`은 repo에 있으나 production Supabase 적용 전에는 `roof_selected_max` 저장 오류가 발생함을 문서화하고, stale Roof future-work 문구와 Jobber callback 운영 문서를 갱신. | Codex |
 | 2026-06-27 | GitHub/Vercel 운영 기준을 `pbcjimee-jimee/PBC-Quote-cal2026` 및 Vercel `jimee-s-projects/pbc-quote-cal2026-v2`로 전환. 로컬 `origin` 일치 확인, `.vercel/project.json`을 새 team/project ID로 갱신, production domain health check 통과. | Codex |
 | 2026-06-26 | Upgrade direction revised per user and documented first: no `ADMIN_EMAILS` admin split, no material actual-cost/RRP split, no extra pricing-info panel. Remaining scope is Roof formula persistence, local draft privacy/expiry, Jobber sync preview/retry, duplicate quote, and backup operations. Model routing added for planning/implementation/simple work. | Codex |
 | 2026-06-18 | Roof calculation scope added on `codex/roof-calculation`: Roof material areas, roof labour rate default 700, Roof uses the shared F2-F5 margin selections instead of a separate Roof margin field, roof subtotal included in quote/option grouped totals, Settings/UI/detail/draft/persistence/test coverage updated. Verification: typecheck, lint, test:run, build, diff check passed. | Codex |

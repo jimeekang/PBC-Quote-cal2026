@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { after } from 'next/server'
 import {
+  type JobberSnapshotChangeSummaryItem,
   type QuoteRecord,
 } from '@/lib/dev-data'
 import type { ProductRecord } from '@/lib/products/types'
@@ -21,6 +22,7 @@ import { createClient } from '@/lib/supabase/server'
 import type { Database, Json } from '@/lib/supabase/types'
 import { jobberQuoteSnapshotSchema, pricingSettingsSchema, quoteSchema, type QuoteInput } from '@/lib/validators'
 import { mapJobberQuoteToDraft, type JobberQuoteDraft } from '@/lib/jobber/mapper'
+import { diffJobberSnapshots } from '@/lib/jobber/snapshot-diff'
 import { fetchJobberQuote, JobberApiError, syncJobberQuoteLineItems } from '@/lib/jobber/client'
 import { getJobberConfig, getMissingGraphqlConfigKeys } from '@/lib/jobber/config'
 import { getUsableJobberToken, refreshStoredJobberToken, type StoredJobberToken } from '@/lib/jobber/tokens'
@@ -91,7 +93,17 @@ type QuoteListRow = Pick<
   | 'final_total'
   | 'created_by'
   | 'created_at'
-> & Partial<Pick<QuoteRow, 'jobber_save_mode' | 'jobber_sync_status' | 'jobber_last_synced_at' | 'jobber_sync_error'>>
+> & Partial<Pick<
+  QuoteRow,
+  | 'jobber_save_mode'
+  | 'jobber_sync_status'
+  | 'jobber_last_synced_at'
+  | 'jobber_sync_error'
+  | 'jobber_snapshot_refreshed_at'
+  | 'jobber_snapshot_change_status'
+  | 'jobber_snapshot_change_summary'
+  | 'jobber_snapshot_refresh_error'
+>>
 
 function money(value: { toFixed(decimalPlaces: number): string } | number): string {
   return typeof value === 'number' ? value.toFixed(2) : value.toFixed(2)
@@ -178,6 +190,34 @@ function optionalDecimalText(value: unknown): string | null {
 function parseJobberSnapshot(value: unknown): JobberQuoteDraft | null {
   const parsed = jobberQuoteSnapshotSchema.safeParse(value)
   return parsed.success ? parsed.data : null
+}
+
+const JOBBER_SNAPSHOT_CHANGE_SUMMARY_LIMIT = 8
+const JOBBER_SNAPSHOT_CHANGE_FIELDS = new Set<JobberSnapshotChangeSummaryItem['field']>([
+  'customer',
+  'address',
+  'workType',
+  'customerType',
+  'lineItems',
+  'financialSummary',
+])
+
+function isJobberSnapshotChangeSummaryItem(value: unknown): value is JobberSnapshotChangeSummaryItem {
+  if (typeof value !== 'object' || value === null) return false
+  const item = value as Record<string, unknown>
+
+  return typeof item.field === 'string' &&
+    JOBBER_SNAPSHOT_CHANGE_FIELDS.has(item.field as JobberSnapshotChangeSummaryItem['field']) &&
+    typeof item.label === 'string' &&
+    typeof item.before === 'string' &&
+    typeof item.after === 'string'
+}
+
+function parseJobberSnapshotChangeSummary(value: unknown): JobberSnapshotChangeSummaryItem[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .filter(isJobberSnapshotChangeSummaryItem)
+    .slice(0, JOBBER_SNAPSHOT_CHANGE_SUMMARY_LIMIT)
 }
 
 type CurrentProductSnapshot = {
@@ -424,6 +464,10 @@ function toQuoteRecord(row: QuoteWithItemsRow, userProfiles: Map<string, UserPro
     jobberSyncStatus: row.jobber_sync_status ?? 'not_synced',
     jobberLastSyncedAt: row.jobber_last_synced_at ?? null,
     jobberSyncError: row.jobber_sync_error ?? null,
+    jobberSnapshotRefreshedAt: row.jobber_snapshot_refreshed_at ?? null,
+    jobberSnapshotChangeStatus: row.jobber_snapshot_change_status ?? 'unknown',
+    jobberSnapshotChangeSummary: parseJobberSnapshotChangeSummary(row.jobber_snapshot_change_summary),
+    jobberSnapshotRefreshError: row.jobber_snapshot_refresh_error ?? null,
     areaSqft: row.area_sqft,
     workType: row.work_type,
     workingDays: money(displayLabour.workingDays),
@@ -572,6 +616,10 @@ function toQuoteListRecord(row: QuoteListRow): QuoteRecord {
     jobberSyncStatus: row.jobber_sync_status ?? 'not_synced',
     jobberLastSyncedAt: row.jobber_last_synced_at ?? null,
     jobberSyncError: row.jobber_sync_error ?? null,
+    jobberSnapshotRefreshedAt: row.jobber_snapshot_refreshed_at ?? null,
+    jobberSnapshotChangeStatus: row.jobber_snapshot_change_status ?? 'unknown',
+    jobberSnapshotChangeSummary: parseJobberSnapshotChangeSummary(row.jobber_snapshot_change_summary),
+    jobberSnapshotRefreshError: row.jobber_snapshot_refresh_error ?? null,
     areaSqft: null,
     workType: row.work_type,
     workingDays: decimalText(row.working_days),
@@ -1106,6 +1154,12 @@ export async function updateQuote(input: unknown): Promise<ActionResult<{ id: st
 
   if (parsed.data.jobberSnapshot !== undefined) {
     quoteUpdate.jobber_snapshot = parsed.data.jobberSnapshot as unknown as Json | null
+    if (parsed.data.jobberSnapshotRefreshedAt) {
+      quoteUpdate.jobber_snapshot_refreshed_at = parsed.data.jobberSnapshotRefreshedAt
+      quoteUpdate.jobber_snapshot_change_status = parsed.data.jobberSnapshotChangeStatus ?? 'unknown'
+      quoteUpdate.jobber_snapshot_change_summary = (parsed.data.jobberSnapshotChangeSummary ?? []) as unknown as Json
+      quoteUpdate.jobber_snapshot_refresh_error = null
+    }
   }
 
   const { error: quoteError } = await supabase
@@ -1386,6 +1440,10 @@ async function markJobberSyncStatus(
 
   if (snapshot !== undefined) {
     updatePayload.jobber_snapshot = snapshot as unknown as Json | null
+    updatePayload.jobber_snapshot_refreshed_at = snapshot ? new Date().toISOString() : null
+    updatePayload.jobber_snapshot_change_status = 'unknown'
+    updatePayload.jobber_snapshot_change_summary = []
+    updatePayload.jobber_snapshot_refresh_error = null
   }
 
   const { error } = await supabase
@@ -1412,6 +1470,38 @@ async function recordSyncedJobberLineIds(
 
 function getSyncErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Unable to sync quote to Jobber'
+}
+
+async function fetchJobberSnapshotForUser(userId: string, jobberQuoteId: string): Promise<JobberQuoteDraft> {
+  const config = getJobberConfig()
+  const missing = getMissingGraphqlConfigKeys(config)
+  if (missing.length > 0) {
+    throw new Error(`Jobber quote sync is not configured: ${missing.join(', ')}`)
+  }
+
+  let token = await getUsableJobberToken(userId, config)
+  let accessToken = token?.accessToken ?? config.accessToken
+  if (!accessToken) {
+    throw new Error('Jobber is not connected. Connect Jobber first.')
+  }
+
+  try {
+    return mapJobberQuoteToDraft(await fetchJobberQuote(jobberQuoteId, {
+      accessToken,
+      graphqlVersion: config.graphqlVersion,
+    }))
+  } catch (error) {
+    if (!(error instanceof JobberApiError) || error.status !== 401 || !token) {
+      throw error
+    }
+
+    token = await refreshStoredJobberToken(userId, token.refreshToken, config, token.ownerUserId ?? userId)
+    accessToken = token.accessToken
+    return mapJobberQuoteToDraft(await fetchJobberQuote(jobberQuoteId, {
+      accessToken,
+      graphqlVersion: config.graphqlVersion,
+    }))
+  }
 }
 
 type JobberSyncAttemptResult =
@@ -1556,6 +1646,65 @@ export async function retryJobberQuoteSync(quoteId: string): Promise<ActionResul
   }
 
   return { ok: true, data: { id: row.id } }
+}
+
+export async function refreshJobberQuoteSnapshot(
+  quoteId: string
+): Promise<ActionResult<{ id: string; status: 'unknown' | 'unchanged' | 'changed' }>> {
+  const id = quoteId.trim()
+  if (!id) return { ok: false, error: 'Quote id is required' }
+
+  if (isDevNoAuthMode()) {
+    return { ok: false, error: 'Jobber snapshot refresh requires a saved Supabase quote' }
+  }
+
+  const supabase = await createClient()
+  const { data: userData, error: userError } = await supabase.auth.getUser()
+  if (userError || !userData.user) {
+    return { ok: false, error: 'Authentication required' }
+  }
+
+  const { data, error } = await supabase
+    .from('quotes')
+    .select('id, jobber_quote_id, jobber_snapshot')
+    .eq('id', id)
+    .single()
+  if (error) return { ok: false, error: error.message }
+
+  const row = data as unknown as Pick<QuoteRow, 'id' | 'jobber_quote_id' | 'jobber_snapshot'> | null
+  if (!row) return { ok: false, error: 'Quote not found' }
+  if (!row.jobber_quote_id) return { ok: false, error: 'Saved quote is not linked to Jobber' }
+
+  const previousSnapshot = parseJobberSnapshot(row.jobber_snapshot)
+  try {
+    const freshSnapshot = await fetchJobberSnapshotForUser(userData.user.id, row.jobber_quote_id)
+    const diff = diffJobberSnapshots(previousSnapshot, freshSnapshot)
+    const { error: updateError } = await supabase
+      .from('quotes')
+      .update({
+        jobber_snapshot: freshSnapshot as unknown as Json,
+        jobber_snapshot_refreshed_at: new Date().toISOString(),
+        jobber_snapshot_change_status: diff.status,
+        jobber_snapshot_change_summary: diff.summary as unknown as Json,
+        jobber_snapshot_refresh_error: null,
+      })
+      .eq('id', id)
+
+    if (updateError) return { ok: false, error: updateError.message }
+
+    revalidatePath('/quotes')
+    revalidatePath(`/quotes/${id}`)
+    revalidatePath(`/quotes/${id}/edit`)
+    return { ok: true, data: { id, status: diff.status } }
+  } catch (error) {
+    const message = getSyncErrorMessage(error)
+    await supabase
+      .from('quotes')
+      .update({ jobber_snapshot_refresh_error: message.slice(0, 500) })
+      .eq('id', id)
+    revalidatePath(`/quotes/${id}`)
+    return { ok: false, error: message }
+  }
 }
 
 export async function getQuote(id: string): Promise<ActionResult<QuoteRecord | null>> {

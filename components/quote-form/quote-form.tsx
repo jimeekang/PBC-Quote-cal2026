@@ -6,10 +6,9 @@ import type { PricingSettings } from '@/lib/calculator'
 import type { QuoteRecord } from '@/lib/dev-data'
 import { createArea } from '@/lib/actions/areas'
 import { Icons } from '@/components/ui/icons'
-import { CustomerPanel } from './customer-panel'
+import { CustomerPanel, type JobberRefreshPreview } from './customer-panel'
 import { MaterialsPanel } from './materials-panel'
 import { FinalSummary } from './final-summary'
-import { DecimalInput } from './decimal-input'
 import {
   clearLocalQuoteDrafts,
   createEmptyQuoteFormDraft,
@@ -24,6 +23,13 @@ import { OptionTotalsSummary } from './option-totals-summary'
 import { calculateMainQuoteTotals } from './quote-calculation-totals'
 import type { AreaCreateResult, AreaFormulaSelections, AreaScope, FormulaNumber, JobberQuoteLineItemDraft, MaterialItem, QuoteMemoItem, QuoteOptionItem } from './types'
 import { JobberProductServiceEditor } from './jobber-product-service-editor'
+import { JobberOptionImport } from './jobber-option-import'
+import {
+  buildJobberOptionImportCandidates,
+  convertJobberOptionCandidateToQuoteOption,
+  isJobberOptionCandidateAlreadyImported,
+  type JobberOptionImportCandidate,
+} from './jobber-option-mapping'
 import { mapJobberDraftLineItemsToState } from './jobber-line-state'
 import { QuoteMemosPanel } from './quote-memos-panel'
 import { calculateQuoteOptionTotals } from './quote-option-totals'
@@ -44,6 +50,7 @@ import type {
   JobberQuoteDraftLineItem,
 } from '@/lib/jobber/mapper'
 import { getVisibleJobberQuoteLookupAfterFetch } from '@/lib/jobber/quote-lookup'
+import { diffJobberSnapshots } from '@/lib/jobber/snapshot-diff'
 import type { ProductServiceRecord } from '@/lib/product-services/types'
 import type { QuoteLineTemplateRecord } from '@/lib/quote-line-templates/types'
 
@@ -199,6 +206,18 @@ function sortQuoteAreas(nextAreas: AreaRecord[]): AreaRecord[] {
   })
 }
 
+export function importJobberOptionCandidateIntoOptions(
+  current: QuoteOptionItem[],
+  candidate: JobberOptionImportCandidate,
+  createId: (prefix: string) => string
+): QuoteOptionItem[] {
+  if (isJobberOptionCandidateAlreadyImported(candidate, current)) return current
+  return [
+    ...current,
+    convertJobberOptionCandidateToQuoteOption(candidate, createId),
+  ]
+}
+
 function getInitialAreaFormulaSelections(initialQuote: QuoteRecord | undefined): AreaFormulaSelections {
   const fallbackMin = initialQuote?.selectedMin ?? 4
   const fallbackMax = initialQuote?.selectedMax ?? 1
@@ -308,6 +327,16 @@ export function QuoteForm({ settings, areas, productServices = [], quoteLineTemp
   const [jobberFetchError, setJobberFetchError] = useState<string | null>(null)
   const [isFetchingJobberQuote, setIsFetchingJobberQuote] = useState(false)
   const [jobberQuoteDraft, setJobberQuoteDraft] = useState<JobberQuoteDraft | null>(initialQuote?.jobberSnapshot ?? null)
+  const [jobberRefreshPreview, setJobberRefreshPreview] = useState<(JobberRefreshPreview & { draft: JobberQuoteDraft }) | null>(null)
+  const [jobberRefreshMetadata, setJobberRefreshMetadata] = useState<JobberRefreshPreview | null>(() => (
+    initialQuote?.jobberSnapshotRefreshedAt
+      ? {
+          status: initialQuote.jobberSnapshotChangeStatus,
+          summary: initialQuote.jobberSnapshotChangeSummary,
+          refreshedAt: initialQuote.jobberSnapshotRefreshedAt,
+        }
+      : null
+  ))
   const [availableDraft, setAvailableDraft] = useState<QuoteFormDraft | null>(null)
   const [draftMessage, setDraftMessage] = useState<string | null>(null)
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
@@ -497,6 +526,7 @@ export function QuoteForm({ settings, areas, productServices = [], quoteLineTemp
     setSelectedMax(draft.selectedMax)
     setAreaFormulaSelections(draft.areaFormulaSelections)
     setJobberQuoteDraft(draft.jobberQuoteDraft)
+    setJobberRefreshMetadata(null)
     setAvailableDraft(null)
     setDraftMessage('Draft restored.')
   }
@@ -568,6 +598,10 @@ export function QuoteForm({ settings, areas, productServices = [], quoteLineTemp
     exteriorSubtotal: optionTotals[option.id].areaBreakdown.exterior.subtotal,
     roofSubtotal: optionTotals[option.id].areaBreakdown.roof.subtotal,
   })), [optionTotals, options])
+  const jobberOptionCandidates = useMemo(
+    () => buildJobberOptionImportCandidates(jobberQuoteDraft?.productsAndServices ?? []),
+    [jobberQuoteDraft]
+  )
 
   function addMaterial(item: MaterialItem) {
     setMaterials((current) => [...current, item])
@@ -616,6 +650,10 @@ export function QuoteForm({ settings, areas, productServices = [], quoteLineTemp
     setOptions((current) => current.filter((option) => option.id !== id))
   }
 
+  function importJobberOptionCandidate(candidate: JobberOptionImportCandidate) {
+    setOptions((current) => importJobberOptionCandidateIntoOptions(current, candidate, createClientId))
+  }
+
   function addMemo() {
     setMemos((current) => [...current, { id: createClientId('memo'), body: '' }])
   }
@@ -649,9 +687,41 @@ export function QuoteForm({ settings, areas, productServices = [], quoteLineTemp
     })
   }
 
+  function applyJobberDraftToForm(draft: JobberQuoteDraft, lookup: string) {
+    setJobberQuoteId(draft.jobberQuoteId)
+    setJobberQuoteLookup(jobberLookupType === 'job'
+      ? draft.quoteNumber.replace(/^Job #/, '')
+      : getVisibleJobberQuoteLookupAfterFetch(lookup, draft.quoteNumber)
+    )
+    setCustomerName(draft.customerName)
+    setCustomerAddress(draft.customerAddress)
+    setWorkType(draft.workType)
+    setCustomerType(draft.customerType)
+    setJobberQuoteDraft(draft)
+    setJobberRefreshMetadata(null)
+    setDeletedJobberLineItemIds([])
+    setJobberQuoteLines(mapJobberDraftLineItemsToState(draft.productsAndServices))
+  }
+
+  function applyJobberRefreshChanges() {
+    if (!jobberRefreshPreview) return
+    applyJobberDraftToForm(jobberRefreshPreview.draft, jobberQuoteLookup.trim())
+    setJobberRefreshMetadata({
+      status: jobberRefreshPreview.status,
+      summary: jobberRefreshPreview.summary,
+      refreshedAt: jobberRefreshPreview.refreshedAt,
+    })
+    setJobberRefreshPreview(null)
+  }
+
+  function keepCurrentJobberQuote() {
+    setJobberRefreshPreview(null)
+  }
+
   async function fetchJobberQuote() {
     const lookup = jobberQuoteLookup.trim()
     setJobberFetchError(null)
+    setJobberRefreshPreview(null)
     if (!lookup) {
       setJobberFetchError(`Enter a Jobber ${jobberLookupType === 'job' ? 'Job' : 'Quote'} number first.`)
       return
@@ -670,18 +740,23 @@ export function QuoteForm({ settings, areas, productServices = [], quoteLineTemp
         return
       }
 
-      setJobberQuoteId(payload.data.jobberQuoteId)
-      setJobberQuoteLookup(jobberLookupType === 'job'
-        ? payload.data.quoteNumber.replace(/^Job #/, '')
-        : getVisibleJobberQuoteLookupAfterFetch(lookup, payload.data.quoteNumber)
-      )
-      setCustomerName(payload.data.customerName)
-      setCustomerAddress(payload.data.customerAddress)
-      setWorkType(payload.data.workType)
-      setCustomerType(payload.data.customerType)
-      setJobberQuoteDraft(payload.data)
-      setDeletedJobberLineItemIds([])
-      setJobberQuoteLines(mapJobberDraftLineItemsToState(payload.data.productsAndServices))
+      if (initialQuote) {
+        const diff = diffJobberSnapshots(jobberQuoteDraft, payload.data)
+        const refreshedAt = new Date().toISOString()
+        setJobberRefreshMetadata({
+          status: diff.status,
+          summary: diff.summary,
+          refreshedAt,
+        })
+        setJobberRefreshPreview({
+          ...diff,
+          draft: payload.data,
+          refreshedAt,
+        })
+        return
+      }
+
+      applyJobberDraftToForm(payload.data, lookup)
     } catch {
       setJobberFetchError('Unable to fetch Jobber quote.')
     } finally {
@@ -701,6 +776,9 @@ export function QuoteForm({ settings, areas, productServices = [], quoteLineTemp
           jobberQuoteId,
           jobberQuoteLookup,
           jobberQuoteDraft,
+          jobberSnapshotRefreshedAt: jobberRefreshMetadata?.refreshedAt ?? null,
+          jobberSnapshotChangeStatus: jobberRefreshMetadata?.status,
+          jobberSnapshotChangeSummary: jobberRefreshMetadata?.summary,
           deletedJobberLineItemIds,
           jobberQuoteLines,
           workType,
@@ -784,16 +862,25 @@ export function QuoteForm({ settings, areas, productServices = [], quoteLineTemp
             onJobberLookupTypeChange={setJobberLookupType}
             onJobberQuoteIdChange={setJobberQuoteLookup}
             onFetchJobberQuote={fetchJobberQuote}
+            onApplyJobberRefreshChanges={applyJobberRefreshChanges}
+            onKeepCurrentJobberQuote={keepCurrentJobberQuote}
             onWorkTypeChange={setWorkType}
             isFetchingJobberQuote={isFetchingJobberQuote}
             jobberFetchError={jobberFetchError}
             jobberQuoteDraft={jobberQuoteDraft}
+            jobberActionMode={initialQuote ? 'refresh' : 'fetch'}
+            jobberRefreshPreview={jobberRefreshPreview}
           />
           <JobberProductServiceEditor
             value={jobberQuoteLines}
             productServices={productServices}
             templates={quoteLineTemplates}
             onChange={changeJobberQuoteLines}
+          />
+          <JobberOptionImport
+            candidates={jobberOptionCandidates}
+            existingOptions={options}
+            onImportCandidate={importJobberOptionCandidate}
           />
           <MaterialsPanel
             materials={materials}
@@ -822,24 +909,14 @@ export function QuoteForm({ settings, areas, productServices = [], quoteLineTemp
           <section className="pbc-card pbc-card--pad pbc-calcpanel">
             <h2 className="pbc-paneltitle">Calculation</h2>
             <div className="grid gap-4 sm:grid-cols-2">
-              <DecimalInput
-                label="Total Working Days"
-                value={totals.totalWorkingDays.toFixed(2)}
-                onValueChange={() => undefined}
-                labelClassName="pbc-field"
-                inputClassName="pbc-input"
-                warningClassName="block text-xs font-normal text-amber-600"
-                readOnly
-              />
-              <DecimalInput
-                label="Total Labour Days"
-                value={totals.totalLabourPerDay.toFixed(2)}
-                onValueChange={() => undefined}
-                labelClassName="pbc-field"
-                inputClassName="pbc-input"
-                warningClassName="block text-xs font-normal text-amber-600"
-                readOnly
-              />
+              <div className="pbc-ministat">
+                <span>Total Working Days</span>
+                <b className="mono">{totals.totalWorkingDays.toFixed(2)}</b>
+              </div>
+              <div className="pbc-ministat">
+                <span>Total Labour Days</span>
+                <b className="mono">{totals.totalLabourPerDay.toFixed(2)}</b>
+              </div>
             </div>
             {totals.totalWorkingDays.gt(365) ? <p className="text-sm text-amber-600">Over 365 days - double check.</p> : null}
           </section>
@@ -869,9 +946,9 @@ export function QuoteForm({ settings, areas, productServices = [], quoteLineTemp
       </div>
       {pendingNavigation ? (
         <div className="pbc-dialogbackdrop">
-          <div role="dialog" aria-modal="true" aria-labelledby="leave-dialog-title" className="pbc-dialog">
+          <div role="dialog" aria-modal="true" aria-labelledby="leave-dialog-title" aria-describedby="leave-dialog-description" className="pbc-dialog">
             <h2 id="leave-dialog-title">Save draft before leaving?</h2>
-            <p>You have unsaved quote changes. Save a local draft so this quote can be restored when you return.</p>
+            <p id="leave-dialog-description">You have unsaved quote changes. Save a local draft so this quote can be restored when you return.</p>
             <div className="pbc-dialog__actions">
               <button type="button" onClick={() => setPendingNavigation(null)} className="pbc-btn pbc-btn--ghost">
                 Cancel

@@ -1,7 +1,7 @@
 # DECISIONS.md — 핵심 결정사항 (불변)
 
-> office-hours + plan-eng-review 세션에서 사용자와 합의된 결정.
-> **Claude/Codex 모두 임의로 변경 금지.** 변경하려면 사용자 명시 승인 필요.
+> 사용자와 합의된 핵심 결정.
+> **Codex는 사용자 명시 승인 없이 임의로 변경 금지.**
 
 ---
 
@@ -20,18 +20,25 @@
 - Jobber quote fetch + controlled Product / Service line item write-back
 - Vercel 배포
 
-**제외 (v1.1+):**
+**완료된 v1.0+ 보완:**
 - 견적 복제(Duplicate)
 - Roof 공식 선택값 저장
 - local draft privacy/expiry
 - Jobber sync preview/retry
-- 페인트 DB 관리 고도화
+- Jobber snapshot 수동 refresh + 변경 감지 알림
+- Jobber option line preview/manual import
 
-**2026-06-26 업데이트 방향:**
-- Roof 계산은 이미 도입되었지만 main quote의 Roof min/max 공식 선택값은 별도 컬럼에 저장되어야 한다. 다음 DB 변경은 `quotes.roof_selected_min`, `quotes.roof_selected_max` 추가를 우선한다.
+**제외/운영 후속:**
+- 별도 `/products` 관리 페이지는 현재 만들지 않는다. Settings의 Paint Product 및 Product & Service 관리가 현재 운영에는 충분하다.
+- CRUD 화면은 향후 운영량이 Settings 범위를 넘을 때만 재검토한다.
+- Supabase 실제 데이터 백업 정책은 별도 운영 결정으로 관리한다.
+- Production Supabase `0020_add_jobber_snapshot_refresh_metadata.sql`은 2026-06-30 사용자 승인 후 적용했고, Jobber snapshot refresh metadata 컬럼/제약조건을 검증했다.
+
+**2026-06-26 업데이트 결과:**
+- Roof 계산은 이미 도입되었고, main quote의 Roof min/max 공식 선택값은 `quotes.roof_selected_min`, `quotes.roof_selected_max`에 저장한다.
 - 앱 사용자는 관리자 2명으로 고정한다. 별도 `ADMIN_EMAILS` 관리자 gate, role split, Settings/삭제/Jobber write-back 권한 분리는 도입하지 않는다.
 - material 가격은 일반 소비자가 기준으로 계산한다. 별도 실제 원가/RRP 분리, 추가 현장 난이도 정보 패널, quote-level 가격작성 보강 필드는 이번 업그레이드 범위에서 제외한다.
-- 2026-06-26 보완 범위였던 local draft 민감 fetch 결과 저장 방지/7일 만료, Jobber sync preview/retry, duplicate quote는 구현 완료했고, 코드/마이그레이션 백업은 Git 이력으로 보존한다.
+- 2026-06-26 보완 범위였던 Roof 공식 선택값 저장, local draft 민감 fetch 결과 저장 방지/7일 만료, Jobber sync preview/retry, duplicate quote는 구현 완료했다. 코드/마이그레이션 변경 이력은 Git으로 보존한다.
 
 ---
 
@@ -45,6 +52,8 @@
 - Internal quote memos are app-only. They are stored in our DB and are not fetched from Jobber or written back to Jobber notes/line items.
 - Jobber write는 기존 quote update에 한정한다. 앱에서 새 Jobber quote/client/job 생성·삭제는 하지 않는다.
 - Jobber 사진, notes, attachments, Build Option Set 동기화는 제외한다.
+- Quote detail에서는 사용자가 명시적으로 Jobber snapshot을 refresh할 수 있고, 앱은 이전 snapshot과 새 snapshot의 compact diff를 보여준다. 이 refresh 시간은 write-back 성공 시간(`jobber_last_synced_at`)과 별도로 관리한다.
+- Jobber option line item은 자동 저장하지 않는다. 앱은 보수적으로 감지한 후보를 preview로 보여주고, 사용자가 확인한 경우에만 PBC 옵션(`quote_options`) state로 가져온다. 실제 DB 저장은 기존 quote save/update 경로를 따른다.
 - OAuth 2.0, GraphQL API 사용. write scope는 quote line item 업데이트에 필요한 최소 scope만 허용한다.
 - 구현 상세: `docs/superpowers/specs/2026-05-19-jobber-write-back-design.md`
 - 구현 순서: `docs/superpowers/plans/2026-05-19-jobber-write-back.md`

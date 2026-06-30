@@ -1,7 +1,7 @@
-# AGENT-MAP.md — 어느 Agent가 어느 파일을 읽나
+# AGENT-MAP.md — Codex 필독 파일 매트릭스
 
-> 각 AI agent (Claude Code, Codex)가 세션 시작·작업 시 참조해야 할 파일 매핑.
-> 새 파일 추가 시 이 표도 함께 업데이트할 것.
+> Codex가 세션 시작·작업 시 참조해야 할 파일 매핑.
+> 현재 프로젝트는 Claude Code를 사용하지 않으며, Codex가 결정·설계·구현·검증을 모두 담당한다.
 
 ---
 
@@ -9,38 +9,38 @@
 
 | Agent | 진입 파일 | 역할 |
 |---|---|---|
-| **Claude Code** | `CLAUDE.md` | 결정자 — 설계·아키텍처·UI/UX·테스트·코드 리뷰 |
-| **Codex** | `AGENTS.md` | 실행자 — DB 마이그레이션·코드 구현·UI·테스트 작성 |
+| **Codex** | `AGENTS.md` | 결정자 + 실행자 — 설계·아키텍처·UI/UX·DB·구현·테스트·리뷰·배포 |
+| **Claude Code** | `CLAUDE.md` | Deprecated — 현재 운영에서 사용하지 않음 |
 
 ---
 
 ## 모델 라우팅
 
-작업 지시·스킬 호출·에이전트 핸드오프 시 모델 등급을 함께 적는다.
+작업 지시·스킬 호출·하위 에이전트 핸드오프 시 모델 등급을 함께 적는다.
 
 | 작업 유형 | 권장 모델 |
 |---|---|
-| 계획, 아키텍처, 테스트 전략, 복잡한 리스크 판단 | `gpt 5.5 extra hight` |
-| 일반 코드 구현, DB/Server Action/UI/test 작성 | `gpt 5.5 high` |
-| 단순 수정, 반복 작업, 기계적 문서/테스트 보강 | `gpt 5.3 codex spark` |
+| 계획, 아키텍처, 테스트 전략, 복잡한 리스크 판단 | `codex 5.5 extra high` |
+| 일반 코드 구현, DB/Server Action/UI/test 작성 | `codex 5.5 extra high` |
+| 단순 수정, 반복 작업, 기계적 문서/테스트 보강 | `codex 5.5 extra high` |
 
 런타임에서 모델 전환이 불가능하면 프롬프트 첫 줄에 원하는 등급을 표시한다.
 
 ---
 
-## 공용 파일 (양쪽 모두 읽음)
+## 공용 파일
 
 ### 진행·결정·규칙
 
 | 파일 | 용도 | 갱신 빈도 |
 |---|---|---|
 | `PROGRESS.md` | 현재 진행 현황 + 전체 변경 이력 | **매 작업 후** |
-| `docs/DECISIONS.md` | 핵심 결정사항 (불변) | 거의 없음 |
+| `docs/DECISIONS.md` | 핵심 결정사항 | 사용자 승인으로 결정 변경 시 |
 | `docs/CODING-STYLE.md` | TypeScript·명명·금액·에러 패턴 | 거의 없음 |
-| `docs/SECURITY.md` | 보안 규칙·위험 작업 승인 정책 | 거의 없음 |
+| `docs/SECURITY.md` | 보안 규칙·위험 작업 승인 정책 | 보안 정책 변경 시 |
 | `docs/DEPLOY.md` | Vercel 배포 설정 | 환경 변경 시 |
 | `docs/CLI-ACCESS.md` | 프로젝트별 GitHub/Vercel/Supabase CLI 접근 기준 | 계정·remote·CLI 변경 시 |
-| `TODOS.md` | v1.1+ 작업 목록 | 분기당 1회 |
+| `TODOS.md` | v1.1+ 작업 목록 | 사용자 승인 후 |
 
 ### 아키텍처
 
@@ -65,8 +65,9 @@ from `docs/UI-DESIGN-SYSTEM.md`.
 
 | 파일 | 용도 |
 |---|---|
+| `docs/UI-DESIGN-SYSTEM.md` | 최신 공통 디자인 토큰·컴포넌트 규칙 |
 | `docs/UI-DESIGN.md` | UI 개요·페이지 목록·디자인 토큰·구현 순서 |
-| `docs/UI-QUOTE-FORM.md` | `/quotes/new` 상세 (메인 화면) |
+| `docs/UI-QUOTE-FORM.md` | `/quotes/new` 상세 |
 | `docs/UI-PAGES.md` | 로그인·목록·상세·설정 페이지 |
 | `docs/UI-UX-REVIEW.md` | v1.0 UI/UX 정적 리뷰·접근성·시각 위계·quick win 개선안 |
 
@@ -74,7 +75,7 @@ from `docs/UI-DESIGN-SYSTEM.md`.
 
 | 파일 | 용도 |
 |---|---|
-| `docs/WORKFLOW.md` | Claude/Codex 협업 원칙·흐름 |
+| `docs/WORKFLOW.md` | Codex 중심 작업 원칙·흐름 |
 | `docs/WORKFLOW-TASKS.md` | Phase별 작업·Codex 프롬프트 템플릿 |
 | `docs/superpowers/specs/2026-05-19-jobber-write-back-design.md` | Jobber controlled write-back 결정 변경 설계 |
 | `docs/superpowers/plans/2026-05-19-jobber-write-back.md` | Jobber controlled write-back 구현 순서 |
@@ -84,21 +85,12 @@ from `docs/UI-DESIGN-SYSTEM.md`.
 
 ---
 
-## Claude Code 전용 파일
+## Deprecated 파일
 
-| 파일 | 용도 |
+| 파일 | 상태 |
 |---|---|
-| `CLAUDE.md` | 역할·스킬 라우팅·우선순위 |
-| `C:\Users\kjm12\.claude\projects\.../memory/` | 장기 기억 (메모리 시스템) |
-
----
-
-## Codex 전용 파일
-
-| 파일 | 용도 |
-|---|---|
-| `AGENTS.md` | 역할·작업 형식·완료 보고 형식 |
-| `docs/CODEX-TASKS.md` | 상세 태스크 명세 (남은 v1.0 작업 9개) |
+| `CLAUDE.md` | 현재 운영에서 사용하지 않음. 과거 Claude Code 기준 문서였으며, 최신 기준은 `AGENTS.md`와 `docs/WORKFLOW.md`다. |
+| `C:\Users\kjm12\.claude\projects\.../memory/` | 현재 운영에서 사용하지 않음. |
 
 ---
 
@@ -106,22 +98,22 @@ from `docs/UI-DESIGN-SYSTEM.md`.
 
 | 작업 유형 | 필독 파일 |
 |---|---|
-| **신규 기능 설계** (Claude) | `CLAUDE.md` → `PROGRESS.md` → `docs/DECISIONS.md` → `docs/ARCHITECTURE.md` |
-| **DB 마이그레이션** (Codex) | `AGENTS.md` → `docs/DB-SCHEMA.md` → `docs/SECURITY.md` |
-| **계산 로직** (Codex) | `AGENTS.md` → `docs/CALCULATION.md` → `docs/CALCULATION-API.md` → `docs/CODING-STYLE.md` |
-| **Server Actions** (Codex) | `AGENTS.md` → `docs/ARCHITECTURE.md` → `docs/DB-SCHEMA.md` → `docs/CODING-STYLE.md` |
-| **UI 컴포넌트** (Codex) | `AGENTS.md` → `docs/UI-DESIGN.md` → (페이지별: `UI-QUOTE-FORM.md` 또는 `UI-PAGES.md`) → `docs/UI-UX-REVIEW.md` → `docs/CODING-STYLE.md` |
-| **테스트 작성** (Codex) | `AGENTS.md` → `docs/CALCULATION.md` → `docs/CALCULATION-API.md` → `PROGRESS.md` |
-| **코드 리뷰** (Claude) | `CLAUDE.md` → `docs/DECISIONS.md` → `docs/CODING-STYLE.md` → `docs/SECURITY.md` |
-| **배포** (Codex) | `AGENTS.md` → `docs/DEPLOY.md` → `docs/CLI-ACCESS.md` → `docs/SECURITY.md` |
+| **신규 기능 설계** | `AGENTS.md` → `PROGRESS.md` → `docs/DECISIONS.md` → `docs/ARCHITECTURE.md` → `docs/SECURITY.md` |
+| **DB 마이그레이션** | `AGENTS.md` → `docs/DB-SCHEMA.md` → `docs/SECURITY.md` |
+| **계산 로직** | `AGENTS.md` → `docs/CALCULATION.md` → `docs/CALCULATION-API.md` → `docs/CODING-STYLE.md` |
+| **Server Actions** | `AGENTS.md` → `docs/ARCHITECTURE.md` → `docs/DB-SCHEMA.md` → `docs/CODING-STYLE.md` |
+| **UI 컴포넌트** | `AGENTS.md` → `docs/UI-DESIGN-SYSTEM.md` → `docs/UI-DESIGN.md` → (페이지별: `UI-QUOTE-FORM.md` 또는 `UI-PAGES.md`) → `docs/UI-UX-REVIEW.md` → `docs/CODING-STYLE.md` |
+| **테스트 작성** | `AGENTS.md` → `docs/CALCULATION.md` → `docs/CALCULATION-API.md` → `PROGRESS.md` |
+| **코드 리뷰** | `AGENTS.md` → `docs/DECISIONS.md` → `docs/CODING-STYLE.md` → `docs/SECURITY.md` |
+| **배포** | `AGENTS.md` → `docs/DEPLOY.md` → `docs/CLI-ACCESS.md` → `docs/SECURITY.md` |
 
 ---
 
 ## 충돌·불일치 발생 시
 
-1. 같은 정보가 두 파일에 다르게 적혀 있으면 → **공용 docs/ 파일이 진실의 원천**
-2. 진입 파일 (`CLAUDE.md`/`AGENTS.md`)은 공용 파일을 참조만 함
-3. 정보 중복 발견 시 → 공용 파일로 이동하고 진입 파일에는 링크만 남김
+1. 같은 정보가 두 파일에 다르게 적혀 있으면 `docs/DECISIONS.md`를 우선한다.
+2. 최신 사용자 명시 지시가 있으면 사용자 지시를 우선하고 관련 문서를 갱신한다.
+3. 정보 중복 발견 시 공용 문서로 이동하고 진입 파일에는 링크만 남긴다.
 
 ---
 

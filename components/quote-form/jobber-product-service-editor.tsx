@@ -281,28 +281,52 @@ export function JobberProductServiceEditor({
     setSelectedTemplateId('')
   }
 
+  function addPricedLineItem() {
+    onChange([...value, createPricedLineItem()])
+  }
+
+  function addTextLine() {
+    onChange([...value, createTextLine()])
+  }
+
   return (
     <section className="space-y-4">
       <div className="pbc-panelhead">
         <div className="pbc-panelhead__copy">
-          <h2 className="pbc-paneltitle">Product / Service</h2>
-          <p className="pbc-panelsub">Add the public Jobber-facing product and service lines for this quote.</p>
+          <h2 className="pbc-paneltitle">Public Product / Service Lines</h2>
+          <p className="pbc-panelsub">These are the public Jobber-facing lines that will be updated from this quote.</p>
         </div>
-        {templates.length > 0 ? (
-          <label className="pbc-field min-w-48">
-            <span className="pbc-field__label">Template</span>
-            <select
-              value={selectedTemplateId}
-              onChange={(event) => applyTemplate(event.target.value)}
-              className="pbc-input font-semibold"
-            >
-              <option value="">Choose template...</option>
-              {templates.map((template) => (
-                <option key={template.id} value={template.id}>{template.name}</option>
-              ))}
-            </select>
-          </label>
-        ) : null}
+        <div className="pbc-panelhead__actions pbc-publiclines__toolbar">
+          {templates.length > 0 ? (
+            <label className="pbc-publiclines__template">
+              <span className="sr-only">Template</span>
+              <select
+                value={selectedTemplateId}
+                onChange={(event) => applyTemplate(event.target.value)}
+                className="pbc-input pbc-publiclines__select font-semibold"
+              >
+                <option value="">Choose template...</option>
+                {templates.map((template) => (
+                  <option key={template.id} value={template.id}>{template.name}</option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          <button
+            type="button"
+            onClick={addPricedLineItem}
+            className="pbc-btn pbc-btn--ghost pbc-publiclines__button"
+          >
+            Add Line Item
+          </button>
+          <button
+            type="button"
+            onClick={addTextLine}
+            className="pbc-btn pbc-btn--ghost pbc-publiclines__button"
+          >
+            Add Text
+          </button>
+        </div>
       </div>
 
       {value.length === 0 ? (
@@ -368,22 +392,6 @@ export function JobberProductServiceEditor({
         })}
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => onChange([...value, createPricedLineItem()])}
-          className="pbc-btn pbc-btn--ghost"
-        >
-          Add Line Item
-        </button>
-        <button
-          type="button"
-          onClick={() => onChange([...value, createTextLine()])}
-          className="pbc-btn pbc-btn--ghost"
-        >
-          Add Text
-        </button>
-      </div>
     </section>
   )
 }

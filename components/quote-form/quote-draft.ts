@@ -114,6 +114,13 @@ function readOptionalString(record: UnknownRecord, key: string): string | undefi
   return typeof value === 'string' ? value : undefined
 }
 
+function readOptionalStringArray(record: UnknownRecord, key: string): string[] | null | undefined {
+  if (!(key in record) || record[key] === undefined) return undefined
+  const value = record[key]
+  if (!Array.isArray(value) || value.some((item) => typeof item !== 'string')) return null
+  return value
+}
+
 function readDecimalString(record: UnknownRecord, key: string): string | null {
   const value = readString(record, key)
   return value !== null && isDecimalInputValue(value) ? value : null
@@ -191,6 +198,7 @@ function parseOption(value: unknown): QuoteOptionItem | null {
   const selectedMin = readFormulaNumber(value, 'selectedMin')
   const selectedMax = readFormulaNumber(value, 'selectedMax')
   const isExpanded = value.isExpanded
+  const sourceJobberLineItemIds = readOptionalStringArray(value, 'sourceJobberLineItemIds')
   const materials = Array.isArray(value.materials)
     ? value.materials.map(parseMaterial)
     : null
@@ -201,13 +209,14 @@ function parseOption(value: unknown): QuoteOptionItem | null {
     selectedMin === null ||
     selectedMax === null ||
     typeof isExpanded !== 'boolean' ||
+    sourceJobberLineItemIds === null ||
     materials === null ||
     materials.some((item) => item === null)
   ) {
     return null
   }
 
-  return {
+  const option: QuoteOptionItem = {
     id,
     title,
     materials: materials as MaterialItem[],
@@ -215,6 +224,10 @@ function parseOption(value: unknown): QuoteOptionItem | null {
     selectedMax,
     isExpanded,
   }
+  if (sourceJobberLineItemIds !== undefined) {
+    option.sourceJobberLineItemIds = sourceJobberLineItemIds
+  }
+  return option
 }
 
 function parseFormulaSelection(value: unknown): FormulaSelection | null {

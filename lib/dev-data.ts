@@ -36,6 +36,10 @@ export interface QuoteRecord {
   jobberSyncStatus: JobberSyncStatus
   jobberLastSyncedAt: string | null
   jobberSyncError: string | null
+  jobberSnapshotRefreshedAt: string | null
+  jobberSnapshotChangeStatus: 'unknown' | 'unchanged' | 'changed'
+  jobberSnapshotChangeSummary: JobberSnapshotChangeSummaryItem[]
+  jobberSnapshotRefreshError: string | null
   areaSqft: number | null
   workType: string | null
   workingDays: string
@@ -65,6 +69,13 @@ export interface QuoteRecord {
   options: QuoteOptionRecord[]
   memos: QuoteMemoRecord[]
   priceRevisions: QuotePriceRevisionRecord[]
+}
+
+export interface JobberSnapshotChangeSummaryItem {
+  field: 'customer' | 'address' | 'workType' | 'customerType' | 'lineItems' | 'financialSummary'
+  label: string
+  before: string
+  after: string
 }
 
 export interface QuoteItemRecord {
@@ -694,6 +705,10 @@ function buildDevQuoteRecord(id: string, createdAt: string, input: DevQuoteInput
     jobberSyncStatus: 'not_synced',
     jobberLastSyncedAt: null,
     jobberSyncError: null,
+    jobberSnapshotRefreshedAt: input.jobberSnapshot ? new Date().toISOString() : null,
+    jobberSnapshotChangeStatus: 'unknown',
+    jobberSnapshotChangeSummary: [],
+    jobberSnapshotRefreshError: null,
     areaSqft: input.areaSqft ?? null,
     workType: input.workType?.trim() || null,
     workingDays: money(displayLabour.workingDays),

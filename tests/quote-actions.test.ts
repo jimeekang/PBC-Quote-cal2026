@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { revalidatePath } from 'next/cache'
-import { createQuote, deleteQuote, duplicateQuote, getQuote, retryJobberQuoteSync, updateQuote } from '@/lib/actions/quotes'
+import { createQuote, deleteQuote, duplicateQuote, getQuote, refreshJobberQuoteSnapshot, retryJobberQuoteSync, updateQuote } from '@/lib/actions/quotes'
 import { createProduct, updateProduct } from '@/lib/actions/products'
 import { resetDevData } from '@/lib/dev-data'
 
@@ -579,6 +579,12 @@ describe('quote actions', () => {
 
   it('rejects failed Jobber sync retry without a quote id', async () => {
     const result = await retryJobberQuoteSync(' ')
+
+    expect(result).toEqual({ ok: false, error: 'Quote id is required' })
+  })
+
+  it('rejects Jobber snapshot refresh without a quote id', async () => {
+    const result = await refreshJobberQuoteSnapshot(' ')
 
     expect(result).toEqual({ ok: false, error: 'Quote id is required' })
   })

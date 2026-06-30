@@ -71,6 +71,14 @@ export const Icons = {
       <path d="M4.5 10.5 8.2 14l7.3-8" />
     </Icon>
   ),
+  refresh: (p?: { size?: number }) => (
+    <Icon size={p?.size}>
+      <path d="M16 7.2A6.2 6.2 0 0 0 5.1 5.1L3.5 6.8" />
+      <path d="M3.4 3.5v3.4h3.4" />
+      <path d="M4 12.8a6.2 6.2 0 0 0 10.9 2.1l1.6-1.7" />
+      <path d="M16.6 16.5v-3.4h-3.4" />
+    </Icon>
+  ),
   arrowDown: (p?: { size?: number }) => (
     <Icon size={p?.size}>
       <path d="M5 8l5 5 5-5" />

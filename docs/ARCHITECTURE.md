@@ -20,8 +20,8 @@
 | 버전 | 범위 |
 |---|---|
 | **v1.0** (현재) | Supabase Auth, 페인트 DB + CSV import, 페인트 검색, 5가지 공식 계산기(GST 10% 포함), 견적 저장·검색·수정·삭제, Interior/Exterior/Roof 작업 영역, **옵션(add-on) 견적**, settings UI, Product / Service catalog/template, internal memos, price revision history, **Jobber OAuth fetch + controlled write-back(Product / Service line items only)**, Vercel 배포. |
-| **v1.1** | Roof min/max 공식 선택값 저장, local draft 민감 fetch 결과 저장 방지/7일 만료, Jobber sync preview/retry, 과거 견적 복제(Duplicate) 기능은 repo 구현 완료. 운영 환경은 Supabase `0019_add_roof_formula_selections.sql` 적용 확인 완료, 코드/마이그레이션 변경 이력은 Git으로 보존한다. |
-| **v1.5** | 사용 패턴 확인 후 필요한 경우 페인트 DB 관리 고도화와 자동 백업 강화. material 가격은 소비자가 기준을 유지한다. |
+| **v1.1** | Roof min/max 공식 선택값 저장, local draft 민감 fetch 결과 저장 방지/7일 만료, Jobber sync preview/retry, 과거 견적 복제(Duplicate), Jobber snapshot 수동 refresh/변경 감지, Jobber option line preview/manual import 기능은 repo 구현 완료. 운영 환경은 Supabase `0019_add_roof_formula_selections.sql` 및 `0020_add_jobber_snapshot_refresh_metadata.sql` 적용/검증 완료, 코드/마이그레이션 변경 이력은 Git으로 보존한다. |
+| **v1.5** | Settings 운영량 확인 후 필요한 경우에만 독립 `/products` 관리 페이지를 재검토한다. Supabase 실제 데이터 백업은 별도 운영 결정으로 남겨둔다. material 가격은 소비자가 기준을 유지한다. |
 | **v2** | 자동 견적가 추산 (ML), 분석 대시보드. |
 
 ---
@@ -92,6 +92,7 @@
    - Add Line Item: 개별 가격 line item
    - Add Text: 일반 설명용 line item
    - Template 선택: Settings에 저장한 공개 line/text 묶음을 현재 quote rows에 복사
+   - Jobber option import: 보수적으로 감지한 Jobber option 후보를 preview로 확인한 뒤 사용자가 선택한 항목만 PBC 옵션 state로 복사
    - Build Option Set, 사진, notes 제외
 3. 페인트 검색 → 내부 material 추가, 영역(area) 선택, 라인별 인부수·작업일수 입력
 4. → 5가지 공식 **클라이언트 사이드 실시간 계산** (서버 왕복 없음)
@@ -99,6 +100,7 @@
 6. 옵션(add-on) 견적 추가/편집 → 자체 final_total (메인에 합산 안 함)
 7. Internal memos 작성/편집 → `quote_memos`에만 저장, Jobber fetch/write-back 제외
 8. [저장] → Server Action → DB 저장 → approved Jobber quote write-back
+9. Quote detail에서 [Refresh from Jobber] → 최신 Jobber snapshot 저장, 마지막 refresh 시간 표시, 이전 snapshot과 다른 경우 변경 요약 알림
 ```
 
 > 원칙: material 가격과 내부 계산 데이터는 우리 DB에만 저장한다. Jobber에는 사용자가 공개용으로 작성한 Product / Service line item만 저장한다.
@@ -114,6 +116,9 @@
 - Jobber write 실패 시 local quote 저장은 유지하고 `jobber_sync_status = failed`로 표시한다.
 - 저장 전에는 PBC subtotal, Jobber public line total, 차이를 보여주는 sync preview를 제공한다.
 - 실패한 sync는 quote detail에서 retry할 수 있게 한다.
+- Jobber snapshot refresh는 write-back sync와 별도 상태다. `jobber_snapshot_refreshed_at`은 마지막 Jobber fetch/cache 갱신 시간이고, `jobber_last_synced_at`은 write-back 성공 시간이다.
+- Refresh 기반 변경 감지는 고객/주소/work type/customer type/Product-Service line/Jobber total의 compact summary만 저장한다.
+- Jobber option import는 preview/manual confirm 방식이며 자동 DB 저장을 하지 않는다. 사용자가 import한 후보는 기존 quote save/update 경로로만 `quote_options`에 저장된다.
 
 ---
 
@@ -133,7 +138,7 @@
 
 | 컴포넌트 | 장애 시 | 완화책 |
 |---|---|---|
-| Supabase DB | 견적 작업 불가 | Pro plan 99.9% SLA + 자동 백업 |
+| Supabase DB | 견적 작업 불가 | 실제 데이터 백업은 아직 운영 결정/후속 작업이다. 우선안은 Supabase Pro + PITR이며, 대안은 검증된 cron export 운영이다. |
 | Vercel | 앱 접근 불가 | 99.99% uptime, 정적 캐시 |
 | Supabase Auth | 새 로그인 불가 (기존 세션 유지) | 세션 7일 |
 | Jobber API | 견적 자동 불러오기 실패 | fallback: "수동 입력" 모드, 사용자에게 에러 표시. 캐시(`jobber_snapshot`) 보존 |

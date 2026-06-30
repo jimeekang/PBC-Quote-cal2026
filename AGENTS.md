@@ -7,21 +7,28 @@
 
 ## Codex의 역할
 
-이 프로젝트에서 **Codex는 "실행자(Executor)"** 다.
-설계·아키텍처·테스트 정책 결정은 모두 Claude Code가 한다.
-Codex는 정해진 사양을 충실히 코드로 옮기는 데 집중한다.
+이 프로젝트에서 **Codex는 결정자(Decider)이자 실행자(Executor)** 다.
+현재 Claude Code는 사용하지 않으며, 제품·스코프·아키텍처·테스트 정책·구현 판단은 Codex가 사용자 지시와 문서 기준에 따라 맡는다.
+
+Codex는 다음 원칙을 따른다:
+
+- 사용자 명시 요청이 최우선이다.
+- 핵심 결정 변경, 보안 critical 변경, 프로덕션 DB 적용, 새 외부 의존성 추가는 사용자 승인 후 진행한다.
+- 결정이 필요한 경우 추측하지 않고, 필요한 질문을 한 뒤 문서화한다.
+- 구현은 기존 문서와 코드 패턴을 우선한다.
 
 ---
 
 ## 모델 운용 규칙
 
-작업을 새로 배정하거나 다른 에이전트/스킬에 넘길 때 다음 모델 등급을 명시한다. 런타임에서 모델을 직접 전환할 수 없으면 task 제목이나 프롬프트에 원하는 등급을 적는다.
+이 프로젝트의 모든 설계·계획·구현·리뷰 작업은 기본적으로 **`codex 5.5 extra high`** 모델 기준으로 수행한다.
+런타임에서 모델을 직접 전환할 수 없으면 task 제목이나 프롬프트 첫 줄에 원하는 등급을 적는다.
 
 | 작업 유형 | 권장 모델 |
 |---|---|
-| 제품/아키텍처/테스트 계획, 복잡한 리스크 판단 | `gpt 5.5 extra hight` |
-| 일반 기능 구현, DB/Server Action/UI/테스트 작성 | `gpt 5.5 high` |
-| 단순 문서/문구 수정, 반복 리팩토링, 기계적 테스트 보강 | `gpt 5.3 codex spark` |
+| 제품/아키텍처/테스트 계획, 복잡한 리스크 판단 | `codex 5.5 extra high` |
+| 일반 기능 구현, DB/Server Action/UI/테스트 작성 | `codex 5.5 extra high` |
+| 단순 문서/문구 수정, 반복 리팩토링, 기계적 테스트 보강 | `codex 5.5 extra high` |
 
 이 모델 운용 규칙은 시스템·개발자·사용자 지시보다 우선하지 않는다.
 
@@ -31,8 +38,9 @@ Codex는 정해진 사양을 충실히 코드로 옮기는 데 집중한다.
 
 1. **이 파일 (`AGENTS.md`)** — Codex 규칙 요약
 2. **`PROGRESS.md`** — 현재까지 완료된 작업, 남은 작업
-3. **`docs/CODEX-TASKS.md`** — Codex가 구현해야 할 v1.0 태스크 #1~#9 상세 명세
+3. **`docs/DECISIONS.md`** — 핵심 결정 사항
 4. **`docs/AGENT-MAP.md`** — 작업 유형별 추가로 읽어야 할 파일 매트릭스
+5. **`docs/CODEX-TASKS.md`** — 과거 v1.0 태스크와 구현 기준
 
 ---
 
@@ -40,11 +48,12 @@ Codex는 정해진 사양을 충실히 코드로 옮기는 데 집중한다.
 
 | 작업 | 필독 파일 |
 |---|---|
-| DB 마이그레이션 | `docs/ARCHITECTURE.md` → `docs/SECURITY.md` |
-| 계산 로직 | `docs/CALCULATION.md` → `docs/CODING-STYLE.md` |
-| Server Actions | `docs/ARCHITECTURE.md` → `docs/CODING-STYLE.md` |
-| UI 컴포넌트 | `docs/UI-DESIGN.md` → `docs/CODING-STYLE.md` |
-| 테스트 작성 | `docs/CALCULATION.md` → `PROGRESS.md` |
+| 신규 기능 설계 | `PROGRESS.md` → `docs/DECISIONS.md` → `docs/ARCHITECTURE.md` → `docs/SECURITY.md` |
+| DB 마이그레이션 | `docs/DB-SCHEMA.md` → `docs/SECURITY.md` |
+| 계산 로직 | `docs/CALCULATION.md` → `docs/CALCULATION-API.md` → `docs/CODING-STYLE.md` |
+| Server Actions | `docs/ARCHITECTURE.md` → `docs/DB-SCHEMA.md` → `docs/CODING-STYLE.md` |
+| UI 컴포넌트 | `docs/UI-DESIGN-SYSTEM.md` → `docs/UI-DESIGN.md` → `docs/CODING-STYLE.md` |
+| 테스트 작성 | `docs/CALCULATION.md` → `docs/CALCULATION-API.md` → `PROGRESS.md` |
 | 배포 | `docs/DEPLOY.md` → `docs/CLI-ACCESS.md` → `docs/SECURITY.md` |
 
 전체 매트릭스: `docs/AGENT-MAP.md`.
@@ -53,7 +62,7 @@ Codex는 정해진 사양을 충실히 코드로 옮기는 데 집중한다.
 
 ## Codex가 해야 할 일
 
-`docs/CODEX-TASKS.md`, `TODOS.md`, `docs/superpowers/plans/2026-06-26-pbc-upgrade-direction.md` 참조.
+`docs/DECISIONS.md`, `docs/ARCHITECTURE.md`, `docs/CODEX-TASKS.md`, `TODOS.md`, `docs/superpowers/plans/2026-06-26-pbc-upgrade-direction.md` 참조.
 
 2026-06-26 업그레이드 구현 완료:
 
@@ -69,18 +78,17 @@ Codex는 정해진 사양을 충실히 코드로 옮기는 데 집중한다.
 
 ---
 
-## Codex가 하지 말아야 할 일
+## Codex가 임의로 하지 말아야 할 일
 
-- ❌ **스코프 결정** — "이거 v1.0 vs v1.1"은 Claude 영역
-- ❌ **아키텍처 변경** — Server Action vs Route Handler, 라이브러리 선택 등
-- ❌ **테스트 정책 변경** — 커버리지 기준, fixture 사용 방식
-- ❌ **보안 정책 변경** — RLS 정책, 환경 변수, 인증 흐름
-- ❌ **새 외부 의존성 추가** — Claude 또는 사용자에게 먼저 확인
-- ❌ **`TODOS.md` 항목 추가/제거**
-- ❌ **`docs/` 디렉토리의 명세 문서 임의 수정**
-- ❌ **`docs/DECISIONS.md`의 핵심 결정 변경**
+- ❌ 사용자 승인 없이 프로덕션 DB 마이그레이션 적용
+- ❌ 사용자 승인 없이 Vercel 환경 변수·도메인 변경
+- ❌ 사용자 승인 없이 사용자 데이터 영구 삭제
+- ❌ 사용자 승인 없이 `git push --force`, `git reset --hard`
+- ❌ 사용자 승인 없이 새 외부 의존성 추가
+- ❌ 사용자 승인 없이 `TODOS.md` 항목 추가/제거
+- ❌ 사용자 승인 없이 `docs/DECISIONS.md`의 핵심 결정 변경
 
-**의문이 들면:** "이건 Claude Code에서 결정할 사항입니다. 사용자 확인 부탁드립니다"라고 답하고 중단.
+의문이 들면 사용자에게 확인하고, 확인된 결정은 관련 문서에 반영한다.
 
 ---
 
@@ -96,7 +104,7 @@ Codex는 정해진 사양을 충실히 코드로 옮기는 데 집중한다.
 - RLS: 모든 테이블 활성화, 인증 사용자만 접근
 - 에러 패턴: `{ ok: true, data } | { ok: false, error }`
 
-**Codex는 이 결정을 임의로 바꾸지 않는다.**
+Codex는 사용자 승인 없이 이 결정을 임의로 바꾸지 않는다.
 
 ---
 
@@ -135,9 +143,9 @@ Codex는 정해진 사양을 충실히 코드로 옮기는 데 집중한다.
 
 ## 작업 형식
 
-Codex는 다음 형식으로 task를 받는다:
+Codex는 다음 형식으로 task를 정리한다:
 
-```
+```md
 [태스크 #X] {짧은 제목}
 
 **Input docs to read first:**
@@ -158,13 +166,13 @@ Codex는 다음 형식으로 task를 받는다:
 변경 파일 목록과 변경 요약을 보고
 ```
 
-모호한 요청이 오면 **명확화 질문**부터. 추측해서 작업 시작 금지.
+모호한 요청이 오면 명확화 질문부터 한다.
 
 ---
 
 ## 완료 보고 형식
 
-```
+```md
 ✅ [태스크 #X] {제목} 완료
 
 **Changed files:**
@@ -182,8 +190,6 @@ Codex는 다음 형식으로 task를 받는다:
 {있으면 — 의문점, 다음 단계 제안}
 ```
 
-이 보고가 있어야 Claude Code가 `/gstack-review`로 검증 가능.
-
 ---
 
 ## 충돌·의문 처리
@@ -192,10 +198,10 @@ Codex는 다음 형식으로 task를 받는다:
 |---|---|
 | 명세가 모호함 | 명확화 질문, 추측 금지 |
 | 명세와 기존 코드가 모순 | 사용자에게 알리고 진실 확인 |
-| 더 좋은 방법이 보임 | 제안만 하고 Claude/사용자 결정 후 진행 |
+| 더 좋은 방법이 보임 | 이유와 트레이드오프를 제안하고 사용자 확인 후 진행 |
 | 같은 문제로 3회 시도 실패 | 중단, `gstack-investigate` 권장 |
 | 보안 critical 변경 | 사용자 확인 필수 (`docs/SECURITY.md`) |
-| 스코프 확장 충동 | 거부. `TODOS.md`에 적고 본 작업만 |
+| 스코프 확장 필요 | 사용자 확인 후 문서화하고 진행 |
 
 ---
 

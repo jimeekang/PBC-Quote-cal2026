@@ -73,6 +73,7 @@ describe('quote form draft persistence', () => {
           selectedMin: 4,
           selectedMax: 1,
           isExpanded: true,
+          sourceJobberLineItemIds: ['jobber-heading-1', 'jobber-line-1'],
           materials: [
             {
               id: 'option-item-1',
@@ -144,6 +145,28 @@ describe('quote form draft persistence', () => {
       ...draft,
       jobberQuoteLines: [{ ...draft.jobberQuoteLines[0], unitPrice: '/' }],
     }))).toBeNull()
+  })
+
+  it('leaves missing option source Jobber IDs undefined', () => {
+    const draft = {
+      ...createEmptyQuoteFormDraft(),
+      options: [
+        {
+          id: 'option-1',
+          title: 'Option 1',
+          selectedMin: 4 as const,
+          selectedMax: 1 as const,
+          isExpanded: true,
+          materials: [],
+        },
+      ],
+      updatedAt: '2026-06-25T00:00:00.000Z',
+    }
+
+    expect(
+      parseQuoteFormDraft(JSON.stringify(draft), new Date('2026-06-26T00:00:00.000Z'))
+        ?.options[0]?.sourceJobberLineItemIds
+    ).toBeUndefined()
   })
 
   it('rejects drafts with missing, invalid, or expired updatedAt metadata', () => {

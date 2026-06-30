@@ -1,6 +1,6 @@
 # DEPLOY.md — Vercel 배포 설정
 
-> Codex가 배포 작업 시 참조. Claude는 코드 리뷰·헬스 체크 시 참조.
+> Codex가 배포 작업, 코드 리뷰, 헬스 체크 시 참조.
 
 ---
 

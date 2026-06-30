@@ -12,14 +12,18 @@ import {
   buildQuoteSavePayload,
   getQuoteUnexpectedSaveErrorMessage,
   getQuoteNavigationGuardTarget,
+  importJobberOptionCandidateIntoOptions,
   getNextDeletedJobberLineItemIds,
   QuoteForm,
   saveQuoteFormPayload,
   shouldRunDraftGuard,
 } from '@/components/quote-form/quote-form'
+import { JobberOptionImport } from '@/components/quote-form/jobber-option-import'
 import { calculateJobberSyncPreview } from '@/components/quote-form/quote-save-payload'
 import { createEmptyQuoteFormDraft, parseQuoteFormDraft, sanitizeQuoteFormDraftForStorage } from '@/components/quote-form/quote-draft'
 import type { AreaSubtotalBreakdown } from '@/components/quote-form/quote-calculation-totals'
+import type { QuoteOptionItem } from '@/components/quote-form/types'
+import type { JobberOptionImportCandidate } from '@/components/quote-form/jobber-option-mapping'
 import { QuoteDetailView } from '@/components/quote-detail/quote-detail-view'
 import { QuoteCard } from '@/components/quote-list/quote-card'
 import { MonthFilterSelect } from '@/components/quote-list/month-filter-select'
@@ -37,6 +41,7 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('@/lib/actions/quotes', () => ({
   createQuote: vi.fn(),
+  refreshJobberQuoteSnapshot: vi.fn(),
   retryJobberQuoteSync: vi.fn(),
   updateQuote: vi.fn(),
 }))
@@ -51,6 +56,10 @@ describe('quote form pricing UI', () => {
     jobberSyncStatus: 'not_synced',
     jobberLastSyncedAt: null,
     jobberSyncError: null,
+    jobberSnapshotRefreshedAt: null,
+    jobberSnapshotChangeStatus: 'unknown',
+    jobberSnapshotChangeSummary: [],
+    jobberSnapshotRefreshError: null,
     areaSqft: null,
     workType: 'Exterior',
     workingDays: '5.00',
@@ -88,6 +97,26 @@ describe('quote form pricing UI', () => {
     jobberSnapshot: null,
   }
 
+  const jobberOptionCandidate: JobberOptionImportCandidate = {
+    id: 'heading-1|line-1',
+    title: 'Option 1',
+    sourceLineIds: ['heading-1', 'line-1'],
+    total: 450.25,
+    lines: [
+      {
+        id: 'line-1',
+        name: 'Garage repaint',
+        category: 'SERVICE',
+        description: '',
+        quantity: 1,
+        unitPrice: 450.25,
+        totalPrice: 450.25,
+        linkedName: null,
+        textOnly: false,
+      },
+    ],
+  }
+
   it('keeps quote form panels on the shared design system instead of legacy visual Tailwind', () => {
     const files = [
       'components/quote-form/customer-panel.tsx',
@@ -95,6 +124,7 @@ describe('quote form pricing UI', () => {
       'components/quote-form/material-row.tsx',
       'components/quote-form/quote-memos-panel.tsx',
       'components/quote-form/quote-options-panel.tsx',
+      'components/quote-form/jobber-option-import.tsx',
       'components/quote-form/jobber-product-service-editor.tsx',
     ]
     const legacyPatterns = [
@@ -330,6 +360,70 @@ describe('quote form pricing UI', () => {
     expect(markup).toContain('pbc-btn pbc-btn--primary')
   })
 
+  it('uses a guarded Jobber refresh action instead of Fetch on saved quote edits', () => {
+    const markup = renderToStaticMarkup(
+      createElement(QuoteForm, {
+        settings: quoteRecord.pricingSettingsSnapshot,
+        areas: [],
+        productServices: [],
+        quoteLineTemplates: [],
+        initialQuote: {
+          ...quoteRecord,
+          jobberSnapshot: {
+            jobberQuoteId: 'encoded-quote-id',
+            sourceType: 'quote',
+            quoteNumber: '2345',
+            createdAt: '2026-05-13T01:23:45Z',
+            customerName: 'Jane Customer',
+            customerAddress: '10 Main St',
+            workType: 'Exterior',
+            areaSqft: null,
+            customerType: 'Real Estate',
+            sourceUrl: 'https://secure.getjobber.com/quotes/2345',
+            productsAndServices: [],
+            jobExpenses: [],
+            jobExpensesError: null,
+            financialSummary: {
+              quoteTotal: 0,
+              expensesTotal: 0,
+              profit: 0,
+              profitMarginPercent: null,
+            },
+          },
+        },
+      })
+    )
+
+    expect(markup).toContain('Refresh from Jobber')
+    expect(markup).not.toContain('>Fetch</button>')
+    expect(markup).toContain('Preview Jobber changes before applying them to this saved quote.')
+  })
+
+  it('keeps Fetch on new quotes', () => {
+    const markup = renderToStaticMarkup(
+      createElement(QuoteForm, {
+        settings: quoteRecord.pricingSettingsSnapshot,
+        areas: [],
+        productServices: [],
+        quoteLineTemplates: [],
+      })
+    )
+
+    expect(markup).toContain('>Fetch</button>')
+    expect(markup).not.toContain('Refresh from Jobber')
+  })
+
+  it('routes edit-mode Jobber refresh through diff preview before applying fetched data', () => {
+    const source = readFileSync('components/quote-form/quote-form.tsx', 'utf8')
+
+    expect(source).toContain('diffJobberSnapshots(jobberQuoteDraft, payload.data)')
+    expect(source).toContain('setJobberRefreshMetadata({')
+    expect(source).toContain('setJobberRefreshPreview({')
+    expect(source).toContain('if (initialQuote) {')
+    expect(source).toContain('return')
+    expect(source.indexOf('setJobberRefreshPreview({')).toBeLessThan(source.indexOf('applyJobberDraftToForm(payload.data, lookup)'))
+  })
+
   it('renders the quote editor in the design-system page-scroll layout', () => {
     const markup = renderToStaticMarkup(
       createElement(QuoteForm, {
@@ -351,18 +445,226 @@ describe('quote form pricing UI', () => {
     expect(markup).not.toContain('quote-info-section')
     expect(markup).not.toContain('quote-work-items-section')
     expect(markup).toContain('product-service-scroll-list')
+    expect(markup).toContain('Public Product / Service Lines')
 
     const customerIndex = markup.indexOf('Customer Info')
-    const productIndex = markup.indexOf('Product / Service')
+    const productIndex = markup.indexOf('Public Product / Service Lines')
     const materialsIndex = markup.indexOf('Materials')
     expect(customerIndex).toBeGreaterThan(-1)
     expect(productIndex).toBeGreaterThan(customerIndex)
     expect(materialsIndex).toBeGreaterThan(productIndex)
 
     const calculationIndex = markup.indexOf('Calculation')
+    const calculationMarkup = markup.slice(calculationIndex, markup.indexOf('Final subtotal', calculationIndex))
     const calculationClassChunk = markup.slice(Math.max(calculationIndex - 320, 0), calculationIndex)
     expect(calculationClassChunk).not.toContain('overflow-y-auto')
     expect(calculationClassChunk).not.toContain('max-h')
+    expect(calculationMarkup).toContain('pbc-ministat')
+    expect(calculationMarkup).not.toContain('<input')
+  })
+
+  it('shows option import preview when a Jobber snapshot has option candidates', () => {
+    const markup = renderToStaticMarkup(
+      createElement(QuoteForm, {
+        settings: quoteRecord.pricingSettingsSnapshot,
+        areas: [],
+        productServices: [],
+        quoteLineTemplates: [],
+        initialQuote: {
+          ...quoteRecord,
+          jobberSnapshot: {
+            jobberQuoteId: 'encoded-quote-id',
+            sourceType: 'quote',
+            quoteNumber: '2345',
+            createdAt: '2026-05-13T01:23:45Z',
+            customerName: 'Jane Customer',
+            customerAddress: '10 Main St',
+            workType: 'Exterior',
+            areaSqft: null,
+            customerType: 'Real Estate',
+            sourceUrl: 'https://secure.getjobber.com/quotes/2345',
+            productsAndServices: [
+              {
+                id: 'heading-1',
+                name: 'Option 1',
+                category: 'TEXT',
+                description: '',
+                quantity: 1,
+                unitPrice: 0,
+                totalPrice: 0,
+                linkedName: null,
+                textOnly: true,
+              },
+              {
+                id: 'line-1',
+                name: 'Garage repaint',
+                category: 'SERVICE',
+                description: '',
+                quantity: 1,
+                unitPrice: 450.25,
+                totalPrice: 450.25,
+                linkedName: null,
+                textOnly: false,
+              },
+            ],
+            jobExpenses: [],
+            jobExpensesError: null,
+            financialSummary: {
+              quoteTotal: 450.25,
+              expensesTotal: 0,
+              profit: 450.25,
+              profitMarginPercent: 100,
+            },
+          },
+        },
+      })
+    )
+
+    expect(markup).toContain('Jobber option import')
+    expect(markup).toContain('Review detected Jobber option lines before adding them to PBC options.')
+    expect(markup).toContain('Option 1')
+    expect(markup).toContain('1 Jobber lines | $450.25')
+    expect(markup).toContain('Import as option')
+  })
+
+  it('does not render option import candidates for ordinary Jobber line items', () => {
+    const markup = renderToStaticMarkup(
+      createElement(QuoteForm, {
+        settings: quoteRecord.pricingSettingsSnapshot,
+        areas: [],
+        productServices: [],
+        quoteLineTemplates: [],
+        initialQuote: {
+          ...quoteRecord,
+          jobberSnapshot: {
+            jobberQuoteId: 'encoded-quote-id',
+            sourceType: 'quote',
+            quoteNumber: '2345',
+            createdAt: '2026-05-13T01:23:45Z',
+            customerName: 'Jane Customer',
+            customerAddress: '10 Main St',
+            workType: 'Exterior',
+            areaSqft: null,
+            customerType: 'Real Estate',
+            sourceUrl: 'https://secure.getjobber.com/quotes/2345',
+            productsAndServices: [
+              {
+                id: 'line-1',
+                name: 'Interior painting',
+                category: 'SERVICE',
+                description: '',
+                quantity: 1,
+                unitPrice: 1200,
+                totalPrice: 1200,
+                linkedName: null,
+                textOnly: false,
+              },
+            ],
+            jobExpenses: [],
+            jobExpensesError: null,
+            financialSummary: {
+              quoteTotal: 1200,
+              expensesTotal: 0,
+              profit: 1200,
+              profitMarginPercent: 100,
+            },
+          },
+        },
+      })
+    )
+
+    expect(markup).not.toContain('Jobber option import')
+    expect(markup).not.toContain('Import as option')
+  })
+
+  it('maps an imported Jobber option candidate to a PBC option with material amount', () => {
+    let nextId = 0
+    const options = importJobberOptionCandidateIntoOptions([], jobberOptionCandidate, (prefix) => {
+      nextId += 1
+      return `${prefix}-${nextId}`
+    })
+
+    expect(options).toHaveLength(1)
+    expect(options[0]?.title).toBe('Option 1')
+    expect(options[0]?.selectedMin).toBe(1)
+    expect(options[0]?.selectedMax).toBe(1)
+    expect(options[0]?.sourceJobberLineItemIds).toEqual(['heading-1', 'line-1'])
+    expect(options[0]?.materials).toMatchObject([
+      {
+        name: 'Garage repaint',
+        marketPrice: '450.25',
+        actualPrice: '450.25',
+        quantity: '1',
+        workingDays: '0',
+        labourPerDay: '0',
+        isCustom: true,
+      },
+    ])
+  })
+
+  it('disables and prevents importing the same Jobber option candidate twice', () => {
+    let nextId = 0
+    const createId = (prefix: string) => {
+      nextId += 1
+      return `${prefix}-${nextId}`
+    }
+    const importedOptions = importJobberOptionCandidateIntoOptions([], jobberOptionCandidate, createId)
+    const preventedOptions = importJobberOptionCandidateIntoOptions(importedOptions, jobberOptionCandidate, createId)
+    const markup = renderToStaticMarkup(
+      createElement(JobberOptionImport, {
+        candidates: [jobberOptionCandidate],
+        existingOptions: importedOptions,
+        onImportCandidate: () => undefined,
+      })
+    )
+
+    expect(preventedOptions).toBe(importedOptions)
+    expect(markup).toContain('Imported')
+    expect(markup).toContain('disabled=""')
+    expect(markup).not.toContain('Import as option')
+  })
+
+  it('treats a saved and restored matching Jobber option as already imported without source ids', () => {
+    const restoredOption: QuoteOptionItem = {
+      id: 'saved-option-1',
+      title: '  option   1  ',
+      selectedMin: 1,
+      selectedMax: 1,
+      isExpanded: false,
+      materials: [
+        {
+          id: 'saved-option-item-1',
+          name: '  Garage   repaint  ',
+          marketPrice: '450.25',
+          actualPrice: '450.25',
+          quantity: '1.00',
+          workingDays: '0.00',
+          labourPerDay: '0.00',
+          isCustom: true,
+        },
+      ],
+    }
+    let nextId = 0
+    const createId = (prefix: string) => {
+      nextId += 1
+      return `${prefix}-${nextId}`
+    }
+    const currentOptions = [restoredOption]
+    const preventedOptions = importJobberOptionCandidateIntoOptions(currentOptions, jobberOptionCandidate, createId)
+    const markup = renderToStaticMarkup(
+      createElement(JobberOptionImport, {
+        candidates: [jobberOptionCandidate],
+        existingOptions: currentOptions,
+        onImportCandidate: () => undefined,
+      })
+    )
+
+    expect(preventedOptions).toBe(currentOptions)
+    expect(preventedOptions).toHaveLength(1)
+    expect(preventedOptions[0]).toBe(restoredOption)
+    expect(markup).toContain('Imported')
+    expect(markup).toContain('disabled=""')
+    expect(markup).not.toContain('Import as option')
   })
 
   it('disables draft guard effects once navigation has been confirmed', () => {
@@ -611,6 +913,72 @@ describe('quote form pricing UI', () => {
     expect(payload.jobberSnapshot).toBeUndefined()
   })
 
+  it('does not include Jobber option source ids in the quote save payload', () => {
+    const payload = buildQuoteSavePayload({
+      settings: quoteRecord.pricingSettingsSnapshot,
+      customerName: 'Jane Customer',
+      customerAddress: '10 Main St',
+      jobberQuoteId: 'encoded-quote-id',
+      jobberQuoteLookup: '2345',
+      jobberQuoteDraft: null,
+      deletedJobberLineItemIds: [],
+      jobberQuoteLines: [],
+      workType: 'Exterior',
+      selectedMin: 4,
+      selectedMax: 1,
+      materials: [],
+      options: [
+        {
+          id: 'option-1',
+          title: 'Option 1',
+          selectedMin: 1,
+          selectedMax: 1,
+          isExpanded: true,
+          sourceJobberLineItemIds: ['heading-1', 'line-1'],
+          materials: [
+            {
+              id: 'option-item-1',
+              name: 'Garage repaint',
+              marketPrice: '450.25',
+              actualPrice: '450.25',
+              quantity: '1',
+              workingDays: '0',
+              labourPerDay: '0',
+              isCustom: true,
+            },
+          ],
+        },
+      ],
+      memos: [],
+    })
+
+    expect(payload.options).toEqual([
+      {
+        title: 'Option 1',
+        selectedMin: 1,
+        selectedMax: 1,
+        position: 0,
+        items: [
+          {
+            productId: undefined,
+            productNameSnapshot: 'Garage repaint',
+            marketPriceSnapshot: 450.25,
+            actualPriceSnapshot: 450.25,
+            quantity: 1,
+            workingDays: 0,
+            labourPerDay: 0,
+            areaId: undefined,
+            areaNameSnapshot: undefined,
+            areaScopeSnapshot: undefined,
+            isCustom: true,
+            position: 0,
+          },
+        ],
+      },
+    ])
+    expect(JSON.stringify(payload.options)).not.toContain('sourceJobberLineItemIds')
+  })
+
   it('shows total labour as the sum of material row working days times labour', () => {
     const markup = renderToStaticMarkup(
       createElement(QuoteForm, {
@@ -675,9 +1043,9 @@ describe('quote form pricing UI', () => {
     )
 
     expect(markup).toContain('Total Working Days')
-    expect(markup).toContain('value="5.00"')
-    expect(markup).toContain('Total Labour')
-    expect(markup).toContain('value="12.00"')
+    expect(markup).toContain('<b class="mono">5.00</b>')
+    expect(markup).toContain('Total Labour Days')
+    expect(markup).toContain('<b class="mono">12.00</b>')
   })
 
   it('shows interior, exterior, and final subtotal ex GST in the quote form summary', () => {
@@ -1726,6 +2094,175 @@ describe('quote form pricing UI', () => {
     expect(markup).toContain('$245.50')
   })
 
+  it('renders fetched Jobber detail as a collapsible compact snapshot', () => {
+    const markup = renderToStaticMarkup(
+      createElement(CustomerPanel, {
+        customerName: 'Jane Customer',
+        customerAddress: '10 Main St',
+        jobberLookupType: 'quote',
+        jobberQuoteId: '2345',
+        workType: 'Exterior',
+        customerType: 'Real Estate',
+        onCustomerNameChange: () => undefined,
+        onCustomerAddressChange: () => undefined,
+        onJobberQuoteIdChange: () => undefined,
+        onJobberLookupTypeChange: () => undefined,
+        onFetchJobberQuote: () => undefined,
+        onWorkTypeChange: () => undefined,
+        isFetchingJobberQuote: false,
+        jobberFetchError: null,
+        jobberQuoteDraft: {
+          jobberQuoteId: 'encoded-quote-id',
+          sourceType: 'quote',
+          quoteNumber: '2345',
+          createdAt: '2026-05-13T01:23:45Z',
+          customerName: 'Jane Customer',
+          customerAddress: '10 Main St',
+          workType: 'Exterior',
+          areaSqft: null,
+          customerType: 'Real Estate',
+          sourceUrl: 'https://secure.getjobber.com/quotes/2345',
+          productsAndServices: [
+            {
+              id: 'line-1',
+              name: 'Exterior repaint',
+              category: 'SERVICE',
+              description: '',
+              quantity: 1,
+              unitPrice: 1200,
+              totalPrice: 1200,
+              linkedName: null,
+              textOnly: false,
+            },
+          ],
+          jobExpensesError: null,
+          financialSummary: {
+            quoteTotal: 1200,
+            expensesTotal: 245.5,
+            profit: 954.5,
+            profitMarginPercent: 79.5,
+          },
+          jobExpenses: [],
+        },
+      })
+    )
+
+    expect(markup).toContain('<details')
+    expect(markup).toContain('<summary')
+    expect(markup).toContain('Original Jobber detail')
+    expect(markup).toContain('Jobber quote')
+    expect(markup).toContain('2345')
+    expect(markup).toContain('Exterior repaint')
+  })
+
+  it('shows a manual confirm panel when refreshed Jobber data differs', () => {
+    const markup = renderToStaticMarkup(
+      createElement(CustomerPanel, {
+        customerName: 'Jane Customer',
+        customerAddress: '10 Main St',
+        jobberLookupType: 'quote',
+        jobberQuoteId: '2345',
+        workType: 'Exterior',
+        customerType: 'Real Estate',
+        onCustomerNameChange: () => undefined,
+        onCustomerAddressChange: () => undefined,
+        onJobberQuoteIdChange: () => undefined,
+        onJobberLookupTypeChange: () => undefined,
+        onFetchJobberQuote: () => undefined,
+        onApplyJobberRefreshChanges: () => undefined,
+        onKeepCurrentJobberQuote: () => undefined,
+        onWorkTypeChange: () => undefined,
+        isFetchingJobberQuote: false,
+        jobberFetchError: null,
+        jobberActionMode: 'refresh',
+        jobberRefreshPreview: {
+          status: 'changed',
+          refreshedAt: '2026-06-30T00:53:00.000Z',
+          summary: [
+            {
+              field: 'customer',
+              label: 'Customer changed',
+              before: 'Jane Customer',
+              after: 'Jane B Customer',
+            },
+          ],
+        },
+        jobberQuoteDraft: null,
+      })
+    )
+
+    expect(markup).toContain('Jobber changes detected')
+    expect(markup).toContain('Customer changed')
+    expect(markup).toContain('Jane Customer -&gt; Jane B Customer')
+    expect(markup).toContain('Apply Jobber changes')
+    expect(markup).toContain('Keep current quote')
+  })
+
+  it('shows a no-change status when refreshed Jobber data matches the saved snapshot', () => {
+    const markup = renderToStaticMarkup(
+      createElement(CustomerPanel, {
+        customerName: 'Jane Customer',
+        customerAddress: '10 Main St',
+        jobberLookupType: 'quote',
+        jobberQuoteId: '2345',
+        workType: 'Exterior',
+        customerType: 'Real Estate',
+        onCustomerNameChange: () => undefined,
+        onCustomerAddressChange: () => undefined,
+        onJobberQuoteIdChange: () => undefined,
+        onJobberLookupTypeChange: () => undefined,
+        onFetchJobberQuote: () => undefined,
+        onWorkTypeChange: () => undefined,
+        isFetchingJobberQuote: false,
+        jobberFetchError: null,
+        jobberActionMode: 'refresh',
+        jobberRefreshPreview: {
+          status: 'unchanged',
+          refreshedAt: '2026-06-30T00:53:00.000Z',
+          summary: [],
+        },
+        jobberQuoteDraft: null,
+      })
+    )
+
+    expect(markup).toContain('No changes since last refresh - 30 June 2026, 10:53 am')
+    expect(markup).not.toContain('Apply Jobber changes')
+  })
+
+  it('lets the user apply a refreshed Jobber snapshot when there is no previous snapshot to diff', () => {
+    const markup = renderToStaticMarkup(
+      createElement(CustomerPanel, {
+        customerName: 'Jane Customer',
+        customerAddress: '10 Main St',
+        jobberLookupType: 'quote',
+        jobberQuoteId: '2345',
+        workType: 'Exterior',
+        customerType: 'Real Estate',
+        onCustomerNameChange: () => undefined,
+        onCustomerAddressChange: () => undefined,
+        onJobberQuoteIdChange: () => undefined,
+        onJobberLookupTypeChange: () => undefined,
+        onFetchJobberQuote: () => undefined,
+        onApplyJobberRefreshChanges: () => undefined,
+        onKeepCurrentJobberQuote: () => undefined,
+        onWorkTypeChange: () => undefined,
+        isFetchingJobberQuote: false,
+        jobberFetchError: null,
+        jobberActionMode: 'refresh',
+        jobberRefreshPreview: {
+          status: 'unknown',
+          refreshedAt: '2026-06-30T00:53:00.000Z',
+          summary: [],
+        },
+        jobberQuoteDraft: null,
+      })
+    )
+
+    expect(markup).toContain('Jobber refreshed')
+    expect(markup).toContain('Apply Jobber changes')
+    expect(markup).toContain('Keep current quote')
+  })
+
   it('shows a reconnect action when Jobber hides job expenses due to permissions', () => {
     const markup = renderToStaticMarkup(
       createElement(CustomerPanel, {
@@ -1840,6 +2377,251 @@ describe('quote form pricing UI', () => {
     expect(markup).toContain('Paint supplies')
     expect(markup).toContain('Jobber profit')
     expect(markup).toContain('90.2%')
+  })
+
+  it('shows the Jobber refresh timestamp on quote detail pages in Sydney time', () => {
+    const markup = renderToStaticMarkup(
+      createElement(QuoteDetailView, {
+        quote: {
+          ...quoteRecord,
+          jobberQuoteId: 'encoded-quote-id',
+          jobberSnapshotRefreshedAt: '2026-06-29T01:30:00.000Z',
+        },
+      })
+    )
+
+    expect(markup).toContain('Jobber Data')
+    expect(markup).toContain('Last refreshed from Jobber: 29 June 2026, 11:30 am')
+    expect(markup).not.toContain('Not refreshed yet')
+  })
+
+  it('keeps quote detail topbar read-only without duplicated edit or duplicate actions', () => {
+    const markup = renderToStaticMarkup(createElement(QuoteDetailView, { quote: quoteRecord }))
+    const topbarMarkup = markup.slice(markup.indexOf('pbc-topbar'), markup.indexOf('pbc-page'))
+    const bodyHeaderMarkup = markup.slice(markup.indexOf('pbc-pagehead pbc-pagehead--detail'), markup.indexOf('pbc-dgrid'))
+
+    expect(topbarMarkup).toContain('Read-only')
+    expect(topbarMarkup).toContain('Quotes')
+    expect(topbarMarkup).not.toContain('Edit quote')
+    expect(topbarMarkup).not.toContain('Duplicate')
+    expect(bodyHeaderMarkup).toContain('Edit')
+    expect(bodyHeaderMarkup).toContain('Duplicate')
+    expect(markup).toContain('Delete')
+  })
+
+  it('shows the calculation card on read-only quote detail pages', () => {
+    const markup = renderToStaticMarkup(
+      createElement(QuoteDetailView, {
+        quote: {
+          ...quoteRecord,
+          workingDays: '1.00',
+          labourPerDay: '1.00',
+        },
+      })
+    )
+    const summaryIndex = markup.indexOf('Summary')
+    const formulaIndex = markup.indexOf('Formula results')
+    const calculationIndex = markup.indexOf('pbc-calcpanel')
+    const calculationMarkup = markup.slice(calculationIndex, markup.indexOf('pbc-summary__heroLabel'))
+    const leadMarkup = markup.slice(markup.indexOf('pbc-dlead'), markup.indexOf('pbc-summary__heroLabel'))
+
+    expect(leadMarkup).toContain('pbc-dstack')
+    expect(calculationMarkup).toContain('pbc-calcpanel')
+    expect(calculationMarkup).toContain('Total Working Days')
+    expect(calculationMarkup).toContain('Total Labour Days')
+    expect(calculationMarkup).toContain('1.00')
+    expect(summaryIndex).toBeLessThan(formulaIndex)
+    expect(formulaIndex).toBeLessThan(calculationIndex)
+  })
+
+  it('shows detail summary labour and material totals with corrected labour labels', () => {
+    const markup = renderToStaticMarkup(
+      createElement(QuoteDetailView, {
+        quote: {
+          ...quoteRecord,
+          workingDays: '5.00',
+          labourPerDay: '2.50',
+          items: [
+            {
+              id: 'item-summary',
+              quoteId: quoteRecord.id,
+              productId: null,
+              productNameSnapshot: 'Summary paint',
+              marketPriceSnapshot: '100.00',
+              actualPriceSnapshot: '80.00',
+              quantity: '1.00',
+              workingDays: '5.00',
+              labourPerDay: '2.50',
+              areaId: null,
+              areaNameSnapshot: 'Bedroom',
+              areaScopeSnapshot: 'interior',
+              isCustom: true,
+              position: 0,
+            },
+          ],
+        },
+      })
+    )
+    const summaryMarkup = markup.slice(markup.indexOf('Summary'), markup.indexOf('Formula results'))
+    const formulaMarkup = markup.slice(markup.indexOf('Formula results'), markup.indexOf('pbc-summary__heroLabel'))
+
+    expect(summaryMarkup).toContain('Total working days')
+    expect(summaryMarkup).toContain('5.00')
+    expect(summaryMarkup).toContain('Labour per day')
+    expect(summaryMarkup).toContain('2.50')
+    expect(summaryMarkup).toContain('Total man-days')
+    expect(summaryMarkup).toContain('12.50')
+    expect(summaryMarkup).toContain('Final subtotal ex GST')
+    expect(summaryMarkup).toContain('Material total')
+    expect(summaryMarkup).toContain('$100.00')
+    expect(summaryMarkup).toContain('Total Labour')
+    expect(summaryMarkup).toContain('$2450.00')
+    expect(formulaMarkup).toContain('Total Labour')
+    expect(formulaMarkup).toContain('$2450.00')
+  })
+
+  it('shows the human Jobber quote number in summary before falling back to encoded ID', () => {
+    const withQuoteNumberMarkup = renderToStaticMarkup(
+      createElement(QuoteDetailView, {
+        quote: {
+          ...quoteRecord,
+          jobberQuoteId: 'encoded-quote-id',
+          jobberSnapshot: {
+            jobberQuoteId: 'encoded-quote-id',
+            sourceType: 'quote',
+            quoteNumber: '2345',
+            createdAt: '2026-05-13T01:23:45Z',
+            customerName: 'Jane Customer',
+            customerAddress: '10 Main St',
+            workType: 'Exterior',
+            areaSqft: null,
+            customerType: 'Real Estate',
+            sourceUrl: 'https://secure.getjobber.com/quotes/2345',
+            productsAndServices: [],
+            jobExpenses: [],
+            jobExpensesError: null,
+            financialSummary: {
+              quoteTotal: 0,
+              expensesTotal: 0,
+              profit: 0,
+              profitMarginPercent: null,
+            },
+          },
+        },
+      })
+    )
+    const fallbackMarkup = renderToStaticMarkup(
+      createElement(QuoteDetailView, {
+        quote: {
+          ...quoteRecord,
+          jobberQuoteId: 'encoded-quote-id',
+          jobberSnapshot: null,
+        },
+      })
+    )
+
+    expect(withQuoteNumberMarkup).toContain('Jobber quote')
+    expect(withQuoteNumberMarkup).toContain('#2345')
+    expect(withQuoteNumberMarkup).not.toContain('Jobber ID')
+    expect(fallbackMarkup).toContain('Jobber ID')
+    expect(fallbackMarkup).toContain('#encoded-quote-id')
+  })
+
+  it('surfaces read-only Jobber refresh status in summary without duplicating the refresh button', () => {
+    const markup = renderToStaticMarkup(
+      createElement(QuoteDetailView, {
+        quote: {
+          ...quoteRecord,
+          jobberQuoteId: 'encoded-quote-id',
+          jobberSnapshotRefreshedAt: '2026-06-29T01:30:00.000Z',
+          jobberSnapshotChangeStatus: 'changed',
+        },
+      })
+    )
+    const summaryMarkup = markup.slice(markup.indexOf('Summary'), markup.indexOf('Formula results'))
+
+    expect(summaryMarkup).toContain('Jobber status')
+    expect(summaryMarkup).toContain('Changed since last refresh')
+    expect(summaryMarkup).toContain('29 June 2026, 11:30 am')
+    expect(summaryMarkup).not.toContain('Refresh from Jobber')
+    expect(markup).toContain('Refresh from Jobber')
+  })
+
+  it('falls back when the Jobber refresh timestamp is invalid', () => {
+    const markup = renderToStaticMarkup(
+      createElement(QuoteDetailView, {
+        quote: {
+          ...quoteRecord,
+          jobberQuoteId: 'encoded-quote-id',
+          jobberSnapshotRefreshedAt: 'not-a-date',
+        },
+      })
+    )
+
+    expect(markup).toContain('Last refreshed from Jobber: Not refreshed yet')
+    expect(markup).not.toContain('Invalid Date')
+  })
+
+  it('shows the Jobber refresh action when a quote is linked to Jobber', () => {
+    const markup = renderToStaticMarkup(
+      createElement(QuoteDetailView, {
+        quote: {
+          ...quoteRecord,
+          jobberQuoteId: 'encoded-quote-id',
+        },
+      })
+    )
+
+    expect(markup).toContain('Jobber Data')
+    expect(markup).toContain('Refresh from Jobber')
+    expect(markup).toContain('Not refreshed yet')
+  })
+
+  it('shows a Jobber snapshot change warning with summary rows on quote detail pages', () => {
+    const markup = renderToStaticMarkup(
+      createElement(QuoteDetailView, {
+        quote: {
+          ...quoteRecord,
+          jobberQuoteId: 'encoded-quote-id',
+          jobberSnapshotChangeStatus: 'changed',
+          jobberSnapshotChangeSummary: [
+            {
+              field: 'customer',
+              label: 'Customer changed',
+              before: 'Jane Customer',
+              after: 'Jane B Customer',
+            },
+            {
+              field: 'financialSummary',
+              label: 'Jobber quote total changed',
+              before: '$2500.00',
+              after: '$2750.00',
+            },
+          ],
+        },
+      })
+    )
+
+    expect(markup).toContain('Jobber changed since the previous snapshot.')
+    expect(markup).toContain('Customer changed: Jane Customer -&gt; Jane B Customer')
+    expect(markup).toContain('Jobber quote total changed: $2500.00 -&gt; $2750.00')
+    expect(markup).toContain('pbc-alert pbc-alert--warning')
+  })
+
+  it('shows persisted Jobber refresh errors on quote detail pages', () => {
+    const markup = renderToStaticMarkup(
+      createElement(QuoteDetailView, {
+        quote: {
+          ...quoteRecord,
+          jobberQuoteId: 'encoded-quote-id',
+          jobberSnapshotRefreshError: 'Jobber API timeout.',
+        },
+      })
+    )
+
+    expect(markup).toContain('Jobber API timeout.')
+    expect(markup).toContain('pbc-alert pbc-alert--danger')
+    expect(markup).toContain('role="alert"')
   })
 
   it('keeps Jobber original Product Service items scrollable in the quote summary', () => {
@@ -2105,6 +2887,134 @@ describe('quote form pricing UI', () => {
     expect(markup).not.toContain('$2805.00')
     expect(markup).not.toContain('$3300.00')
     expect(markup).toContain('estimator@example.com')
+  })
+
+  it('collapses older price history beyond the latest revision on quote detail pages', () => {
+    const markup = renderToStaticMarkup(
+      createElement(QuoteDetailView, {
+        quote: {
+          ...quoteRecord,
+          priceRevisions: [
+            {
+              id: 'revision-1',
+              quoteId: quoteRecord.id,
+              revisionNumber: 1,
+              eventType: 'created',
+              previousSubtotal: null,
+              previousFinalTotal: null,
+              newSubtotal: '2550.00',
+              newFinalTotal: '2805.00',
+              previousJobberLinesTotal: null,
+              newJobberLinesTotal: null,
+              previousOptionsSubtotal: null,
+              newOptionsSubtotal: null,
+              previousOptionsFinalTotal: null,
+              newOptionsFinalTotal: null,
+              changedBy: 'user-1',
+              changedByName: 'Mia Kang',
+              changedByEmail: 'mia@example.com',
+              changedAt: '2026-06-20T01:00:00.000Z',
+            },
+            {
+              id: 'revision-2',
+              quoteId: quoteRecord.id,
+              revisionNumber: 2,
+              eventType: 'updated',
+              previousSubtotal: '2550.00',
+              previousFinalTotal: '2805.00',
+              newSubtotal: '3000.00',
+              newFinalTotal: '3300.00',
+              previousJobberLinesTotal: null,
+              newJobberLinesTotal: null,
+              previousOptionsSubtotal: null,
+              newOptionsSubtotal: null,
+              previousOptionsFinalTotal: null,
+              newOptionsFinalTotal: null,
+              changedBy: 'user-2',
+              changedByName: null,
+              changedByEmail: 'estimator@example.com',
+              changedAt: '2026-06-21T02:30:00.000Z',
+            },
+          ],
+        },
+      })
+    )
+
+    expect(markup).toContain('Revision 2')
+    expect(markup).toContain('Show older 1 revision')
+    expect(markup).toContain('pbc-detailmore')
+    expect(markup.indexOf('Revision 2')).toBeLessThan(markup.indexOf('Show older 1 revision'))
+    expect(markup.indexOf('Show older 1 revision')).toBeLessThan(markup.indexOf('Revision 1'))
+  })
+
+  it('wraps the saved Jobber snapshot details without hiding the refresh action', () => {
+    const markup = renderToStaticMarkup(
+      createElement(QuoteDetailView, {
+        quote: {
+          ...quoteRecord,
+          jobberSnapshot: {
+            jobberQuoteId: 'encoded-quote-id',
+            sourceType: 'quote',
+            quoteNumber: '2345',
+            createdAt: '2026-05-13T01:23:45Z',
+            customerName: 'Jane Customer',
+            customerAddress: '10 Main St',
+            workType: 'Exterior',
+            areaSqft: null,
+            customerType: 'Real Estate',
+            sourceUrl: 'https://secure.getjobber.com/quotes/2345',
+            productsAndServices: [],
+            jobExpenses: [],
+            jobExpensesError: null,
+            financialSummary: {
+              quoteTotal: 0,
+              expensesTotal: 0,
+              profit: 0,
+              profitMarginPercent: null,
+            },
+          },
+        },
+      })
+    )
+
+    expect(markup).toContain('Refresh from Jobber')
+    expect(markup).toContain('Show saved Jobber snapshot')
+    expect(markup).toContain('Created date')
+    expect(markup.indexOf('Refresh from Jobber')).toBeLessThan(markup.indexOf('Show saved Jobber snapshot'))
+  })
+
+  it('collapses long app product and service descriptions on quote detail pages', () => {
+    const longDescription = 'Long public scope. '.repeat(24)
+    const markup = renderToStaticMarkup(
+      createElement(QuoteDetailView, {
+        quote: {
+          ...quoteRecord,
+          jobberQuoteLines: [
+            {
+              id: 'line-long-description',
+              quoteId: quoteRecord.id,
+              jobberLineItemId: null,
+              kind: 'text',
+              name: 'Long scope',
+              description: longDescription,
+              quantity: null,
+              unitPrice: null,
+              totalPrice: null,
+              taxable: false,
+              clientVisible: true,
+              linkedProductOrServiceId: null,
+              position: 0,
+              createdAt: '2026-05-14T00:00:00Z',
+              updatedAt: '2026-05-14T00:00:00Z',
+            },
+          ],
+        },
+      })
+    )
+
+    expect(markup).toContain('pbc-detaildesc')
+    expect(markup).toContain('Show description')
+    expect(markup).toContain(longDescription.trim())
   })
 
   it('shows saved option totals on quote detail pages without changing the main final total', () => {

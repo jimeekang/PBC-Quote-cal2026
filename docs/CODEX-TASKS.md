@@ -11,22 +11,22 @@
 아래 v1.0 태스크 #1~#9는 완료된 초기 구현 명세로 보관한다. 2026-06-26 업그레이드는 `docs/superpowers/plans/2026-06-26-pbc-upgrade-direction.md` 기준으로 구현/검증 완료했다.
 
 1. **P0 Roof 공식 선택값 영속화**
-   - 모델 등급: `gpt 5.5 high`
+   - 모델 등급: `codex 5.5 extra high`
    - 작업: `quotes.roof_selected_min`, `quotes.roof_selected_max` migration, quote create/update/get/detail/draft/dev-data/test 반영
    - 제외: 공식 변경, GST 변경, material 실제 원가/RRP 분리, 추가 가격작성 정보 패널
 2. **P1 Local draft privacy/expiry**
-   - 모델 등급: `gpt 5.5 high`
+   - 모델 등급: `codex 5.5 extra high`
    - 작업: 민감 Jobber fetch 결과 draft 저장 방지, 7일 만료, clear local drafts
 3. **P1 Jobber sync preview/retry**
-   - 모델 등급: `gpt 5.5 high`
+   - 모델 등급: `codex 5.5 extra high`
    - 작업: 저장 전 PBC subtotal vs Jobber public line total preview, 실패 sync retry
 4. **P2 Duplicate quote**
-   - 모델 등급: `gpt 5.5 high`
+   - 모델 등급: `codex 5.5 extra high`
    - 작업: Jobber quote id 미복사, material 가격은 현재 소비자가 기준 갱신
 5. **단순 문서/테스트 fixture 정리**
-   - 모델 등급: `gpt 5.3 codex spark`
+   - 모델 등급: `codex 5.5 extra high`
 
-계획·스코프 재조정이 필요하면 `gpt 5.5 extra hight`로 Claude/plan review에 먼저 넘긴다.
+계획·스코프 재조정이 필요하면 `codex 5.5 extra high` 기준으로 Codex가 사용자와 확인한 뒤 문서화한다.
 
 검증 결과(2026-06-26):
 - `npm.cmd run typecheck` 통과
@@ -216,7 +216,7 @@ components/quote-form/
 {의문점, 다음 단계 제안}
 ```
 
-이 보고가 있어야 Claude가 `/gstack-review`로 검증 가능.
+이 보고가 있어야 Codex가 후속 리뷰와 검증을 이어갈 수 있다.
 
 ---
 

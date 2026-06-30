@@ -91,6 +91,13 @@ const quoteMemoSchema = z.object({
 
 export const jobberSaveModeSchema = z.enum(['priced_line_items', 'description_total'])
 
+const jobberSnapshotChangeSummaryItemSchema = z.object({
+  field: z.enum(['customer', 'address', 'workType', 'customerType', 'financialSummary', 'lineItems']),
+  label: z.string().trim().min(1),
+  before: z.string(),
+  after: z.string(),
+})
+
 export const jobberQuoteLineSchema = z.object({
   kind: z.enum(['line_item', 'text']),
   name: z.string().trim().min(1).max(200),
@@ -128,6 +135,9 @@ export const quoteSchema = z.object({
   customerAddress: z.string().optional(),
   jobberQuoteId: z.string().optional(),
   jobberSnapshot: jobberQuoteSnapshotSchema.optional(),
+  jobberSnapshotRefreshedAt: z.string().datetime().optional(),
+  jobberSnapshotChangeStatus: z.enum(['unknown', 'unchanged', 'changed']).optional(),
+  jobberSnapshotChangeSummary: z.array(jobberSnapshotChangeSummaryItemSchema).max(8).optional(),
   jobberSaveMode: jobberSaveModeSchema.optional(),
   jobberQuoteLines: z.array(jobberQuoteLineSchema).default([]),
   deletedJobberLineItemIds: z.array(z.string().trim().min(1)).default([]),
