@@ -649,6 +649,35 @@
 .pbc-settings .rounded-lg.border,
 .pbc-settings .border-slate-200 { border-color: var(--border) !important; }
 .pbc-settings .pbc-rate__money input:focus { box-shadow: none !important; }
+.pbc-areaitem {
+  align-items: flex-start;
+}
+.pbc-areaitem--editing {
+  display: block;
+  padding: 14px;
+}
+.pbc-areaedit {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+.pbc-areaedit__fields {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+}
+.pbc-areaedit__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  width: 100%;
+}
+.pbc-areaedit__actions .pbc-btn {
+  justify-content: center;
+  min-width: 76px;
+}
 
 /* ── 반응형 ────────────────────────────────────────────── */
 @media (max-width: 1080px) {

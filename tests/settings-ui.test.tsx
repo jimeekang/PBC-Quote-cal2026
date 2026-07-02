@@ -249,6 +249,8 @@ describe('settings material UI', () => {
     expect(areaBranch).toContain('pbc-btn pbc-btn--primary')
     expect(areaBranch).toContain('pbc-list')
     expect(areaBranch).toContain('pbc-listitem')
+    expect(areaBranch).toContain('pbc-areaitem')
+    expect(areaBranch).toContain('pbc-areaedit')
     expect(areaBranch).not.toContain('rounded-lg border border-slate-200')
     expect(areaBranch).not.toContain('text-slate-400')
   })
@@ -267,6 +269,8 @@ describe('settings material UI', () => {
     expect(areaBranch).toContain('Save')
     expect(areaBranch).toContain('Cancel')
     expect(areaBranch).toContain('pbc-btn pbc-btn--danger pbc-btn--sm')
+    expect(areaBranch).toContain('pbc-areaedit__fields')
+    expect(areaBranch).toContain('pbc-areaedit__actions')
   })
 
   it('formats area mutation fetch failures without exposing raw exceptions', () => {

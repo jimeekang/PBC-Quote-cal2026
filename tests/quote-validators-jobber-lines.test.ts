@@ -87,4 +87,20 @@ describe('Jobber quote line validators', () => {
     expect(parsed.jobberSaveMode).toBe('priced_line_items')
     expect(parsed.jobberQuoteLines).toHaveLength(1)
   })
+
+  it('accepts Supabase offset timestamps for saved Jobber refresh metadata', () => {
+    const parsed = quoteSchema.parse({
+      customerName: 'Jobber Customer',
+      workingDays: 1,
+      labourPerDay: 1,
+      materialMarket: 10,
+      materialActual: 10,
+      selectedMin: 1,
+      selectedMax: 1,
+      items: [],
+      jobberSnapshotRefreshedAt: '2026-06-30T00:53:00+00:00',
+    })
+
+    expect(parsed.jobberSnapshotRefreshedAt).toBe('2026-06-30T00:53:00+00:00')
+  })
 })

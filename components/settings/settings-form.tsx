@@ -1662,30 +1662,50 @@ export function SettingsForm({
                       const isEditing = editingAreaId === area.id
 
                       return (
-                        <div key={area.id} className="pbc-listitem items-start gap-3">
+                        <div key={area.id} className={`pbc-listitem pbc-areaitem${isEditing ? ' pbc-areaitem--editing' : ''}`}>
                           {isEditing ? (
-                            <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-[150px_minmax(0,1fr)]">
-                              <label className="pbc-field">
-                                <span className="pbc-field__label">Scope</span>
-                                <select
-                                  value={areaEditForm.scope}
-                                  onChange={(event) => setAreaEditForm((current) => ({ ...current, scope: event.target.value as AreaScope }))}
-                                  className="pbc-input"
+                            <div className="pbc-areaedit">
+                              <div className="pbc-areaedit__fields">
+                                <label className="pbc-field">
+                                  <span className="pbc-field__label">Scope</span>
+                                  <select
+                                    value={areaEditForm.scope}
+                                    onChange={(event) => setAreaEditForm((current) => ({ ...current, scope: event.target.value as AreaScope }))}
+                                    className="pbc-input"
+                                  >
+                                    {AREA_SCOPES.map((scopeOption) => (
+                                      <option key={scopeOption} value={scopeOption}>{AREA_SCOPE_LABELS[scopeOption]}</option>
+                                    ))}
+                                  </select>
+                                </label>
+                                <label className="pbc-field">
+                                  <span className="pbc-field__label">Area name</span>
+                                  <input
+                                    value={areaEditForm.name}
+                                    onChange={(event) => setAreaEditForm((current) => ({ ...current, name: event.target.value }))}
+                                    className="pbc-input"
+                                    placeholder="Area name"
+                                  />
+                                </label>
+                              </div>
+                              <div className="pbc-areaedit__actions">
+                                <button
+                                  type="button"
+                                  onClick={saveArea}
+                                  disabled={isPending || !areaEditForm.name.trim()}
+                                  className="pbc-btn pbc-btn--primary pbc-btn--sm"
                                 >
-                                  {AREA_SCOPES.map((scopeOption) => (
-                                    <option key={scopeOption} value={scopeOption}>{AREA_SCOPE_LABELS[scopeOption]}</option>
-                                  ))}
-                                </select>
-                              </label>
-                              <label className="pbc-field">
-                                <span className="pbc-field__label">Area name</span>
-                                <input
-                                  value={areaEditForm.name}
-                                  onChange={(event) => setAreaEditForm((current) => ({ ...current, name: event.target.value }))}
-                                  className="pbc-input"
-                                  placeholder="Area name"
-                                />
-                              </label>
+                                  Save
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={cancelAreaEdit}
+                                  disabled={isPending}
+                                  className="pbc-btn pbc-btn--ghost pbc-btn--sm"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
                             </div>
                           ) : (
                             <div className="pbc-listitem__main">
@@ -1693,26 +1713,7 @@ export function SettingsForm({
                               <p className="pbc-listitem__meta">{AREA_SCOPE_LABELS[scope]}</p>
                             </div>
                           )}
-                          {isEditing ? (
-                            <div className="pbc-tableactions">
-                              <button
-                                type="button"
-                                onClick={saveArea}
-                                disabled={isPending || !areaEditForm.name.trim()}
-                                className="pbc-btn pbc-btn--primary pbc-btn--sm"
-                              >
-                                Save
-                              </button>
-                              <button
-                                type="button"
-                                onClick={cancelAreaEdit}
-                                disabled={isPending}
-                                className="pbc-btn pbc-btn--ghost pbc-btn--sm"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          ) : (
+                          {!isEditing ? (
                             <div className="pbc-tableactions">
                               <button
                                 type="button"
@@ -1733,7 +1734,7 @@ export function SettingsForm({
                                 Delete
                               </button>
                             </div>
-                          )}
+                          ) : null}
                         </div>
                       )
                     })}

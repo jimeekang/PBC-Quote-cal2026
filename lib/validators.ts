@@ -135,7 +135,7 @@ export const quoteSchema = z.object({
   customerAddress: z.string().optional(),
   jobberQuoteId: z.string().optional(),
   jobberSnapshot: jobberQuoteSnapshotSchema.optional(),
-  jobberSnapshotRefreshedAt: z.string().datetime().optional(),
+  jobberSnapshotRefreshedAt: z.string().datetime({ offset: true }).optional(),
   jobberSnapshotChangeStatus: z.enum(['unknown', 'unchanged', 'changed']).optional(),
   jobberSnapshotChangeSummary: z.array(jobberSnapshotChangeSummaryItemSchema).max(8).optional(),
   jobberSaveMode: jobberSaveModeSchema.optional(),
